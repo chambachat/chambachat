@@ -15,7 +15,12 @@ import {
   Copy,
   Sparkles
 } from 'lucide-react';
-import { getApplications, sendRecruiterMessage } from '../../services/api';
+import { 
+  getApplications, 
+  sendRecruiterMessage, 
+  toggleBotState, 
+  checkBotFallback 
+} from '../../services/api';
 
 export default function CandidateApplications() {
   const [applications, setApplications] = useState([]);
@@ -23,6 +28,7 @@ export default function CandidateApplications() {
   const [selectedApp, setSelectedApp] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
+  const [botActionLoading, setBotActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [recruiterName, setRecruiterName] = useState('Reclutador Whirlpool');
   const [selectedCompany, setSelectedCompany] = useState('Whirlpool Planta Supsa');
@@ -94,6 +100,32 @@ export default function CandidateApplications() {
       console.error('Error enviando mensaje al candidato:', err);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleToggleBot = async (silenced) => {
+    if (!selectedApp) return;
+    setBotActionLoading(true);
+    try {
+      await toggleBotState(selectedApp.id, silenced);
+      await loadData();
+    } catch (err) {
+      console.error('Error toggling bot state:', err);
+    } finally {
+      setBotActionLoading(false);
+    }
+  };
+
+  const handleForceBotFallback = async () => {
+    if (!selectedApp) return;
+    setBotActionLoading(true);
+    try {
+      await checkBotFallback(selectedApp.id, true);
+      await loadData();
+    } catch (err) {
+      console.error('Error checking bot fallback:', err);
+    } finally {
+      setBotActionLoading(false);
     }
   };
 
@@ -357,6 +389,61 @@ export default function CandidateApplications() {
                     </span>
                   </div>
                 </div>
+
+                {/* Control del Chat Grupal y Estado de Chambot */}
+                <div className="p-3 rounded-xl bg-slate-100/90 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <img 
+                      src="/chambot.png" 
+                      alt="Chambot" 
+                      className="w-5 h-5 rounded-full object-contain p-0.5 bg-emerald-100 border border-emerald-300 shrink-0" 
+                    />
+                    <div>
+                      <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                        <span>Chat Grupal: Candidato + Reclutador + Chambot</span>
+                      </span>
+                      <p className="text-[11px] text-slate-500">
+                        {selectedApp.bot_silenced ? (
+                          <span className="text-amber-700 font-semibold">
+                            🤫 Chambot silenciado (ya respondiste o pausaste al bot).
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700 font-semibold">
+                            🤖 Chambot activo (responderá dudas si tardas más de 2 min).
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={botActionLoading}
+                      onClick={() => handleToggleBot(!selectedApp.bot_silenced)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 ${
+                        selectedApp.bot_silenced
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
+                      }`}
+                      title={selectedApp.bot_silenced ? 'Activar Chambot para apoyo' : 'Silenciar Chambot'}
+                    >
+                      <span>{selectedApp.bot_silenced ? '🔔 Reactivar Chambot' : '🤫 Silenciar Bot'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={botActionLoading || selectedApp.bot_silenced}
+                      onClick={handleForceBotFallback}
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-200/70 hover:bg-slate-300 text-slate-700 text-[11px] font-bold transition flex items-center gap-1"
+                      title="Simular que pasaron 2 min sin respuesta para que Chambot intervenga"
+                    >
+                      <Sparkles className="w-3 h-3 text-emerald-600" />
+                      <span className="hidden sm:inline">Probar Fallback (2 min)</span>
+                      <span className="sm:hidden">Test</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Historial de Mensajes con el Candidato */}
@@ -364,18 +451,47 @@ export default function CandidateApplications() {
                 {selectedApp.messages && selectedApp.messages.length > 0 ? (
                   selectedApp.messages.map((m) => {
                     const isRecruiter = m.sender_type === 'recruiter';
+                    const isBot = m.sender_type === 'bot';
+                    const isSystem = m.sender_type === 'system';
+
+                    if (isSystem) {
+                      return (
+                        <div key={m.id} className="text-center my-2">
+                          <span className="text-[10px] bg-slate-200/70 text-slate-600 px-3 py-1 rounded-full border border-slate-300/50 inline-block font-medium">
+                            {m.mensaje}
+                          </span>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={m.id}
                         className={`flex flex-col ${isRecruiter ? 'items-end' : 'items-start'}`}
                       >
-                        <span className="text-[10px] text-slate-400 font-bold mb-1 px-1">
-                          {isRecruiter ? `${m.sender_name} (Tú)` : `${selectedApp.candidate_name} (Candidato)`}
-                        </span>
+                        <div className="flex items-center gap-1.5 mb-1 px-1">
+                          {isBot && (
+                            <img
+                              src="/chambot.png"
+                              alt="Chambot"
+                              className="w-4 h-4 rounded-full object-contain p-0.5 bg-emerald-100 border border-emerald-300"
+                            />
+                          )}
+                          <span className={`text-[10px] font-bold ${isBot ? 'text-emerald-700' : 'text-slate-400'}`}>
+                            {isRecruiter 
+                              ? `${m.sender_name} (Tú)` 
+                              : isBot 
+                              ? 'Chambot (Asistente IA)' 
+                              : `${selectedApp.candidate_name} (Candidato)`}
+                          </span>
+                        </div>
+
                         <div
                           className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
                             isRecruiter
                               ? 'bg-emerald-600 text-white rounded-tr-none'
+                              : isBot
+                              ? 'bg-emerald-50 text-emerald-950 border border-emerald-200 rounded-tl-none font-medium'
                               : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
                           }`}
                         >

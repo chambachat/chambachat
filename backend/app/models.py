@@ -97,6 +97,9 @@ class JobApplication(Base):
     municipio = Column(String(100), nullable=True)
     status = Column(String(50), default="Pendiente")  # Pendiente, Contactado, En Proceso, Contratado
     match_score = Column(Integer, default=85)  # Compatibilidad IA 0 - 100%
+    bot_silenced = Column(Boolean, default=False)
+    last_candidate_message_at = Column(DateTime, nullable=True)
+    last_recruiter_message_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     job = relationship("Job", back_populates="applications")

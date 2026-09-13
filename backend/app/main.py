@@ -13,6 +13,22 @@ from app.routers import predictor, chat, jobs, candidates, admin, analytics, aut
 # Crear tablas en base de datos si no existen
 Base.metadata.create_all(bind=engine)
 
+def auto_upgrade_schema():
+    """Garantiza que columnas nuevas en job_applications existan tanto en SQLite como Postgres."""
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        for col_def in [
+            ("bot_silenced", "BOOLEAN DEFAULT FALSE"),
+            ("last_candidate_message_at", "TIMESTAMP NULL"),
+            ("last_recruiter_message_at", "TIMESTAMP NULL")
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE job_applications ADD COLUMN {col_def[0]} {col_def[1]}"))
+            except Exception:
+                pass
+
+auto_upgrade_schema()
+
 # Sembrar prompts por defecto si la tabla está vacía
 def init_default_prompts():
     db = SessionLocal()

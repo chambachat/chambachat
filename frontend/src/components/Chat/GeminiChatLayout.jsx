@@ -31,7 +31,9 @@ import {
   sendChatMessage, 
   submitApplication, 
   getApplicationsBySession,
-  getJobs
+  getJobs,
+  sendRecruiterMessage,
+  checkBotFallback
 } from '../../services/api';
 import { 
   getStoredUser, 
@@ -39,6 +41,7 @@ import {
   syncUserWithBackend 
 } from '../../services/supabaseClient';
 import AuthModal from '../Auth/AuthModal';
+import JobDetailModal from '../Jobs/JobDetailModal';
 
 export default function GeminiChatLayout({ 
   onOpenEmpresa, 
@@ -60,6 +63,7 @@ export default function GeminiChatLayout({
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showVacancies, setShowVacancies] = useState(true);
   const [appliedJobIds, setAppliedJobIds] = useState(new Set());
+  const [selectedDetailJob, setSelectedDetailJob] = useState(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -181,7 +185,7 @@ export default function GeminiChatLayout({
     }
   };
 
-  // Sondeo en segundo plano para recibir mensajes de reclutadores en tiempo real
+  // Sondeo en segundo plano para recibir mensajes del chat grupal en tiempo real (Reclutador + Chambot + Sistema)
   useEffect(() => {
     if (!activeSession?.backendSessionId) return;
 
@@ -193,23 +197,41 @@ export default function GeminiChatLayout({
         const currentMessages = activeSession.messages || [];
         const existingTexts = new Set(currentMessages.map(m => m.text));
 
-        const newRecruiterMsgs = [];
+        const newIncomingMsgs = [];
         for (const app of apps) {
+          // Evaluar si pasaron 2 min desde la última duda del candidato y activar fallback si procede
+          if (!app.bot_silenced) {
+            try {
+              await checkBotFallback(app.id, false);
+            } catch (e) {
+              // Silencioso
+            }
+          }
+
           for (const m of app.messages || []) {
-            if (m.sender_type === 'recruiter' && !existingTexts.has(m.mensaje)) {
-              newRecruiterMsgs.push({
-                id: `recruiter_${m.id}`,
-                sender: 'recruiter',
-                sender_name: m.sender_name || `Reclutador ${app.empresa_nombre}`,
-                text: m.mensaje,
-                time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              });
+            if (!existingTexts.has(m.mensaje)) {
+              let senderRole = 'bot';
+              if (m.sender_type === 'recruiter') senderRole = 'recruiter';
+              else if (m.sender_type === 'system') senderRole = 'system';
+              else if (m.sender_type === 'candidate') senderRole = 'user';
+
+              // No duplicar mensajes enviados por el usuario local
+              if (senderRole !== 'user') {
+                newIncomingMsgs.push({
+                  id: `appmsg_${m.id}`,
+                  sender: senderRole,
+                  sender_name: m.sender_name || (m.sender_type === 'recruiter' ? `Reclutador ${app.empresa_nombre}` : 'Chambot (IA)'),
+                  text: m.mensaje,
+                  time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+                existingTexts.add(m.mensaje);
+              }
             }
           }
         }
 
-        if (newRecruiterMsgs.length > 0) {
-          const merged = [...currentMessages, ...newRecruiterMsgs];
+        if (newIncomingMsgs.length > 0) {
+          const merged = [...currentMessages, ...newIncomingMsgs];
           setActiveSession(prev => ({ ...prev, messages: merged }));
           updateSession(activeSession.id, { messages: merged });
           setSessions(loadAllSessions());
@@ -217,12 +239,12 @@ export default function GeminiChatLayout({
       } catch (err) {
         // Silencioso en sondeo
       }
-    }, 5000);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [activeSession?.backendSessionId, activeSession?.id, activeSession?.messages?.length]);
 
-  // Manejo de postulación inmediata a vacante
+  // Manejo de postulación e inicio de chat directo grupal
   const handleApplyJob = async (job) => {
     if (!currentUser) {
       setIsAuthModalOpen(true);
@@ -233,22 +255,38 @@ export default function GeminiChatLayout({
       await submitApplication({
         jobId: job.id,
         sessionId: activeSession?.backendSessionId,
-        candidateName: currentUser.name || 'Rogelio Valdez',
-        candidateEmail: currentUser.email || 'rogelio@chambachat.com',
+        candidateName: currentUser.name || 'Operario de NL',
+        candidateEmail: currentUser.email || 'candidato@correo.com',
         candidatePhone: currentUser.phone || '',
         municipio: job.municipio
       });
 
       setAppliedJobIds(prev => new Set(prev).add(job.id));
 
-      const confirmMsg = {
+      const groupIntroMsg = {
         id: Math.random().toString(),
-        sender: 'bot',
-        text: `🎉 ¡Listo, ${currentUser.name || 'Compa'}! Enviamos tu postulación para **${job.titulo}** en **${job.empresa_nombre}** 🚀.\n\n💬 El equipo de reclutamiento ya recibió tu solicitud y podrá responderte directamente por **este mismo chat**.\n\n💡 **Tip:** ${currentUser.phone ? `Tienen registrado tu WhatsApp (${currentUser.phone}) para llamarte o escribirte directo.` : 'Si agregas tu WhatsApp o teléfono en tu perfil, el reclutador también podrá llamarte o escribirte por WhatsApp directo para agendar tu entrevista más rápido.'}`,
+        sender: 'system',
+        text: `👥 ¡Chat Grupal Oficial Conectado! Estás en comunicación directa con Reclutamiento ${job.empresa_nombre} (${job.titulo}). Participantes: Tú, Reclutador de Planta y Chambot (IA).`,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
-      const finalMsgs = [...(activeSession?.messages || []), confirmMsg];
+      const recruiterIntroMsg = {
+        id: Math.random().toString(),
+        sender: 'recruiter',
+        sender_name: `Reclutamiento ${job.empresa_nombre}`,
+        text: `¡Hola ${currentUser.name || 'Compa'}! Recibimos tu interés en la vacante de ${job.titulo}. En breve un reclutador de nuestra planta revisará tus datos aquí mismo.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      const botIntroMsg = {
+        id: Math.random().toString(),
+        sender: 'bot',
+        sender_name: 'Chambot (IA)',
+        text: `🤖 ¡Qué onda ${currentUser.name || 'Compa'}! Quedé integrado en este chat grupal. Puedes hacerme preguntas sobre el sueldo (${job.sueldo_semanal_libre ? `$${job.sueldo_semanal_libre.toLocaleString('es-MX')}/sem` : ''}), los turnos o el transporte de ${job.empresa_nombre}. Si el reclutador tarda más de 2 minutos en responder, con gusto te ayudo.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      const finalMsgs = [...(activeSession?.messages || []), groupIntroMsg, recruiterIntroMsg, botIntroMsg];
       const updatedSess = {
         ...activeSession,
         messages: finalMsgs
@@ -340,6 +378,19 @@ export default function GeminiChatLayout({
     setIsTyping(true);
 
     try {
+      // Sincronizar mensaje con el chat de la empresa si existe postulación activa
+      if (activeSession.backendSessionId && !optionVal) {
+        getApplicationsBySession(activeSession.backendSessionId).then(apps => {
+          if (apps && apps.length > 0) {
+            sendRecruiterMessage(apps[0].id, {
+              senderType: 'candidate',
+              senderName: currentUser?.name || 'Candidato',
+              mensaje: userText
+            }).catch(e => console.warn('Sync candidate msg err:', e));
+          }
+        }).catch(e => console.warn('Get apps err:', e));
+      }
+
       let res;
       if (!activeSession.backendSessionId && activeSession.messages.length === 0) {
         const startRes = await startChat();
@@ -668,49 +719,67 @@ export default function GeminiChatLayout({
             </div>
           ) : (
             <div className="space-y-4 sm:space-y-6 min-w-0">
-              {activeSession.messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex gap-2.5 sm:gap-3.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} min-w-0 w-full`}
-                >
-                  {msg.sender === 'bot' && (
-                    <img
-                      src="/chambot.png"
-                      alt="Chambot"
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 p-0.5 border border-emerald-300/80 object-contain shadow-xs shrink-0"
-                    />
-                  )}
-
-                  {msg.sender === 'recruiter' && (
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs sm:text-sm shadow shrink-0 text-white font-bold">
-                      👔
-                    </div>
-                  )}
-
-                  <div className="space-y-1.5 max-w-[88%] sm:max-w-[80%] min-w-0">
-                    <div
-                      className={`px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm break-words overflow-hidden ${
-                        msg.sender === 'user'
-                          ? 'bg-slate-900 text-white rounded-tr-none'
-                          : msg.sender === 'recruiter'
-                          ? 'bg-blue-50 text-slate-800 rounded-tl-none border border-blue-200'
-                          : 'bg-slate-50 text-slate-800 rounded-tl-none border border-slate-200/80'
-                      }`}
-                    >
-                      {msg.sender === 'recruiter' && (
-                        <div className="flex items-center gap-2 text-xs font-bold text-blue-700 mb-1">
-                          <span>{msg.sender_name || 'Reclutador de Planta'}</span>
-                          <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-semibold">Empresa</span>
-                        </div>
-                      )}
-                      <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                      <span className="text-[10px] block text-right mt-1 text-slate-400">
-                        {msg.time}
+              {activeSession.messages.map((msg) => {
+                if (msg.sender === 'system') {
+                  return (
+                    <div key={msg.id} className="w-full flex justify-center my-2">
+                      <span className="text-[11px] bg-emerald-50 text-emerald-900 font-medium px-4 py-1.5 rounded-full border border-emerald-200/80 text-center max-w-lg shadow-2xs">
+                        {msg.text}
                       </span>
                     </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex gap-2.5 sm:gap-3.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} min-w-0 w-full`}
+                  >
+                    {msg.sender === 'bot' && (
+                      <img
+                        src="/chambot.png"
+                        alt="Chambot"
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 p-0.5 border border-emerald-300/80 object-contain shadow-xs shrink-0"
+                      />
+                    )}
+
+                    {msg.sender === 'recruiter' && (
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs sm:text-sm shadow shrink-0 text-white font-bold">
+                        👔
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5 max-w-[88%] sm:max-w-[80%] min-w-0">
+                      <div
+                        className={`px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm break-words overflow-hidden ${
+                          msg.sender === 'user'
+                            ? 'bg-slate-900 text-white rounded-tr-none'
+                            : msg.sender === 'recruiter'
+                            ? 'bg-blue-50 text-slate-800 rounded-tl-none border border-blue-200'
+                            : 'bg-slate-50 text-slate-800 rounded-tl-none border border-slate-200/80'
+                        }`}
+                      >
+                        {msg.sender === 'recruiter' && (
+                          <div className="flex items-center gap-2 text-xs font-bold text-blue-700 mb-1">
+                            <span>{msg.sender_name || 'Reclutador de Planta'}</span>
+                            <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-semibold">Empresa</span>
+                          </div>
+                        )}
+                        {msg.sender === 'bot' && msg.sender_name && msg.sender_name !== 'bot' && (
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 mb-1">
+                            <span>{msg.sender_name}</span>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-semibold">Asistente IA</span>
+                          </div>
+                        )}
+                        <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                        <span className="text-[10px] block text-right mt-1 text-slate-400">
+                          {msg.time}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Bot escribiendo */}
               {isTyping && (
@@ -791,7 +860,9 @@ export default function GeminiChatLayout({
                         return (
                           <div
                             key={job.id}
-                            className="w-[260px] sm:w-[280px] shrink-0 snap-start bg-white p-3.5 rounded-2xl border border-slate-200 hover:border-emerald-500 shadow-sm transition flex flex-col justify-between space-y-2.5"
+                            onClick={() => setSelectedDetailJob(job)}
+                            className="w-[260px] sm:w-[280px] shrink-0 snap-start bg-white p-3.5 rounded-2xl border border-slate-200 hover:border-emerald-500 shadow-sm transition flex flex-col justify-between space-y-2.5 cursor-pointer group hover:shadow-md"
+                            title="Haz clic para ver toda la información de la vacante y abrir chat directo"
                           >
                             <div>
                               <div className="flex items-start justify-between gap-1.5">
@@ -806,13 +877,25 @@ export default function GeminiChatLayout({
                                 </div>
                               </div>
 
-                              <h4 className="text-xs font-bold text-slate-900 leading-tight line-clamp-1 mt-0.5" title={job.titulo}>
+                              <h4 className="text-xs font-bold text-slate-900 leading-tight line-clamp-1 mt-0.5 group-hover:text-emerald-700 transition-colors" title={job.titulo}>
                                 {job.titulo}
                               </h4>
 
                               <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug">
                                 {job.descripcion}
                               </p>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDetailJob(job);
+                                }}
+                                className="text-[10px] text-emerald-700 font-bold hover:underline mt-1.5 flex items-center gap-1"
+                              >
+                                <span>Ver información extendida</span>
+                                <span>&rarr;</span>
+                              </button>
                             </div>
 
                             <div className="space-y-2">
@@ -828,21 +911,23 @@ export default function GeminiChatLayout({
                               </div>
 
                               <button
-                                disabled={isApplied}
-                                onClick={() => handleApplyJob(job)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDetailJob(job);
+                                }}
                                 className={`w-full text-center py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                                   isApplied
-                                    ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                                    ? 'bg-emerald-100 text-emerald-800'
                                     : 'bg-slate-900 hover:bg-emerald-600 text-white shadow-sm'
                                 }`}
                               >
                                 {isApplied ? (
                                   <>
                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>Postulado ✓</span>
+                                    <span>Chat Directo Activo ✓</span>
                                   </>
                                 ) : (
-                                  <span>{currentUser ? 'Postularme de Volada' : 'Postularme (Acceder)'}</span>
+                                  <span>{currentUser ? '💬 Chat Directo con Reclutador' : 'Ver Detalles & Chat'}</span>
                                 )}
                               </button>
                             </div>
@@ -899,6 +984,16 @@ export default function GeminiChatLayout({
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onAuthenticated={handleUserAuthenticated}
+      />
+
+      {/* Modal de Detalle de Vacante y Chat Grupal */}
+      <JobDetailModal
+        job={selectedDetailJob}
+        isOpen={Boolean(selectedDetailJob)}
+        onClose={() => setSelectedDetailJob(null)}
+        onStartDirectChat={handleApplyJob}
+        isApplied={selectedDetailJob ? appliedJobIds.has(selectedDetailJob.id) : false}
+        currentUser={currentUser}
       />
     </div>
   );

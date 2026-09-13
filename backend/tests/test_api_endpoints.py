@@ -170,6 +170,70 @@ def test_jobs_filter_by_empresa():
     assert len(jobs) >= 1
     assert all("whirlpool" in j["empresa_nombre"].lower() for j in jobs)
 
+def test_tripartite_group_chat_and_bot_fallback():
+    # 1. Crear postulación
+    jobs_res = client.get("/api/v1/jobs")
+    job = jobs_res.json()[0]
+    apply_payload = {
+        "job_id": job["id"],
+        "session_id": "test_group_sess",
+        "candidate_name": "Juan Pérez",
+        "candidate_email": "juan@correo.com",
+        "candidate_phone": "8180001122",
+        "municipio": "Apodaca"
+    }
+    apply_res = client.post("/api/v1/applications/apply", json=apply_payload)
+    assert apply_res.status_code == 200
+    app_data = apply_res.json()
+    app_id = app_data["id"]
+    assert app_data["bot_silenced"] is False
+    # Verificar que existen mensajes de reclutador y de bot iniciales
+    types = [m["sender_type"] for m in app_data["messages"]]
+    assert "recruiter" in types
+    assert "bot" in types
+
+    # 2. Candidato envía pregunta
+    cand_msg = {
+        "sender_type": "candidate",
+        "sender_name": "Juan Pérez",
+        "mensaje": "¿Cuál es el sueldo semanal libre?"
+    }
+    cand_res = client.post(f"/api/v1/applications/{app_id}/messages", json=cand_msg)
+    assert cand_res.status_code == 200
+
+    # 3. Probar fallback de Chambot forzado (simulando que el reclutador tardó > 2 min)
+    fb_res = client.post(f"/api/v1/applications/{app_id}/check-bot-fallback?force=true")
+    assert fb_res.status_code == 200
+    fb_data = fb_res.json()
+    assert fb_data["triggered"] is True
+    assert fb_data["reason"] == "RECRUITER_TIMEOUT_REPLIED"
+    assert "sueldo" in fb_data["message"]["mensaje"].lower() or "$" in fb_data["message"]["mensaje"]
+
+    # 4. Reclutador responde -> Bot debe silenciarse automáticamente
+    rec_msg = {
+        "sender_type": "recruiter",
+        "sender_name": "Reclutador Whirlpool",
+        "mensaje": "Hola Juan, claro, te confirmo el sueldo y la cita."
+    }
+    rec_res = client.post(f"/api/v1/applications/{app_id}/messages", json=rec_msg)
+    assert rec_res.status_code == 200
+
+    # 5. Verificar que bot_silenced ahora es True
+    get_res = client.get(f"/api/v1/applications/{app_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["bot_silenced"] is True
+
+    # 6. Fallback no debe dispararse porque el bot está silenciado
+    fb_silenced_res = client.post(f"/api/v1/applications/{app_id}/check-bot-fallback?force=true")
+    assert fb_silenced_res.status_code == 200
+    assert fb_silenced_res.json()["triggered"] is False
+    assert fb_silenced_res.json()["reason"] == "BOT_SILENCED"
+
+    # 7. Reclutador reactiva al bot
+    toggle_res = client.post(f"/api/v1/applications/{app_id}/toggle-bot", json={"silenced": False})
+    assert toggle_res.status_code == 200
+    assert toggle_res.json()["bot_silenced"] is False
+
 if __name__ == "__main__":
     test_health()
     test_predict_retention_endpoint()
@@ -181,4 +245,5 @@ if __name__ == "__main__":
     test_admin_prompts()
     test_applications_and_recruiter_chat()
     test_jobs_filter_by_empresa()
-    print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE (10/10) <<<")
+    test_tripartite_group_chat_and_bot_fallback()
+    print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE <<<")

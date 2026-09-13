@@ -77,6 +77,24 @@ export async function sendRecruiterMessage(applicationId, { senderType = 'recrui
   return res.json();
 }
 
+export async function toggleBotState(applicationId, silenced = null) {
+  const res = await fetch(`${API_BASE}/applications/${applicationId}/toggle-bot`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ silenced }),
+  });
+  if (!res.ok) throw new Error('Error al cambiar estado del bot');
+  return res.json();
+}
+
+export async function checkBotFallback(applicationId, force = false) {
+  const res = await fetch(`${API_BASE}/applications/${applicationId}/check-bot-fallback?force=${force}`, {
+    method: 'POST',
+  });
+  if (!res.ok) return { triggered: false };
+  return res.json();
+}
+
 export async function getJobs(filters = {}) {
   const params = new URLSearchParams();
   if (filters.municipio) params.append('municipio', filters.municipio);

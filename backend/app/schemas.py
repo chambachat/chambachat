@@ -58,8 +58,11 @@ class ApplicationCreateRequest(BaseModel):
     candidate_phone: Optional[str] = None
     municipio: Optional[str] = "Apodaca"
 
+class ToggleBotRequest(BaseModel):
+    silenced: Optional[bool] = None
+
 class MessageCreateRequest(BaseModel):
-    sender_type: str = "recruiter"  # 'recruiter' | 'candidate'
+    sender_type: str = "recruiter"  # 'recruiter' | 'candidate' | 'bot' | 'system'
     sender_name: str
     mensaje: str
 
@@ -85,9 +88,13 @@ class ApplicationResponse(BaseModel):
     municipio: Optional[str] = None
     status: str
     match_score: Optional[int] = 85
+    bot_silenced: bool = False
+    last_candidate_message_at: Optional[datetime] = None
+    last_recruiter_message_at: Optional[datetime] = None
     created_at: datetime
     job_titulo: Optional[str] = None
     empresa_nombre: Optional[str] = None
+    job_details: Optional[dict] = None
     messages: List[MessageResponse] = []
 
     class Config:
