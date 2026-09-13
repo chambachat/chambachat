@@ -27,8 +27,17 @@ export function setStoredUser(user) {
  * Soporta Google (1 clic) o Correo Electrónico Personal
  */
 export async function authenticateUser({ name, email, phone, provider = 'google' }) {
-  const cleanName = (name || (provider === 'google' ? 'Rogelio Valdez' : 'Candidato')).trim();
-  const cleanEmail = (email || (provider === 'google' ? 'rogelio@chambachat.com' : 'candidato@correo.com')).trim();
+  let defaultGoogleEmail = 'rvaldezl@gmail.com';
+  let defaultGoogleName = 'Rogelio Valdez';
+  try {
+    if (typeof window !== 'undefined') {
+      defaultGoogleEmail = localStorage.getItem('chambachat_last_google_email') || defaultGoogleEmail;
+      defaultGoogleName = localStorage.getItem('chambachat_last_google_name') || defaultGoogleName;
+    }
+  } catch {}
+
+  const cleanName = (name || (provider === 'google' ? defaultGoogleName : 'Candidato')).trim();
+  const cleanEmail = (email || (provider === 'google' ? defaultGoogleEmail : 'candidato@correo.com')).trim();
   const cleanPhone = (phone || '').trim();
 
   const user = {
@@ -88,8 +97,8 @@ export async function syncUserWithBackend(userData, sessionData = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: userData.email || 'operario@chambachat.com',
-        nombre: userData.name || 'Operario',
+        email: userData.email || 'rvaldezl@gmail.com',
+        nombre: userData.name || 'Rogelio Valdez',
         avatar_url: userData.avatar_url,
         google_id: userData.id,
         session_id: sessionData.sessionId || null,
