@@ -11,6 +11,10 @@ backend/venv/
 frontend/node_modules/
 frontend/.vite/
 
+# Uploads
+backend/uploads/csf/*
+!backend/uploads/csf/.gitkeep
+
 # IDE / OS
 .vscode/
 .idea/

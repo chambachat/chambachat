@@ -27,7 +27,10 @@ def auto_upgrade_schema():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'candidate'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa_nombre VARCHAR(255) NULL",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500) NULL",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) NULL"
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) NULL",
+            "ALTER TABLE companies ADD COLUMN IF NOT EXISTS constancia_fiscal_url VARCHAR(500) NULL",
+            "ALTER TABLE companies ADD COLUMN IF NOT EXISTS estado_verificacion VARCHAR(50) DEFAULT 'verificada'",
+            "ALTER TABLE companies ADD COLUMN IF NOT EXISTS regimen_fiscal VARCHAR(100) NULL"
         ]
         for q in postgres_queries:
             try:
@@ -44,7 +47,10 @@ def auto_upgrade_schema():
             "ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'candidate'",
             "ALTER TABLE users ADD COLUMN empresa_nombre VARCHAR(255) NULL",
             "ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500) NULL",
-            "ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL"
+            "ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL",
+            "ALTER TABLE companies ADD COLUMN constancia_fiscal_url VARCHAR(500) NULL",
+            "ALTER TABLE companies ADD COLUMN estado_verificacion VARCHAR(50) DEFAULT 'verificada'",
+            "ALTER TABLE companies ADD COLUMN regimen_fiscal VARCHAR(100) NULL"
         ]
         for q in sqlite_queries:
             try:
@@ -111,7 +117,13 @@ def health_check():
         "database": settings.DATABASE_URL.split("://")[0]
     }
 
+# Servir archivos subidos como Constancias de Situación Fiscal (CSF)
+uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
 # Si existe el build del frontend, servirlo estáticamente
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 if os.path.exists(frontend_dist):
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+

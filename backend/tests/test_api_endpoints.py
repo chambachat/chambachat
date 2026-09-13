@@ -253,11 +253,24 @@ def test_tripartite_group_chat_and_bot_fallback():
     assert toggle_res.json()["bot_silenced"] is False
 
 def test_company_management_and_team_invitations():
-    # 1. Crear empresa
+    # 0. Subir Constancia de Situación Fiscal (CSF)
+    fake_pdf = b"%PDF-1.4 test constancia fiscal del SAT para Carrier"
+    files = {"file": ("constancia_fiscal_carrier.pdf", fake_pdf, "application/pdf")}
+    csf_res = client.post("/api/v1/companies/upload-csf", files=files)
+    assert csf_res.status_code == 200
+    csf_data = csf_res.json()
+    assert csf_data["status"] == "success"
+    assert "file_url" in csf_data
+    csf_url = csf_data["file_url"]
+
+    # 1. Crear empresa con CSF y Régimen Fiscal
     comp_payload = {
         "nombre": "Carrier Planta Santa Catarina",
         "municipio": "Santa Catarina",
         "industria": "Climatización y Manufactura",
+        "rfc": "CAR990101XYZ",
+        "regimen_fiscal": "601 - General de Ley Personas Morales",
+        "constancia_fiscal_url": csf_url,
         "creator_email": "rh.carrier@carrier.com",
         "creator_name": "Lic. Roberto Sada",
         "telefono_contacto": "81-1000-2000"
@@ -267,12 +280,17 @@ def test_company_management_and_team_invitations():
     comp_data = create_res.json()["company"]
     comp_id = comp_data["id"]
     assert comp_data["nombre"] == "Carrier Planta Santa Catarina"
+    assert comp_data["constancia_fiscal_url"] == csf_url
+    assert comp_data["regimen_fiscal"] == "601 - General de Ley Personas Morales"
 
     # 2. Listar empresas del usuario
     list_res = client.get("/api/v1/companies?user_email=rh.carrier@carrier.com")
     assert list_res.status_code == 200
     companies = list_res.json()
-    assert any(c["id"] == comp_id for c in companies)
+    matched = [c for c in companies if c["id"] == comp_id]
+    assert len(matched) == 1
+    assert matched[0]["constancia_fiscal_url"] == csf_url
+    assert matched[0]["estado_verificacion"] == "verificada"
 
     # 3. Actualizar datos de la empresa
     update_res = client.put(f"/api/v1/companies/{comp_id}", json={"telefono_contacto": "81-9988-7766"})

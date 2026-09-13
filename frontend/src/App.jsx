@@ -23,7 +23,8 @@ import {
   Menu,
   X,
   ChevronRight,
-  CheckCircle2
+  CheckCircle2,
+  ShieldCheck
 } from 'lucide-react';
 
 import { getStoredUser, signOut } from './services/supabaseClient';
@@ -46,7 +47,7 @@ export default function App() {
   // Perfil de operario activo en la sesión
   const [activeProfile, setActiveProfile] = useState(null);
 
-  // Validación: Solo usuarios autenticados pueden acceder al portal de Empresa
+  // Apertura segura del Portal Empresa
   const handleOpenEmpresa = () => {
     const user = currentUser || getStoredUser();
     if (!user) {
@@ -55,9 +56,15 @@ export default function App() {
         title: 'Acceso al Portal Empresa (B2B)',
         message: 'Inicia sesión con tu perfil de Reclutador / Empresa para gestionar vacantes de tu planta y comunicarte con los candidatos.'
       });
-      setPendingAction(() => () => setCurrentView('empresa'));
+      setPendingAction(() => () => {
+        setCurrentView('empresa');
+        setEmpresaTab('team');
+      });
       setIsAuthModalOpen(true);
       return;
+    }
+    if (!user.empresa_nombre) {
+      setEmpresaTab('team');
     }
     setCurrentView('empresa');
   };
@@ -186,13 +193,31 @@ export default function App() {
             </div>
 
             {/* Planta / Empresa Activa Card en Sidebar */}
-            <div className="p-3 mx-3 my-3 bg-gradient-to-r from-emerald-50/70 to-teal-50/40 border border-emerald-200/80 rounded-2xl">
-              <div className="flex items-center gap-2 text-[10px] text-emerald-700 font-bold uppercase tracking-wider mb-1">
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Empresa / Planta</span>
+            <div className={`p-3 mx-3 my-3 rounded-2xl border transition ${
+              currentUser?.empresa_nombre
+                ? 'bg-gradient-to-r from-emerald-50/70 to-teal-50/40 border-emerald-200/80'
+                : 'bg-amber-50/70 border-amber-200/80'
+            }`}>
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider ${
+                  currentUser?.empresa_nombre ? 'text-emerald-700' : 'text-amber-800'
+                }`}>
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Empresa / Planta</span>
+                </div>
+                {currentUser?.empresa_nombre ? (
+                  <span className="text-[9px] font-extrabold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    <ShieldCheck className="w-2.5 h-2.5" />
+                    <span>SAT</span>
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-extrabold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    Pendiente
+                  </span>
+                )}
               </div>
               <span className="text-xs font-black text-slate-900 block truncate">
-                {currentUser?.empresa_nombre || currentUser?.company_name || 'Kia Mobis Logistics'}
+                {currentUser?.empresa_nombre || 'Sin empresa dada de alta'}
               </span>
               <button
                 type="button"
@@ -200,9 +225,11 @@ export default function App() {
                   setEmpresaTab('team');
                   setEmpresaSidebarOpen(false);
                 }}
-                className="mt-1.5 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1"
+                className={`mt-1.5 text-[10px] font-bold hover:underline flex items-center gap-1 ${
+                  currentUser?.empresa_nombre ? 'text-emerald-700 hover:text-emerald-800' : 'text-amber-800 hover:text-amber-900'
+                }`}
               >
-                <span>Administrar plantas y equipo</span>
+                <span>{currentUser?.empresa_nombre ? 'Administrar plantas y equipo' : 'Subir Constancia Fiscal (CSF)'}</span>
                 <ChevronRight className="w-3 h-3" />
               </button>
             </div>
@@ -329,7 +356,15 @@ export default function App() {
                   currentUser={currentUser} 
                   onCompanyChanged={(comp) => {
                     if (currentUser && comp?.nombre) {
-                      setCurrentUser({ ...currentUser, empresa_nombre: comp.nombre });
+                      const updated = { 
+                        ...currentUser, 
+                        empresa_nombre: comp.nombre,
+                        company_name: comp.nombre 
+                      };
+                      setCurrentUser(updated);
+                      try {
+                        localStorage.setItem('chambachat_auth_user', JSON.stringify(updated));
+                      } catch (e) {}
                     }
                   }} 
                 />

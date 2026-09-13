@@ -136,6 +136,9 @@ class Company(Base):
     direccion = Column(Text, nullable=True)
     telefono_contacto = Column(String(50), nullable=True)
     logo_url = Column(String(500), nullable=True)
+    constancia_fiscal_url = Column(String(500), nullable=True)
+    estado_verificacion = Column(String(50), default="verificada")  # "verificada" | "pendiente_revision"
+    regimen_fiscal = Column(String(100), nullable=True)
     created_by_email = Column(String(255), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

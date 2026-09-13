@@ -15,19 +15,6 @@ import {
 } from 'lucide-react';
 import { authenticateUser, sendVerificationCode } from '../../services/supabaseClient';
 
-const TOP_COMPANIES_NL = [
-  'Kia Mobis Logistics',
-  'Ternium Guerrero',
-  'Whirlpool Planta Supsa',
-  'Carrier México',
-  'Nemak Aluminios',
-  'DHL Supply Chain',
-  'Frisa Forjados',
-  'Danfoss San Nicolás',
-  'Metalsa Estructuras',
-  'Otra empresa...'
-];
-
 export default function AuthModal({ 
   isOpen, 
   onClose, 
@@ -38,8 +25,6 @@ export default function AuthModal({
 }) {
   // Lado de la plataforma (Multi-Sided Platform): 'candidate' (Operario) | 'recruiter' (Empresa)
   const [role, setRole] = useState(initialRole);
-  const [selectedCompany, setSelectedCompany] = useState('Kia Mobis Logistics');
-  const [customCompany, setCustomCompany] = useState('');
 
   const [activeTab, setActiveTab] = useState('google'); // 'google' | 'email'
   const [emailMode, setEmailMode] = useState('register'); // 'register' | 'login'
@@ -79,14 +64,6 @@ export default function AuthModal({
 
   if (!isOpen) return null;
 
-  const getFinalCompany = () => {
-    if (role !== 'recruiter') return null;
-    if (selectedCompany === 'Otra empresa...') {
-      return customCompany.trim() || 'Empresa Industrial NL';
-    }
-    return selectedCompany;
-  };
-
   // Manejo de acceso con Google
   const handleGoogleAuth = async (e) => {
     e?.preventDefault();
@@ -101,7 +78,6 @@ export default function AuthModal({
     }
 
     const finalName = name.trim() || cleanEmail.split('@')[0].replace('.', ' ');
-    const finalCompany = getFinalCompany();
 
     setLoading(true);
     setCodeError('');
@@ -111,7 +87,7 @@ export default function AuthModal({
         email: cleanEmail,
         phone: phone.trim(),
         role: role,
-        company_name: finalCompany,
+        company_name: null,
         provider: 'google'
       });
       onAuthenticated(user);
@@ -196,7 +172,7 @@ export default function AuthModal({
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         role: role,
-        company_name: finalCompany,
+        company_name: null,
         provider: 'email'
       });
       onAuthenticated(user);
@@ -220,13 +196,12 @@ export default function AuthModal({
     setLoading(true);
     try {
       const derivedName = name.trim() || cleanEmail.split('@')[0].replace('.', ' ');
-      const finalCompany = getFinalCompany();
       const user = await authenticateUser({
         name: derivedName,
         email: cleanEmail,
         phone: phone.trim(),
         role: role,
-        company_name: finalCompany,
+        company_name: null,
         provider: 'email'
       });
       onAuthenticated(user);
@@ -337,33 +312,15 @@ export default function AuthModal({
             </div>
 
             {/* SELECCIÓN DE PLANTA/EMPRESA SI ES RECLUTADOR */}
+            {/* AVISO RECLUTADOR: La empresa se da de alta después con CSF */}
             {role === 'recruiter' && (
-              <div className="p-3 bg-blue-50/60 border border-blue-200/80 rounded-2xl space-y-2">
-                <label className="block text-xs font-bold text-blue-900">
-                  Empresa o Planta Industrial *
-                </label>
-                <select
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value)}
-                  className="w-full text-xs font-semibold bg-white border border-blue-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-500"
-                >
-                  {TOP_COMPANIES_NL.map((comp) => (
-                    <option key={comp} value={comp}>
-                      {comp}
-                    </option>
-                  ))}
-                </select>
-                {selectedCompany === 'Otra empresa...' && (
-                  <input
-                    type="text"
-                    placeholder="Escribe el nombre de tu empresa"
-                    value={customCompany}
-                    onChange={(e) => setCustomCompany(e.target.value)}
-                    className="w-full text-xs bg-white border border-blue-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-500"
-                  />
-                )}
-                <p className="text-[10px] text-blue-700 leading-tight">
-                  Tus respuestas a los candidatos y las vacantes se firmarán bajo esta empresa.
+              <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-1">
+                <div className="flex items-center gap-1.5 text-blue-900 font-bold text-xs">
+                  <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>Acceso Corporativo / Reclutador</span>
+                </div>
+                <p className="text-[11px] text-blue-700 leading-relaxed">
+                  Inicia sesión con tu correo o Google. Al ingresar al panel podrás dar de alta tu empresa subiendo la <strong>Constancia de Situación Fiscal (CSF del SAT)</strong> o aceptar invitaciones de tu equipo.
                 </p>
               </div>
             )}

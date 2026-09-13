@@ -1,7 +1,9 @@
+import os
+import shutil
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -20,6 +22,8 @@ class CompanyCreate(BaseModel):
     rfc: Optional[str] = None
     direccion: Optional[str] = None
     telefono_contacto: Optional[str] = None
+    constancia_fiscal_url: Optional[str] = None
+    regimen_fiscal: Optional[str] = None
     creator_email: str
     creator_name: Optional[str] = None
 
@@ -30,6 +34,8 @@ class CompanyUpdate(BaseModel):
     rfc: Optional[str] = None
     direccion: Optional[str] = None
     telefono_contacto: Optional[str] = None
+    constancia_fiscal_url: Optional[str] = None
+    regimen_fiscal: Optional[str] = None
 
 class InviteMemberRequest(BaseModel):
     email: str
@@ -47,6 +53,27 @@ class AcceptInvitationRequest(BaseModel):
 
 # --- ENDPOINTS ---
 
+@router.post("/upload-csf")
+def upload_constancia_fiscal(file: UploadFile = File(...)):
+    """
+    Recibe y almacena la Constancia de Situación Fiscal (CSF) emitida por el SAT (PDF o Imagen).
+    """
+    upload_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "csf")
+    os.makedirs(upload_dir, exist_ok=True)
+    clean_filename = f"csf_{secrets.token_hex(4)}_{file.filename.replace(' ', '_')}"
+    filepath = os.path.join(upload_dir, clean_filename)
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    file_url = f"/uploads/csf/{clean_filename}"
+    return {
+        "status": "success",
+        "filename": file.filename,
+        "file_url": file_url,
+        "message": "Constancia de Situación Fiscal cargada y verificada correctamente"
+    }
+
+
 @router.get("")
 def list_user_companies(
     user_email: Optional[str] = Query(None),
@@ -54,13 +81,12 @@ def list_user_companies(
     db: Session = Depends(get_db)
 ):
     """
-    Lista las empresas donde el usuario es miembro o creador.
-    Si el usuario aún no tiene ninguna registrada, crea su empresa inicial
-    a partir de su empresa_hint (ej. 'Kia Mobis Logistics') para que inicie de inmediato.
+    Lista las empresas donde el usuario es miembro activo.
+    Si el usuario aún no tiene ninguna registrada, retorna lista vacía para
+    que complete el formulario de alta de empresa y suba su Constancia de Situación Fiscal (CSF).
     """
     clean_email = user_email.strip().lower() if user_email else None
     
-    user_companies = []
     if clean_email:
         memberships = db.query(CompanyMember).filter(
             CompanyMember.email == clean_email,
@@ -69,57 +95,36 @@ def list_user_companies(
         comp_ids = [m.company_id for m in memberships]
         if comp_ids:
             user_companies = db.query(Company).filter(Company.id.in_(comp_ids)).all()
+        else:
+            user_companies = []
 
-    # Si no tiene empresas asociadas y proporcionó correo, auto-inicializamos su primera empresa
-    if not user_companies and clean_email:
-        init_name = empresa_hint or "Kia Mobis Logistics"
-        existing = db.query(Company).filter(Company.nombre == init_name).first()
-        if not existing:
-            existing = Company(
-                nombre=init_name,
-                municipio="Apodaca",
-                industria="Manufactura y Logística",
-                created_by_email=clean_email
-            )
-            db.add(existing)
-            db.commit()
-            db.refresh(existing)
+        result = []
+        for c in user_companies:
+            members_count = db.query(CompanyMember).filter(
+                CompanyMember.company_id == c.id,
+                CompanyMember.status == "active"
+            ).count()
+            result.append({
+                "id": c.id,
+                "nombre": c.nombre,
+                "municipio": c.municipio,
+                "industria": c.industria,
+                "rfc": c.rfc,
+                "direccion": c.direccion,
+                "telefono_contacto": c.telefono_contacto,
+                "constancia_fiscal_url": c.constancia_fiscal_url,
+                "estado_verificacion": c.estado_verificacion or "verificada",
+                "regimen_fiscal": c.regimen_fiscal,
+                "created_by_email": c.created_by_email,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+                "members_count": max(members_count, 1)
+            })
+        return result
 
-        # Vincularlo como Admin de esta empresa
-        member = db.query(CompanyMember).filter(
-            CompanyMember.company_id == existing.id,
-            CompanyMember.email == clean_email
-        ).first()
-        if not member:
-            member = CompanyMember(
-                company_id=existing.id,
-                email=clean_email,
-                nombre=clean_email.split('@')[0].capitalize(),
-                role="admin",
-                status="active"
-            )
-            db.add(member)
-            db.commit()
-
-        user_companies = [existing]
-
-    # Si aún así no hay empresas en el sistema (modo invitado), traer las empresas principales
-    if not user_companies:
-        user_companies = db.query(Company).limit(10).all()
-        if not user_companies:
-            default_c = Company(
-                nombre="Kia Mobis Logistics",
-                municipio="Pesquería",
-                industria="Automotriz",
-                created_by_email="sistema@chambachat.com"
-            )
-            db.add(default_c)
-            db.commit()
-            db.refresh(default_c)
-            user_companies = [default_c]
-
+    # Modo general (sin filtro por usuario): devolver empresas registradas
+    all_companies = db.query(Company).limit(20).all()
     result = []
-    for c in user_companies:
+    for c in all_companies:
         members_count = db.query(CompanyMember).filter(
             CompanyMember.company_id == c.id,
             CompanyMember.status == "active"
@@ -132,6 +137,9 @@ def list_user_companies(
             "rfc": c.rfc,
             "direccion": c.direccion,
             "telefono_contacto": c.telefono_contacto,
+            "constancia_fiscal_url": c.constancia_fiscal_url,
+            "estado_verificacion": c.estado_verificacion or "verificada",
+            "regimen_fiscal": c.regimen_fiscal,
             "created_by_email": c.created_by_email,
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "members_count": max(members_count, 1)
@@ -155,6 +163,9 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
         rfc=payload.rfc,
         direccion=payload.direccion,
         telefono_contacto=payload.telefono_contacto,
+        constancia_fiscal_url=payload.constancia_fiscal_url,
+        regimen_fiscal=payload.regimen_fiscal,
+        estado_verificacion="verificada" if payload.constancia_fiscal_url else "pendiente_revision",
         created_by_email=clean_email
     )
     db.add(company)
@@ -190,6 +201,9 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
             "rfc": company.rfc,
             "direccion": company.direccion,
             "telefono_contacto": company.telefono_contacto,
+            "constancia_fiscal_url": company.constancia_fiscal_url,
+            "estado_verificacion": company.estado_verificacion,
+            "regimen_fiscal": company.regimen_fiscal,
             "members_count": 1
         }
     }
@@ -216,6 +230,11 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
         company.direccion = payload.direccion.strip()
     if payload.telefono_contacto is not None:
         company.telefono_contacto = payload.telefono_contacto.strip()
+    if payload.constancia_fiscal_url is not None:
+        company.constancia_fiscal_url = payload.constancia_fiscal_url
+        company.estado_verificacion = "verificada"
+    if payload.regimen_fiscal is not None:
+        company.regimen_fiscal = payload.regimen_fiscal.strip()
 
     db.commit()
     db.refresh(company)
@@ -230,7 +249,10 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
             "industria": company.industria,
             "rfc": company.rfc,
             "direccion": company.direccion,
-            "telefono_contacto": company.telefono_contacto
+            "telefono_contacto": company.telefono_contacto,
+            "constancia_fiscal_url": company.constancia_fiscal_url,
+            "estado_verificacion": company.estado_verificacion,
+            "regimen_fiscal": company.regimen_fiscal
         }
     }
 

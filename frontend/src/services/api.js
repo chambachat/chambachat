@@ -165,6 +165,20 @@ export async function getUserCompanies(userEmail, empresaHint) {
   return res.json();
 }
 
+export async function uploadConstanciaFiscal(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/companies/upload-csf`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al subir archivo de constancia' }));
+    throw new Error(err.detail || 'Error al subir archivo de constancia');
+  }
+  return res.json();
+}
+
 export async function createCompany(data) {
   const res = await fetch(`${API_BASE}/companies`, {
     method: 'POST',
