@@ -4,49 +4,60 @@ import httpx
 from typing import Dict, Any, List, Optional
 from app.config import settings
 
-CHAMBABOT_SYSTEM_PROMPT = """Eres Chambabot 🤠, un reclutador experto, cálido, humano y empático de manufactura en Nuevo León, México.
-Hablas con un tono norteño amable, respetuoso y cercano (usando términos como chamba, jale, planta, parque industrial, turno fijo, ruta de transporte, etc., sin exagerar).
+CHAMBABOT_SYSTEM_PROMPT = """Eres Chambabot 🤠, un reclutador experto, ágil, cálido y muy humano de la industria de manufactura y logística en Nuevo León, México.
+Hablas con un tono norteño amable, respetuoso y trabajador (usando modismos amables como chamba, jale, planta, compadre, nave industrial, turno fijo, ruta de transporte, etc.).
 
-Tus objetivos con el candidato son:
-1. Conocer al operario de forma natural y sin fricción: su nombre, en qué municipio de Nuevo León vive o busca trabajo (ej. Apodaca, Pesquería, San Nicolás, Monterrey, Escobedo, Guadalupe, García, Santa Catarina), y su nivel de estudios.
-2. Detección y Apoyo INEA (Muy importante): Si el candidato menciona que no terminó la secundaria o solo tiene primaria, trátalo con mucho respeto y aprecio. Explícale con calidez que en Chambachat colaboramos con empresas con convenio del INEA que le brindan tiempo y aula para terminar su certificado oficial gratis mientras sigue cobrando su sueldo íntegro. Pregúntale si le gustaría que lo consideremos para ese beneficio.
-3. Responder con paciencia a cualquier pregunta libre que haga: sobre camiones/rutas, turnos de 8 o 12 horas, tiempos extras, comedor subsidiado, o sueldos.
-4. Mantener respuestas concisas (máximo 2 o 3 párrafos breves), humanas y animadas.
+Tus objetivos principales:
+1. Conocer al candidato de forma fluida y sin rodeos: qué puesto busca (ej. montacarguista, operario de ensamble, prensista, soldador, ayudante de almacén, maquinado CNC, electricista), en qué municipio de Nuevo León vive o busca trabajar (Apodaca, Pesquería, San Nicolás, Monterrey, Escobedo, Guadalupe, García, Santa Catarina) y su nombre.
+2. RECORDAR SIEMPRE EL CONTEXTO: si el candidato ya preguntó o mencionó un puesto (como montacarguista o soldador), NUNCA lo olvides. Sigue la conversación sobre ese puesto específico cuando pregunten por zonas, sueldos o requisitos.
+3. Responder con datos reales de la industria en NL:
+   - Montacarguistas: $2,600 - $3,400 libres/sem (piden experiencia o constancia DC-3, hombre sentado/parado, casi siempre con transporte y comedor).
+   - Operarios de ensamble/producción: $2,100 - $2,600 libres/sem (contratación rápida, turnos fijos o rolados).
+   - Soldadores/Técnicos: $3,000 - $4,000 libres/sem.
+4. Mantener respuestas breves (máximo 2 párrafos cortos), útiles y con energía positiva.
 
 SIEMPRE al final de tu respuesta, agrega una sección delimitada exactamente así:
 <<<METADATA>>>
 {
   "extracted_profile": {
-    "nombre": "string o null si aún no lo dice",
-    "municipio": "string o null si aún no lo dice",
-    "nivel_educativo": "Primaria_Incompleta | Secundaria | Preparatoria | Tecnico | null",
-    "tag_inea": true | false | null
+    "nombre": "string o null",
+    "municipio": "string o null",
+    "puesto_deseado": "string o null (ej: montacarguista, ensamble, soldador)",
+    "nivel_educativo": "string o null"
   },
   "suggested_chips": [
-    {"label": "Texto corto del botón", "value": "Valor a enviar"}
+    {"label": "Texto corto del botón", "value": "Texto que enviará el usuario"}
   ],
-  "should_ask_login": true | false (true si ya se capturó nombre o municipio y aún no está logueado para invitarlo a guardar su perfil)
+  "should_ask_login": true | false
 }
 <<<END_METADATA>>>
 """
 
 async def query_deepseek_chat(
     conversation_history: List[Dict[str, str]],
-    user_message: str
+    user_message: str,
+    context_data: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """
-    Envía el historial y el nuevo mensaje a DeepSeek API (deepseek-chat).
-    Si no hay API key configurada, usa el motor de fallback heurístico inteligente.
+    Envía el historial completo y el nuevo mensaje a DeepSeek API.
+    Si hay error o no hay conexión, usa el fallback heurístico inteligente con memoria de contexto.
     """
     api_key = settings.DEEPSEEK_API_KEY.strip()
     
     if not api_key:
-        return generate_heuristic_response(conversation_history, user_message)
+        return generate_heuristic_response(conversation_history, user_message, context_data)
 
     messages = [{"role": "system", "content": CHAMBABOT_SYSTEM_PROMPT}]
     
-    # Agregar los últimos 10 mensajes del historial para no saturar
-    for msg in conversation_history[-10:]:
+    # Inyectar contexto previo si existe (ej: puesto previo montacarguista)
+    if context_data and context_data.get("puesto_deseado"):
+        messages.append({
+            "role": "system", 
+            "content": f"Contexto acumulado del candidato: El candidato está interesado en el puesto de: {context_data.get('puesto_deseado')} en la zona de {context_data.get('municipio', 'Nuevo León')}."
+        })
+
+    # Agregar historial de los últimos 12 mensajes
+    for msg in conversation_history[-12:]:
         role = "user" if msg.get("sender") == "user" else "assistant"
         messages.append({"role": role, "content": msg.get("text", "")})
         
@@ -63,8 +74,8 @@ async def query_deepseek_chat(
                 json={
                     "model": settings.DEEPSEEK_MODEL,
                     "messages": messages,
-                    "temperature": 0.7,
-                    "max_tokens": 600
+                    "temperature": 0.6,
+                    "max_tokens": 500
                 }
             )
 
@@ -73,15 +84,15 @@ async def query_deepseek_chat(
             raw_text = data["choices"][0]["message"]["content"]
             return parse_deepseek_output(raw_text)
         else:
-            print(f"DeepSeek API error {resp.status_code}: {resp.text}")
-            return generate_heuristic_response(conversation_history, user_message)
+            print(f"DeepSeek API respondió código {resp.status_code}: {resp.text}")
+            return generate_heuristic_response(conversation_history, user_message, context_data)
 
     except Exception as e:
-        print(f"Excepción al llamar a DeepSeek: {e}")
-        return generate_heuristic_response(conversation_history, user_message)
+        print(f"Excepción al conectar con DeepSeek API: {e}")
+        return generate_heuristic_response(conversation_history, user_message, context_data)
 
 def parse_deepseek_output(raw_text: str) -> Dict[str, Any]:
-    """Separa el texto que ve el usuario de la metadata JSON interna."""
+    """Separa el texto visible para el usuario del bloque de metadata JSON."""
     metadata_match = re.search(r"<<<METADATA>>>(.*?)<<<END_METADATA>>>", raw_text, re.DOTALL)
     
     clean_text = raw_text
@@ -106,75 +117,54 @@ def parse_deepseek_output(raw_text: str) -> Dict[str, Any]:
         "should_ask_login": metadata.get("should_ask_login", False)
     }
 
-def generate_heuristic_response(conversation_history: List[Dict[str, str]], user_message: str) -> Dict[str, Any]:
+def generate_heuristic_response(
+    conversation_history: List[Dict[str, str]], 
+    user_message: str,
+    context_data: Dict[str, Any] = None
+) -> Dict[str, Any]:
     """
-    Motor inteligente de respaldo cuando aún no se ingresa la DEEPSEEK_API_KEY.
-    Garantiza que el bot siempre hable en tono humano y cálido.
+    Motor heurístico de respaldo que recuerda el contexto acumulado (ej: montacarguista, soldador, municipio).
     """
     msg_lower = user_message.lower()
     extracted = {}
     chips = []
-    should_login = False
+    
+    prev_puesto = context_data.get("puesto_deseado") if context_data else None
+    prev_muni = context_data.get("municipio") if context_data else None
+
+    # Detección de puesto
+    if any(term in msg_lower for term in ["montacarguista", "montacarga", "montacargas", "forklift"]):
+        extracted["puesto_deseado"] = "Montacarguista"
+        prev_puesto = "Montacarguista"
+    elif any(term in msg_lower for term in ["soldador", "soldadura", "microalambre", "tig", "mig"]):
+        extracted["puesto_deseado"] = "Soldador"
+        prev_puesto = "Soldador"
+    elif any(term in msg_lower for term in ["almacen", "almacén", "embarques", "surtidor"]):
+        extracted["puesto_deseado"] = "Almacén"
+        prev_puesto = "Almacén"
+    elif any(term in msg_lower for term in ["ensamble", "operario", "produccion", "producción"]):
+        extracted["puesto_deseado"] = "Operario de Ensamble"
+        prev_puesto = "Operario de Ensamble"
 
     # Detección de municipio
     municipios = ["apodaca", "pesquería", "pesqueria", "san nicolás", "san nicolas", "monterrey", "guadalupe", "escobedo", "garcía", "garcia", "santa catarina"]
     found_muni = next((m for m in municipios if m in msg_lower), None)
     if found_muni:
         extracted["municipio"] = found_muni.capitalize()
+        prev_muni = found_muni.capitalize()
 
-    # Detección de rezago escolar
-    if any(term in msg_lower for term in ["primaria", "incompleta", "no termine", "no terminé", "trunca"]):
-        extracted["nivel_educativo"] = "Primaria_Incompleta"
+    # Caso 1: Preguntan sobre Montacarguista
+    if "montacarguista" in msg_lower or "montacarga" in msg_lower:
         reply = (
-            "¡No te preocupes en lo más mínimo! Aquí en Nuevo León muchas plantas tienen convenios muy nobles con el INEA. "
-            "Te dan aula en la misma planta y flexibilidad para que termines tu primaria o secundaria gratis, sin que descuides tu sueldo semanal 🎓🙌\n\n"
-            "¿Te gustaría que te canalicemos a vacantes que ofrezcan este apoyo del INEA?"
+            "¡Claro que sí, compadre! Tenemos excelentes vacantes de **Montacarguista** (hombre sentado y hombre parado en almacenes y CEDIS). "
+            "Los sueldos van de **$2,600 a $3,400 libres semanales**, e incluyen transporte de personal, tiempo extra pagado y comedor subsidiado.\n\n"
+            "¿En qué municipio vives o buscas el jale (Apodaca, Pesquería, San Nicolás, etc.) y cuentas con constancia DC-3 o experiencia?"
         )
         chips = [
-          {"label": "✅ Sí, me interesa el apoyo INEA", "value": "Sí, me interesa mucho el apoyo para terminar mis estudios con el INEA"},
-          {"label": "❌ Por ahora solo la chamba directa", "value": "Por ahora prefiero entrar directo a trabajar"}
-        ]
-        should_login = True
-        return {
-            "reply_text": reply,
-            "extracted_profile": extracted,
-            "suggested_chips": chips,
-            "should_ask_login": should_login
-        }
-
-    # Respuesta sobre INEA aceptado
-    if "sí" in msg_lower or "si" in msg_lower and ("inea" in msg_lower or "estudios" in msg_lower or "apoyo" in msg_lower):
-        extracted["tag_inea"] = True
-        reply = (
-            "¡Excelente decisión, compadre! Ya te dejamos anotado con el beneficio del INEA. "
-            "Esto te ayudará a ascender más rápido a puestos de operador calificado o líder de línea.\n\n"
-            "¿Qué tipo de puesto o parque industrial te queda más cómodo para moverte?"
-        )
-        chips = [
-            {"label": "🏭 Ensamble y Producción", "value": "Busco operario de ensamble general"},
-            {"label": "🛠️ Maquinado / Prensas", "value": "Operario de prensas o máquinas"},
-            {"label": "📦 Almacén y Empaque", "value": "Auxiliar de almacén o empaque"}
-        ]
-        should_login = True
-        return {
-            "reply_text": reply,
-            "extracted_profile": extracted,
-            "suggested_chips": chips,
-            "should_ask_login": should_login
-        }
-
-    # Detección de sueldo / vacantes
-    if any(term in msg_lower for term in ["sueldo", "cuanto pagan", "cuánto pagan", "dinero", "2500", "3000"]):
-        reply = (
-            "En el corredor industrial (Apodaca, Pesquería, San Nicolás y García) los sueldos semanales libres van de $2,000 hasta $3,200 "
-            "según el puesto (los que tienen turnos fijos o soldadura/maquinado son de los mejor pagados). Además casi todos incluyen transporte de personal y comedor subsidiado 🍲🚌\n\n"
-            "¿En qué municipio vives para ver qué rutas de transporte te quedan a la mano?"
-        )
-        chips = [
-            {"label": "Apodaca", "value": "Vivo en Apodaca"},
-            {"label": "Pesquería", "value": "Vivo en Pesquería"},
-            {"label": "San Nicolás", "value": "Vivo en San Nicolás"},
-            {"label": "García", "value": "Vivo en García"}
+            {"label": "📍 Montacarguista en Apodaca", "value": "Busco de montacarguista en Apodaca"},
+            {"label": "📍 Montacarguista en Pesquería", "value": "Busco de montacarguista en Pesquería"},
+            {"label": "📄 Cuento con DC-3 y Experiencia", "value": "Sí tengo experiencia y DC-3 en montacargas"},
+            {"label": "💵 ¿Cuánto pagan de tiempo extra?", "value": "¿Cuánto pagan de tiempo extra y bonos?"}
         ]
         return {
             "reply_text": reply,
@@ -183,15 +173,59 @@ def generate_heuristic_response(conversation_history: List[Dict[str, str]], user
             "should_ask_login": False
         }
 
-    # Respuesta general cálida
+    # Caso 2: El usuario ya había preguntado de montacarguista (u otro puesto) y ahora elige municipio (ej. "Buscar en Apodaca")
+    if prev_puesto == "Montacarguista" and (found_muni or "apodaca" in msg_lower or "pesquer" in msg_lower):
+        muni_target = prev_muni or "Apodaca"
+        reply = (
+            f"¡Excelente! En **{muni_target}** tenemos vacantes abiertas de **Montacarguista de Almacén** en Parque Industrial Monterrey y Stiva. "
+            f"Ofrecen un sueldo semanal libre de **$2,850 a $3,200 MXN**, turno fijo y ruta de transporte directo a tu colonia.\n\n"
+            "Aquí abajo te muestro las plantas disponibles para que te postules de volada. ¿Cuál es tu nombre para registrarte?"
+        )
+        chips = [
+            {"label": "Tengo experiencia en hombre sentado", "value": "Tengo experiencia en montacargas hombre sentado"},
+            {"label": "Tengo experiencia en hombre parado", "value": "Tengo experiencia en montacargas hombre parado"},
+            {"label": "Ver vacantes en Apodaca", "value": f"Muéstrame las vacantes de montacarguista en {muni_target}"}
+        ]
+        return {
+            "reply_text": reply,
+            "extracted_profile": extracted,
+            "suggested_chips": chips,
+            "should_ask_login": True
+        }
+
+    # Caso 3: Pregunta sobre municipio en general
+    if found_muni:
+        muni_target = found_muni.capitalize()
+        puesto_str = f" de {prev_puesto}" if prev_puesto else ""
+        reply = (
+            f"¡Arre! En **{muni_target}** hay mucho jale activo{puesto_str} en plantas de manufactura y logística. "
+            f"Los sueldos van de **$2,300 a $3,200 libres por semana** con transporte y comedor.\n\n"
+            "¿Buscas alguna posición en especial (ensamble, montacarguista, almacén o soldadura)?"
+        )
+        chips = [
+            {"label": "🚜 Montacarguista", "value": f"Busco vacantes de montacarguista en {muni_target}"},
+            {"label": "🏭 Operario de Ensamble", "value": f"Busco vacantes de ensamble en {muni_target}"},
+            {"label": "📦 Almacén", "value": f"Busco vacantes de almacén en {muni_target}"},
+            {"label": "⏱️ Con Turnos Fijos", "value": f"Busco vacantes con turnos fijos en {muni_target}"}
+        ]
+        return {
+            "reply_text": reply,
+            "extracted_profile": extracted,
+            "suggested_chips": chips,
+            "should_ask_login": True
+        }
+
+    # Caso 4: Saludo general o pregunta libre
     reply = (
-        "¡Qué onda! Con todo gusto te oriento. Te conecto con las mejores plantas y naves industriales de Nuevo León. "
-        "Cuéntame tu nombre, qué grado de estudios tienes o en qué zona prefieres jalar para filtrarte las mejores opciones."
+        "¡Qué onda! Con gusto te ayudo a conseguir una buena chamba en Nuevo León. "
+        "Tenemos vacantes operativas de montacarguistas, ensamble, soldadura y almacén en Apodaca, Pesquería, San Nicolás, García y Guadalupe. "
+        "¿Qué puesto te interesa o en qué municipio te gustaría jalar?"
     )
     chips = [
-        {"label": "Buscar en Apodaca", "value": "Busco trabajo operativo en Apodaca"},
-        {"label": "Apoyo de Estudios INEA", "value": "Quiero vacantes que apoyen con el INEA"},
-        {"label": "Turnos Fijos", "value": "Busco trabajo con turnos fijos"}
+        {"label": "🚜 Montacarguista", "value": "Busco vacantes de montacarguista"},
+        {"label": "🏭 Ensamble en Apodaca", "value": "Busco de operario en Apodaca"},
+        {"label": "📦 Almacén y Logística", "value": "Busco jale de almacén"},
+        {"label": "💰 Sueldos mayores a $2,800", "value": "¿Qué puestos pagan más de $2,800 por semana?"}
     ]
     return {
         "reply_text": reply,

@@ -8,17 +8,14 @@ import {
   ArrowUp, 
   Building2, 
   User, 
-  GraduationCap, 
   MapPin, 
   Clock, 
-  DollarSign, 
   Briefcase, 
   ChevronRight,
   ShieldCheck,
   Sparkles,
   Settings,
-  LogOut,
-  CheckCircle2
+  LogOut
 } from 'lucide-react';
 import { 
   loadAllSessions, 
@@ -32,10 +29,10 @@ import {
 import { startChat, sendChatMessage } from '../../services/api';
 import { 
   getStoredUser, 
-  signInWithGoogle, 
   signOut, 
   syncUserWithBackend 
 } from '../../services/supabaseClient';
+import AuthModal from '../Auth/AuthModal';
 
 export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAdmin }) {
   const [sessions, setSessions] = useState([]);
@@ -45,6 +42,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
   const [isTyping, setIsTyping] = useState(false);
   const [options, setOptions] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -57,7 +55,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     scrollToBottom();
   }, [activeSession?.messages, isTyping]);
 
-  // Cargar usuario y sesiones al montar
   useEffect(() => {
     const user = getStoredUser();
     setCurrentUser(user);
@@ -76,7 +73,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     }
   }, []);
 
-  // Iniciar nuevo chat
   const handleNewChat = () => {
     const newSess = createNewSession();
     const updated = loadAllSessions();
@@ -86,14 +82,12 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     inputRef.current?.focus();
   };
 
-  // Cambiar de chat
   const handleSelectSession = (sess) => {
     setActiveSession(sess);
     setActiveSessionId(sess.id);
     setOptions([]);
   };
 
-  // Eliminar chat
   const handleDeleteSession = (e, id) => {
     e.stopPropagation();
     deleteSession(id);
@@ -110,40 +104,34 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     }
   };
 
-  // Login con Google
-  const handleGoogleLogin = async () => {
-    try {
-      const user = await signInWithGoogle();
-      if (user) {
-        setCurrentUser(user);
-        // Sincronizar datos con el backend en Supabase
-        await syncUserWithBackend(user, {
-          sessionId: activeSession?.backendSessionId,
-          municipio: activeSession?.candidateProfile?.municipio || 'Apodaca',
-          nivel_educativo: activeSession?.candidateProfile?.nivel_educativo || 'Secundaria',
-          tag_inea: activeSession?.candidateProfile?.tag_inea || false
-        });
+  // Manejo de autenticación exitosa desde AuthModal
+  const handleUserAuthenticated = async (user) => {
+    if (!user) return;
+    setCurrentUser(user);
+    const displayName = user.name || 'Compa';
+    const displayEmail = user.email || 'tu cuenta';
 
-        // Mensaje del bot confirmando el guardado
-        const confirmMsg = {
-          id: Math.random().toString(),
-          sender: 'bot',
-          text: `¡Qué onda, ${user.name}! 🤠 Ya vinculamos tu cuenta de Google (${user.email}). Tus datos y vacantes afines quedaron guardados en Supabase. Ahora te avisaremos directo cuando salgan nuevas chambas cerca de tu zona.`,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
+    await syncUserWithBackend(user, {
+      sessionId: activeSession?.backendSessionId,
+      municipio: activeSession?.candidateProfile?.municipio || 'Apodaca',
+      puesto_deseado: activeSession?.candidateProfile?.puesto_deseado || 'Operario'
+    });
 
-        const finalMsgs = [...(activeSession?.messages || []), confirmMsg];
-        const updated = {
-          ...activeSession,
-          messages: finalMsgs,
-          shouldAskLogin: false
-        };
-        setActiveSession(updated);
-        updateSession(activeSession.id, { messages: finalMsgs, shouldAskLogin: false });
-      }
-    } catch (e) {
-      console.error('Error logging in with Google:', e);
-    }
+    const confirmMsg = {
+      id: Math.random().toString(),
+      sender: 'bot',
+      text: `¡Qué onda, ${displayName}! 🤠 Ya vinculamos tu cuenta (${displayEmail}). Tus datos y vacantes afines quedaron guardados en Supabase. Ahora te avisaremos directo cuando salgan nuevas chambas cerca de tu zona.`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    const finalMsgs = [...(activeSession?.messages || []), confirmMsg];
+    const updated = {
+      ...activeSession,
+      messages: finalMsgs,
+      shouldAskLogin: false
+    };
+    setActiveSession(updated);
+    updateSession(activeSession.id, { messages: finalMsgs, shouldAskLogin: false });
   };
 
   const handleLogout = async () => {
@@ -235,7 +223,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
         });
         setSessions(loadAllSessions());
         setOptions(res.options || []);
-      }, 500);
+      }, 400);
 
     } catch (err) {
       console.error('Error enviando mensaje al bot:', err);
@@ -245,30 +233,30 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
 
   const starterPrompts = [
     {
-      title: '🏭 Buscar jale en Apodaca',
-      subtitle: 'Vacantes de ensamble y prensas en parques industriales',
-      prompt: 'Hola, busco vacantes de operario en Apodaca con ruta de transporte'
+      title: '🚜 Vacantes de Montacarguista',
+      subtitle: 'Hombre sentado y parado con sueldos de hasta $3,400/sem',
+      prompt: 'Habrá vacantes de montacarguista?'
     },
     {
-      title: '🎓 Terminar secundaria con INEA',
-      subtitle: 'Trabaja y saca tu certificado oficial con apoyo de la planta',
-      prompt: 'No terminé la secundaria, ¿cómo me ayuda Chambachat con el INEA mientras trabajo?'
+      title: '🏭 Operario en Apodaca',
+      subtitle: 'Ensamble y producción con ruta de transporte de personal',
+      prompt: 'Busco vacantes de operario de producción en Apodaca con transporte'
     },
     {
       title: '⏱️ Turnos Fijos sin Rolar',
-      subtitle: 'Mayor descanso y estabilidad familiar',
-      prompt: 'Busco puestos operativos que ofrezcan turnos fijos'
+      subtitle: 'Mayor descanso y estabilidad para tu familia',
+      prompt: 'Busco puestos que ofrezcan turnos fijos sin rolación'
     },
     {
-      title: '💰 Sueldos mayores a $2,500/sem',
-      subtitle: 'Puestos de soldadura, inyección o maquinado CNC',
-      prompt: '¿Cuáles son las vacantes con sueldo superior a $2,500 semanales?'
+      title: '💰 Sueldos mayores a $2,800/sem',
+      subtitle: 'Puestos de montacargas, soldadura y maquinado CNC',
+      prompt: '¿Cuáles son las vacantes con sueldo superior a $2,800 semanales libres?'
     }
   ];
 
   return (
     <div className="flex h-screen bg-[#fcfdfd] text-slate-800 font-sans overflow-hidden">
-      {/* SIDEBAR IZQUIERDA (Historial) */}
+      {/* SIDEBAR IZQUIERDA */}
       <aside
         className={`fixed md:static inset-y-0 left-0 z-40 w-72 bg-[#f9fafb] border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:w-0 md:border-none'
@@ -291,7 +279,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
           </button>
         </div>
 
-        {/* Lista de Historial de Chats */}
+        {/* Lista de Historial */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Tus conversaciones
@@ -325,9 +313,8 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
           })}
         </div>
 
-        {/* Footer Sidebar: Perfil de Google & Accesos */}
+        {/* Footer Sidebar: Perfil & Accesos */}
         <div className="p-3 border-t border-slate-200 bg-white/70 space-y-2">
-          {/* Card de Usuario Logueado o Botón de Google */}
           {currentUser ? (
             <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-200/60 flex items-center justify-between">
               <div className="flex items-center gap-2.5 truncate">
@@ -351,7 +338,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
             </div>
           ) : (
             <button
-              onClick={handleGoogleLogin}
+              onClick={() => setIsAuthModalOpen(true)}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-sm transition"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -388,11 +375,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
               <User className="w-3.5 h-3.5 text-slate-500" />
               <span>Mi Perfil Guardado</span>
             </div>
-            {activeSession?.candidateProfile?.tag_inea && (
-              <span className="text-[9px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.2 rounded">
-                INEA
-              </span>
-            )}
           </button>
 
           <button
@@ -439,7 +421,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
           <div className="flex items-center gap-2">
             {!currentUser ? (
               <button
-                onClick={handleGoogleLogin}
+                onClick={() => setIsAuthModalOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm transition"
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
@@ -487,7 +469,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                   ¡Qué onda! ¿En qué te ayudo hoy a jalar?
                 </h1>
                 <p className="text-sm text-slate-500 max-w-md mx-auto">
-                  Asistente inteligente con DeepSeek para encontrar empleo en manufactura y certificar tus estudios con el INEA en Nuevo León.
+                  Pregúntame sobre vacantes de montacarguistas, ensamble, almacén, turnos fijos o sueldos en Nuevo León.
                 </p>
               </div>
 
@@ -530,12 +512,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                           : 'bg-slate-50 text-slate-800 rounded-tl-none border border-slate-200/80'
                       }`}
                     >
-                      {msg.text.includes('INEA') && msg.sender === 'bot' && (
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 bg-purple-100 px-2.5 py-1 rounded-lg mb-2 w-fit">
-                          <GraduationCap className="w-4 h-4 text-purple-600" />
-                          Acreditación Oficial INEA
-                        </div>
-                      )}
                       <p className="whitespace-pre-wrap">{msg.text}</p>
                       <span className="text-[10px] block text-right mt-1 text-slate-400">
                         {msg.time}
@@ -567,11 +543,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                       <button
                         key={i}
                         onClick={() => handleSendMessage(null, opt.value)}
-                        className={`text-xs font-semibold px-3.5 py-2 rounded-xl transition border shadow-sm ${
-                          opt.value.toLowerCase().includes('inea')
-                            ? 'bg-purple-600 hover:bg-purple-700 text-white border-purple-600 animate-pulse font-bold'
-                            : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 hover:border-emerald-500'
-                        }`}
+                        className="text-xs font-semibold px-3.5 py-2 rounded-xl transition border shadow-sm bg-white hover:bg-slate-50 text-slate-800 border-slate-200 hover:border-emerald-500"
                       >
                         {opt.label}
                       </button>
@@ -580,19 +552,19 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                 </div>
               )}
 
-              {/* IN-CHAT NUDGE: Tarjeta de Login con Google si no está logueado */}
+              {/* IN-CHAT NUDGE: Guardar perfil sin fricción */}
               {(!currentUser && activeSession?.shouldAskLogin) && (
                 <div className="pl-11 py-2 animate-fadeIn">
                   <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90 shadow-sm max-w-md space-y-2.5">
                     <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
                       <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span>Guarda tu perfil con Google en 1 clic</span>
+                      <span>Guarda tu perfil para postularte a plantas</span>
                     </div>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      Vincula tu cuenta para guardar tu municipio, postulaciones a plantas y tu seguimiento de certificación con el INEA.
+                      Vincula tu cuenta para guardar tu municipio, ver las mejores vacantes y recibir avisos de contratación.
                     </p>
                     <button
-                      onClick={handleGoogleLogin}
+                      onClick={() => setIsAuthModalOpen(true)}
                       className="flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-slate-300 shadow-sm transition"
                     >
                       <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -601,7 +573,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                         <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
                         <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
                       </svg>
-                      <span>Continuar con Google</span>
+                      <span>Guardar con Google / Nombre</span>
                     </button>
                   </div>
                 </div>
@@ -638,6 +610,10 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                           </div>
                         </div>
 
+                        <p className="text-[11px] text-slate-500 line-clamp-2">
+                          {job.descripcion}
+                        </p>
+
                         <div className="flex flex-wrap gap-1.5 text-[10px]">
                           <span className="flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
                             <MapPin className="w-3 h-3 text-sky-500" />
@@ -647,10 +623,9 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                             <Clock className="w-3 h-3 text-amber-500" />
                             ~{job.tiempo_traslado_min} min
                           </span>
-                          {job.apoyo_inea && (
-                            <span className="flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold">
-                              <GraduationCap className="w-3 h-3" />
-                              Aula INEA
+                          {job.turnos_fijos && (
+                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold border border-blue-200">
+                              Turno Fijo
                             </span>
                           )}
                         </div>
@@ -658,14 +633,14 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                         <button
                           onClick={() => {
                             if (!currentUser) {
-                              handleGoogleLogin();
+                              setIsAuthModalOpen(true);
                             } else {
                               alert(`¡Felicidades ${currentUser.name}! Tu postulación para ${job.titulo} en ${job.empresa_nombre} ha sido enviada exitosamente.`);
                             }
                           }}
                           className="w-full text-center py-1.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition"
                         >
-                          {currentUser ? 'Postularme de Volada' : 'Postularme con Google'}
+                          {currentUser ? 'Postularme de Volada' : 'Postularme (Acceder)'}
                         </button>
                       </div>
                     ))}
@@ -693,7 +668,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Pregúntale a Chambabot sobre jale, sueldos o el INEA..."
+                placeholder="Pregúntale a Chambabot sobre vacantes, montacargas, turnos o sueldos..."
                 className="w-full py-3.5 pl-4 pr-12 text-sm text-slate-800 bg-transparent focus:outline-none placeholder-slate-400"
               />
 
@@ -707,11 +682,18 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
             </form>
 
             <p className="text-[11px] text-center text-slate-400 mt-2 font-medium">
-              Chambachat IA te orienta sobre oportunidades industriales y acreditación oficial en Nuevo León.
+              Chambachat IA te orienta sobre oportunidades industriales y vacantes operativas en Nuevo León.
             </p>
           </div>
         </div>
       </main>
+
+      {/* Modal de Autenticación sin Fricción */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthenticated={handleUserAuthenticated}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import math
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.models import Job
 
 # Coordenadas de referencia en Nuevo León para municipios clave si no se dispone de GPS exacto
@@ -23,7 +23,7 @@ MUNICIPIOS_NL_COORDS = {
 
 def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calcula la distancia geodésica en kilómetros entre dos coordenadas usando la fórmula de Haversine."""
-    R = 6371.0 # Radio medio de la Tierra en km
+    R = 6371.0
     d_lat = math.radians(lat2 - lat1)
     d_lon = math.radians(lon2 - lon1)
     a = (math.sin(d_lat / 2) ** 2 +
@@ -32,11 +32,7 @@ def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
     return round(R * c, 2)
 
 def estimate_travel_time_min(distance_km: float, has_transport: bool = True) -> int:
-    """
-    Estima el tiempo de traslado en minutos en el área metropolitana de Monterrey.
-    Si tiene transporte de personal o ruta directa, la velocidad promedio es ~30 km/h + 10 min de espera.
-    En transporte público habitual: ~20 km/h + 15 min de espera/transbordo.
-    """
+    """Estima el tiempo de traslado en minutos en el área metropolitana de Monterrey."""
     if has_transport:
         mins = int((distance_km / 35.0) * 60) + 10
     else:
@@ -48,15 +44,15 @@ def match_jobs_for_candidate(
     candidate_lon: float = None,
     municipio: str = None,
     tag_inea: bool = False,
+    puesto_keyword: Optional[str] = None,
     all_jobs: List[Job] = None
 ) -> List[Dict[str, Any]]:
     """
-    Filtra y ordena vacantes según cercanía al candidato y afinidad con el programa INEA.
+    Filtra y ordena vacantes según proximidad geográfica y afinidad al puesto deseado (ej. Montacarguista).
     """
     if not all_jobs:
         return []
 
-    # Determinar coordenadas de origen del candidato
     c_lat, c_lon = None, None
     if candidate_lat is not None and candidate_lon is not None:
         c_lat, c_lon = candidate_lat, candidate_lon
@@ -65,23 +61,28 @@ def match_jobs_for_candidate(
         if m_clean in MUNICIPIOS_NL_COORDS:
             c_lat, c_lon = MUNICIPIOS_NL_COORDS[m_clean]
         else:
-            # Por defecto, centro de Monterrey
             c_lat, c_lon = MUNICIPIOS_NL_COORDS["monterrey"]
     else:
         c_lat, c_lon = MUNICIPIOS_NL_COORDS["monterrey"]
+
+    puesto_clean = (puesto_keyword or "").lower().strip()
 
     scored_jobs = []
     for job in all_jobs:
         dist_km = haversine_distance_km(c_lat, c_lon, job.latitud, job.longitud)
         est_min = estimate_travel_time_min(dist_km, job.transporte_incluido)
 
-        # Bonificación de score de afinidad: menor distancia = más puntos
-        # Si el usuario tiene tag_inea y la vacante tiene apoyo_inea, suma bono
-        score = 100.0 - (dist_km * 2.0)
-        if tag_inea and job.apoyo_inea:
-            score += 25.0
-        elif tag_inea and not job.apoyo_inea:
-            score -= 10.0
+        # Base score por cercanía
+        score = 85.0 - (dist_km * 1.5)
+
+        # Prioridad por puesto (ej. montacarguista, soldador, etc.)
+        if puesto_clean:
+            title_lower = job.titulo.lower()
+            desc_lower = (job.descripcion or "").lower()
+            if puesto_clean in title_lower or any(w in title_lower for w in puesto_clean.split()):
+                score += 50.0  # Gran bonificación por coincidencia de puesto
+            elif puesto_clean in desc_lower:
+                score += 25.0
 
         scored_jobs.append({
             "id": job.id,

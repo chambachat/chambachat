@@ -48,7 +48,7 @@ def test_analytics_summary():
     assert data["tasa_inea_pct"] > 0
     assert data["permanencia_con_inea"] > data["permanencia_sin_inea"]
 
-def test_chat_flow_and_inea():
+def test_chat_flow_and_jobs():
     # 1. Start chat
     start_res = client.get("/api/v1/chat/start")
     assert start_res.status_code == 200
@@ -57,25 +57,24 @@ def test_chat_flow_and_inea():
     # 2. Enviar mensaje de búsqueda en Apodaca
     msg1 = client.post("/api/v1/chat/message", json={
         "session_id": session_id,
-        "message": "Hola, busco trabajo de operario en Apodaca y no terminé la secundaria"
+        "message": "Hola, busco trabajo de montacarguista en Apodaca"
     })
     assert msg1.status_code == 200
     res1 = msg1.json()
     assert len(res1["bot_messages"]) > 0
-    # Comprobar que detecta rezago educativo y menciona INEA
-    assert any("INEA" in m or "estudios" in m.lower() for m in res1["bot_messages"])
     assert len(res1["options"]) > 0
 
-    # 3. Aceptar apoyo del INEA
+    # 3. Seleccionar opción de turno o zona
     msg2 = client.post("/api/v1/chat/message", json={
         "session_id": session_id,
-        "selected_option": "Sí, me interesa mucho el apoyo para terminar mis estudios con el INEA"
+        "selected_option": "Buscar en Apodaca"
     })
     assert msg2.status_code == 200
     res2 = msg2.json()
     assert res2["candidate_profile"] is not None
-    assert res2["candidate_profile"]["tag_inea"] is True
     assert len(res2["matched_jobs"]) > 0
+    # Verificar que el contexto de montacarguista se mantuvo o hay vacantes
+    assert any("Montacargas" in j.get("titulo", "") or "Montacarguista" in j.get("titulo", "") for j in res2["matched_jobs"])
 
 def test_google_profile_sync():
     payload = {
@@ -107,7 +106,7 @@ if __name__ == "__main__":
     test_jobs_list()
     test_candidates_list()
     test_analytics_summary()
-    test_chat_flow_and_inea()
+    test_chat_flow_and_jobs()
     test_google_profile_sync()
     test_admin_prompts()
     print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE (8/8) <<<")

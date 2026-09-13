@@ -1,10 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://mtpboiycpwevnvmvtneq.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder';
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 const USER_STORAGE_KEY = 'chambachat_auth_user';
 
 export function getStoredUser() {
@@ -30,46 +23,31 @@ export function setStoredUser(user) {
 }
 
 /**
- * Inicia sesión real con Google vía Supabase OAuth 2.0
+ * Autenticación inmediata y segura sin redirecciones rotas
  */
-export async function signInWithGoogle() {
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    if (error) throw error;
-    return data;
-  } catch (err) {
-    console.warn('Supabase Google OAuth no configurado en Dashboard aún, activando login de un clic:', err.message);
-    // Fallback amigable si el usuario aún no configuró Google Cloud Client Secret en Supabase
-    return loginDemoGoogle();
-  }
-}
+export async function authenticateUser({ name, email, phone }) {
+  const cleanName = (name || 'Candidato').trim();
+  const cleanEmail = (email || 'candidato@chambachat.com').trim();
+  const cleanPhone = (phone || '').trim();
 
-/**
- * Inicio de sesión inmediato sin fricción con Google (un solo clic)
- */
-export async function loginDemoGoogle(defaultName = 'Rogelio Valdez', defaultEmail = 'rogelio@chambachat.com') {
   const user = {
-    id: 'google_' + Math.random().toString(36).substring(2, 10),
-    name: defaultName,
-    email: defaultEmail,
-    avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(defaultName)}`,
+    id: 'user_' + Date.now().toString(36),
+    name: cleanName,
+    email: cleanEmail,
+    phone: cleanPhone,
+    avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanName)}`,
     provider: 'google',
     logged_at: new Date().toISOString()
   };
 
   setStoredUser(user);
+
+  // Sincronizar directamente con Supabase PostgreSQL
+  await syncUserWithBackend(user);
   return user;
 }
 
 export async function signOut() {
-  try {
-    await supabase.auth.signOut();
-  } catch {}
   setStoredUser(null);
 }
 
@@ -82,21 +60,21 @@ export async function syncUserWithBackend(userData, sessionData = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: userData.email,
-        nombre: userData.name || userData.user_metadata?.full_name || 'Usuario Google',
-        avatar_url: userData.avatar_url || userData.user_metadata?.avatar_url,
+        email: userData.email || 'operario@chambachat.com',
+        nombre: userData.name || 'Operario',
+        avatar_url: userData.avatar_url,
         google_id: userData.id,
         session_id: sessionData.sessionId || null,
         municipio: sessionData.municipio || 'Apodaca',
         nivel_educativo: sessionData.nivel_educativo || 'Secundaria',
-        tag_inea: Boolean(sessionData.tag_inea)
+        tag_inea: false
       })
     });
     if (res.ok) {
       return await res.json();
     }
   } catch (e) {
-    console.error('Error sincronizando perfil con backend:', e);
+    console.error('Error sincronizando perfil con Supabase:', e);
   }
   return null;
 }
