@@ -228,7 +228,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     const confirmMsg = {
       id: Math.random().toString(),
       sender: 'bot',
-      text: `¡Qué onda, ${displayName}! 🤠 Ya vinculamos tu cuenta (${displayEmail}). Tus datos y vacantes afines quedaron guardados en Supabase. Ahora te avisaremos directo cuando salgan nuevas chambas cerca de tu zona.`,
+      text: `¡Qué onda, ${displayName}! 🤠 Ya vinculamos tu cuenta (${displayEmail}). Tus datos y vacantes afines quedaron guardados con éxito. Ahora te avisaremos directo cuando salgan nuevas chambas cerca de tu zona.`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 

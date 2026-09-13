@@ -88,7 +88,7 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
         </div>
 
         <p className="text-[10px] text-center text-slate-400">
-          Tu cuenta queda vinculada en Supabase para sincronizar tus postulaciones en tiempo real.
+          Tu cuenta queda vinculada de forma segura para sincronizar tus postulaciones en tiempo real.
         </p>
       </div>
     </div>
