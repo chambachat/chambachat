@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   Sparkles,
   Settings,
-  LogOut
+  LogOut,
+  CheckCircle2
 } from 'lucide-react';
 import { 
   loadAllSessions, 
@@ -26,7 +27,12 @@ import {
   deleteSession, 
   updateSession 
 } from '../../services/chatStorage';
-import { startChat, sendChatMessage } from '../../services/api';
+import { 
+  startChat, 
+  sendChatMessage, 
+  submitApplication, 
+  getApplicationsBySession 
+} from '../../services/api';
 import { 
   getStoredUser, 
   signOut, 
@@ -43,6 +49,8 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
   const [options, setOptions] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showVacancies, setShowVacancies] = useState(true);
+  const [appliedJobIds, setAppliedJobIds] = useState(new Set());
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -101,6 +109,98 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
       const currentActiveId = getActiveSessionId();
       const nextActive = updated.find(s => s.id === currentActiveId) || updated[0];
       setActiveSession(nextActive);
+    }
+  };
+
+  const handleClearAllSessions = (e) => {
+    e.stopPropagation();
+    if (window.confirm('¿Deseas eliminar todo tu historial de conversaciones?')) {
+      localStorage.removeItem('chambachat_sessions_v2');
+      const fresh = createNewSession();
+      setSessions([fresh]);
+      setActiveSession(fresh);
+      setActiveSessionId(fresh.id);
+    }
+  };
+
+  // Sondeo en segundo plano para recibir mensajes de reclutadores en tiempo real
+  useEffect(() => {
+    if (!activeSession?.backendSessionId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const apps = await getApplicationsBySession(activeSession.backendSessionId);
+        if (!apps || apps.length === 0) return;
+
+        const currentMessages = activeSession.messages || [];
+        const existingTexts = new Set(currentMessages.map(m => m.text));
+
+        const newRecruiterMsgs = [];
+        for (const app of apps) {
+          for (const m of app.messages || []) {
+            if (m.sender_type === 'recruiter' && !existingTexts.has(m.mensaje)) {
+              newRecruiterMsgs.push({
+                id: `recruiter_${m.id}`,
+                sender: 'recruiter',
+                sender_name: m.sender_name || `Reclutador ${app.empresa_nombre}`,
+                text: m.mensaje,
+                time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              });
+            }
+          }
+        }
+
+        if (newRecruiterMsgs.length > 0) {
+          const merged = [...currentMessages, ...newRecruiterMsgs];
+          setActiveSession(prev => ({ ...prev, messages: merged }));
+          updateSession(activeSession.id, { messages: merged });
+          setSessions(loadAllSessions());
+        }
+      } catch (err) {
+        // Silencioso en sondeo
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeSession?.backendSessionId, activeSession?.id, activeSession?.messages?.length]);
+
+  // Manejo de postulación inmediata a vacante
+  const handleApplyJob = async (job) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    try {
+      await submitApplication({
+        jobId: job.id,
+        sessionId: activeSession?.backendSessionId,
+        candidateName: currentUser.name || 'Rogelio Valdez',
+        candidateEmail: currentUser.email || 'rogelio@chambachat.com',
+        candidatePhone: currentUser.phone || '',
+        municipio: job.municipio
+      });
+
+      setAppliedJobIds(prev => new Set(prev).add(job.id));
+
+      const confirmMsg = {
+        id: Math.random().toString(),
+        sender: 'bot',
+        text: `🎉 ¡Listo, ${currentUser.name || 'Compa'}! Enviamos tu postulación para **${job.titulo}** en **${job.empresa_nombre}** 🚀.\n\n💬 El equipo de reclutamiento ya recibió tu solicitud y podrá responderte directamente por **este mismo chat**.\n\n💡 **Tip:** ${currentUser.phone ? `Tienen registrado tu WhatsApp (${currentUser.phone}) para llamarte o escribirte directo.` : 'Si agregas tu WhatsApp o teléfono en tu perfil, el reclutador también podrá llamarte o escribirte por WhatsApp directo para agendar tu entrevista más rápido.'}`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      const finalMsgs = [...(activeSession?.messages || []), confirmMsg];
+      const updatedSess = {
+        ...activeSession,
+        messages: finalMsgs
+      };
+
+      setActiveSession(updatedSess);
+      updateSession(activeSession.id, { messages: finalMsgs });
+      setSessions(loadAllSessions());
+    } catch (err) {
+      console.error('Error al postularse a la vacante:', err);
     }
   };
 
@@ -187,7 +287,10 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
       res = await sendChatMessage({
         sessionId: activeSession.backendSessionId,
         message: optionVal ? null : text,
-        selectedOption: optionVal
+        selectedOption: optionVal,
+        userName: currentUser?.name,
+        userPhone: currentUser?.phone,
+        userEmail: currentUser?.email
       });
 
       if (res.session_id) {
@@ -281,8 +384,19 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
 
         {/* Lista de Historial */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Tus conversaciones
+          <div className="flex items-center justify-between px-3 py-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Tus conversaciones
+            </span>
+            {sessions.length > 1 && (
+              <button
+                onClick={handleClearAllSessions}
+                className="text-[10px] text-slate-400 hover:text-rose-600 font-bold transition"
+                title="Borrar todo el historial"
+              >
+                Vaciar
+              </button>
+            )}
           </div>
           {sessions.map((sess) => {
             const isActive = sess.id === activeSession?.id;
@@ -290,21 +404,21 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
               <div
                 key={sess.id}
                 onClick={() => handleSelectSession(sess)}
-                className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-xs cursor-pointer transition ${
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs cursor-pointer transition ${
                   isActive
                     ? 'bg-slate-200/70 text-slate-900 font-bold'
                     : 'text-slate-600 hover:bg-slate-200/40 hover:text-slate-900'
                 }`}
               >
-                <div className="flex items-center gap-2.5 truncate">
+                <div className="flex items-center gap-2.5 truncate flex-1 mr-1">
                   <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
                   <span className="truncate">{sess.title}</span>
                 </div>
 
                 <button
                   onClick={(e) => handleDeleteSession(e, sess.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-600 rounded transition"
-                  title="Eliminar chat"
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0"
+                  title="Eliminar este chat"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -412,9 +526,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
               <span className="text-base font-extrabold tracking-tight text-slate-900">
                 Chamba<span className="text-emerald-600">chat</span>
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-                IA DeepSeek · NL 🤠
-              </span>
             </div>
           </div>
 
@@ -504,14 +615,28 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                     </div>
                   )}
 
-                  <div className="space-y-2 max-w-[82%]">
+                  {msg.sender === 'recruiter' && (
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm shadow shrink-0 text-white font-bold">
+                      👔
+                    </div>
+                  )}
+
+                  <div className="space-y-2 max-w-[85%]">
                     <div
                       className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
                         msg.sender === 'user'
                           ? 'bg-slate-900 text-white rounded-tr-none'
+                          : msg.sender === 'recruiter'
+                          ? 'bg-blue-50 text-slate-800 rounded-tl-none border border-blue-200'
                           : 'bg-slate-50 text-slate-800 rounded-tl-none border border-slate-200/80'
                       }`}
                     >
+                      {msg.sender === 'recruiter' && (
+                        <div className="flex items-center gap-2 text-xs font-bold text-blue-700 mb-1">
+                          <span>{msg.sender_name || 'Reclutador de Planta'}</span>
+                          <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-semibold">Empresa</span>
+                        </div>
+                      )}
                       <p className="whitespace-pre-wrap">{msg.text}</p>
                       <span className="text-[10px] block text-right mt-1 text-slate-400">
                         {msg.time}
@@ -573,78 +698,95 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                         <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
                         <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
                       </svg>
-                      <span>Guardar con Google / Nombre</span>
+                      <span>Guardar con Google</span>
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Vacantes Afines Desplegadas en el Chat */}
+              {/* Vacantes Afines Desplegadas en el Chat (Diseño Compacto y Colapsable) */}
               {activeSession?.matchedJobs && activeSession.matchedJobs.length > 0 && (
-                <div className="pl-11 pt-3 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    <Sparkles className="w-4 h-4 text-emerald-600" />
-                    <span>Vacantes Recomendadas en Nuevo León</span>
+                <div className="pl-0 sm:pl-11 pt-2 space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      <span>Vacantes Afines ({activeSession.matchedJobs.length})</span>
+                    </div>
+                    <button
+                      onClick={() => setShowVacancies(!showVacancies)}
+                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition"
+                    >
+                      <span>{showVacancies ? 'Ocultar vacantes ▴' : 'Ver vacantes ▾'}</span>
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {activeSession.matchedJobs.map((job) => (
-                      <div
-                        key={job.id}
-                        className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 shadow-sm transition space-y-2.5"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wide">
-                              {job.empresa_nombre}
-                            </span>
-                            <h4 className="text-xs font-bold text-slate-900 leading-tight">
-                              {job.titulo}
-                            </h4>
+                  {showVacancies && (
+                    <div className="flex gap-3 overflow-x-auto snap-x py-1 px-0.5 no-scrollbar">
+                      {activeSession.matchedJobs.map((job) => {
+                        const isApplied = appliedJobIds.has(job.id);
+                        return (
+                          <div
+                            key={job.id}
+                            className="w-[270px] shrink-0 snap-start bg-white p-3.5 rounded-2xl border border-slate-200 hover:border-emerald-500 shadow-sm transition flex flex-col justify-between space-y-2.5"
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-1.5">
+                                <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wide truncate">
+                                  {job.empresa_nombre}
+                                </span>
+                                <div className="text-right shrink-0">
+                                  <span className="text-xs font-black text-emerald-600">
+                                    ${job.sueldo_semanal_libre?.toLocaleString('es-MX')}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400"> /sem</span>
+                                </div>
+                              </div>
+
+                              <h4 className="text-xs font-bold text-slate-900 leading-tight line-clamp-1 mt-0.5" title={job.titulo}>
+                                {job.titulo}
+                              </h4>
+
+                              <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug">
+                                {job.descripcion}
+                              </p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap gap-1 text-[10px]">
+                                <span className="flex items-center gap-1 bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                                  <MapPin className="w-3 h-3 text-sky-500 shrink-0" />
+                                  {job.municipio} ({job.distancia_km} km)
+                                </span>
+                                <span className="flex items-center gap-1 bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                                  <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                                  ~{job.tiempo_traslado_min} min
+                                </span>
+                              </div>
+
+                              <button
+                                disabled={isApplied}
+                                onClick={() => handleApplyJob(job)}
+                                className={`w-full text-center py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                                  isApplied
+                                    ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                                    : 'bg-slate-900 hover:bg-emerald-600 text-white shadow-sm'
+                                }`}
+                              >
+                                {isApplied ? (
+                                  <>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Postulado ✓</span>
+                                  </>
+                                ) : (
+                                  <span>{currentUser ? 'Postularme de Volada' : 'Postularme (Acceder)'}</span>
+                                )}
+                              </button>
+                            </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-xs font-black text-emerald-600">
-                              ${job.sueldo_semanal_libre.toLocaleString('es-MX')}
-                            </span>
-                            <span className="text-[9px] text-slate-400 block">/sem</span>
-                          </div>
-                        </div>
-
-                        <p className="text-[11px] text-slate-500 line-clamp-2">
-                          {job.descripcion}
-                        </p>
-
-                        <div className="flex flex-wrap gap-1.5 text-[10px]">
-                          <span className="flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
-                            <MapPin className="w-3 h-3 text-sky-500" />
-                            {job.municipio} ({job.distancia_km} km)
-                          </span>
-                          <span className="flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
-                            <Clock className="w-3 h-3 text-amber-500" />
-                            ~{job.tiempo_traslado_min} min
-                          </span>
-                          {job.turnos_fijos && (
-                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold border border-blue-200">
-                              Turno Fijo
-                            </span>
-                          )}
-                        </div>
-
-                        <button
-                          onClick={() => {
-                            if (!currentUser) {
-                              setIsAuthModalOpen(true);
-                            } else {
-                              alert(`¡Felicidades ${currentUser.name}! Tu postulación para ${job.titulo} en ${job.empresa_nombre} ha sido enviada exitosamente.`);
-                            }
-                          }}
-                          className="w-full text-center py-1.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition"
-                        >
-                          {currentUser ? 'Postularme de Volada' : 'Postularme (Acceder)'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 

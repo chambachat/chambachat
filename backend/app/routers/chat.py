@@ -16,7 +16,10 @@ async def handle_chat_message(request: ChatMessageRequest, db: Session = Depends
         db=db,
         session_id=request.session_id,
         user_message=request.message,
-        selected_option=request.selected_option
+        selected_option=request.selected_option,
+        user_name=request.user_name,
+        user_phone=request.user_phone,
+        user_email=request.user_email
     )
     return response_data
 

@@ -40,6 +40,7 @@ class Job(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     hiring_records = relationship("HiringHistory", back_populates="job", cascade="all, delete-orphan")
+    applications = relationship("JobApplication", back_populates="job", cascade="all, delete-orphan")
 
 
 class HiringHistory(Base):
@@ -82,3 +83,35 @@ class ChatSession(Base):
     completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class JobApplication(Base):
+    __tablename__ = "job_applications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(String(100), nullable=True, index=True)
+    candidate_name = Column(String(255), nullable=False)
+    candidate_email = Column(String(255), nullable=True)
+    candidate_phone = Column(String(50), nullable=True)
+    municipio = Column(String(100), nullable=True)
+    status = Column(String(50), default="Pendiente")  # Pendiente, Contactado, En Proceso, Contratado
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    job = relationship("Job", back_populates="applications")
+    messages = relationship("ApplicationMessage", back_populates="application", cascade="all, delete-orphan")
+
+
+class ApplicationMessage(Base):
+    __tablename__ = "application_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("job_applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_type = Column(String(20), nullable=False)  # 'recruiter' | 'candidate'
+    sender_name = Column(String(255), nullable=False)
+    mensaje = Column(Text, nullable=False)
+    leido = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    application = relationship("JobApplication", back_populates="messages")
+

@@ -16,7 +16,7 @@ export async function startChat() {
   return res.json();
 }
 
-export async function sendChatMessage({ sessionId, message, selectedOption }) {
+export async function sendChatMessage({ sessionId, message, selectedOption, userName, userPhone, userEmail }) {
   const res = await fetch(`${API_BASE}/chat/message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -24,6 +24,53 @@ export async function sendChatMessage({ sessionId, message, selectedOption }) {
       session_id: sessionId,
       message,
       selected_option: selectedOption,
+      user_name: userName,
+      user_phone: userPhone,
+      user_email: userEmail
+    }),
+  });
+  if (!res.ok) throw new Error('Error al enviar mensaje');
+  return res.json();
+}
+
+export async function submitApplication({ jobId, sessionId, candidateName, candidateEmail, candidatePhone, municipio }) {
+  const res = await fetch(`${API_BASE}/applications/apply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      job_id: jobId,
+      session_id: sessionId,
+      candidate_name: candidateName,
+      candidate_email: candidateEmail,
+      candidate_phone: candidatePhone,
+      municipio: municipio || 'Apodaca'
+    }),
+  });
+  if (!res.ok) throw new Error('Error al enviar postulación');
+  return res.json();
+}
+
+export async function getApplications() {
+  const res = await fetch(`${API_BASE}/applications`);
+  if (!res.ok) throw new Error('Error al obtener postulaciones');
+  return res.json();
+}
+
+export async function getApplicationsBySession(sessionId) {
+  if (!sessionId) return [];
+  const res = await fetch(`${API_BASE}/applications/by-session/${sessionId}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function sendRecruiterMessage(applicationId, { senderType = 'recruiter', senderName, mensaje }) {
+  const res = await fetch(`${API_BASE}/applications/${applicationId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sender_type: senderType,
+      sender_name: senderName,
+      mensaje: mensaje
     }),
   });
   if (!res.ok) throw new Error('Error al enviar mensaje');

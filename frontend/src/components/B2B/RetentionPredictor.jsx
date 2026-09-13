@@ -89,13 +89,13 @@ export default function RetentionPredictor() {
   const getBadgeColor = (level) => {
     switch (level) {
       case 'Excelente':
-        return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
       case 'Alto':
-        return 'bg-blue-500/20 text-blue-400 border-blue-500/40';
+        return 'bg-blue-100 text-blue-800 border-blue-300';
       case 'Medio':
-        return 'bg-amber-500/20 text-amber-400 border-amber-500/40';
+        return 'bg-amber-100 text-amber-800 border-amber-300';
       default:
-        return 'bg-rose-500/20 text-rose-400 border-rose-500/40';
+        return 'bg-rose-100 text-rose-800 border-rose-300';
     }
   };
 
@@ -104,29 +104,29 @@ export default function RetentionPredictor() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs tracking-wider uppercase mb-1">
+          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs tracking-wider uppercase mb-1">
             <Calculator className="w-4 h-4" />
             <span>Módulo B2B · People Analytics Predictivo</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Predictor de Retención de Operarios
           </h1>
-          <p className="text-sm text-slate-400 max-w-2xl mt-1">
-            Modelo estadístico basado en regresión logística y lineal sobre 100+ perfiles de manufactura en Nuevo León. Evalúa en tiempo real el impacto de sueldo, tiempo de traslado y beneficios educativos.
+          <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mt-1">
+            Modelo estadístico basado en regresión sobre 100+ perfiles de manufactura en Nuevo León. Evalúa en tiempo real el impacto de sueldo, tiempo de traslado y condiciones de turno.
           </p>
         </div>
 
         {/* Presets rápidos */}
-        <div className="flex flex-wrap gap-2 items-center bg-slate-900 p-2 rounded-xl border border-slate-800">
-          <span className="text-xs font-bold text-slate-400 px-2 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-400" />
+        <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+          <span className="text-xs font-bold text-slate-500 px-2 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-amber-500" />
             Escenarios:
           </span>
           {presets.map((p, idx) => (
             <button
               key={idx}
               onClick={() => applyPreset(p)}
-              className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-medium border border-slate-700/60"
+              className="text-xs px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition font-medium border border-slate-200"
             >
               {p.name}
             </button>
@@ -137,21 +137,21 @@ export default function RetentionPredictor() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Panel de Controles / Sliders (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 shadow-xl space-y-6">
-            <h2 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <TrendingUp className="w-5 h-5 text-emerald-600" />
               Parámetros de la Oferta Laboral
             </h2>
 
             {/* Slider 1: Sueldo semanal libre */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
                   Sueldo Semanal Libre
                 </label>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-extrabold text-emerald-400">
+                  <span className="text-xl font-extrabold text-emerald-600">
                     ${Number(sueldo).toLocaleString('es-MX')}
                   </span>
                   <span className="text-xs text-slate-400 font-medium">MXN/sem</span>
@@ -164,7 +164,7 @@ export default function RetentionPredictor() {
                 step="50"
                 value={sueldo}
                 onChange={(e) => setSueldo(Number(e.target.value))}
-                className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition"
+                className="w-full h-2.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600 hover:accent-emerald-700 transition"
               />
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span>$1,400 (Base operativo)</span>
@@ -179,12 +179,12 @@ export default function RetentionPredictor() {
             {/* Slider 2: Tiempo de traslado */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-sky-400" />
+                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-sky-500" />
                   Tiempo de Traslado Promedio
                 </label>
                 <div className="flex items-baseline gap-1">
-                  <span className={`text-xl font-extrabold ${tiempoTraslado > 45 ? 'text-rose-400' : 'text-sky-400'}`}>
+                  <span className={`text-xl font-extrabold ${tiempoTraslado > 45 ? 'text-rose-600' : 'text-sky-600'}`}>
                     {tiempoTraslado}
                   </span>
                   <span className="text-xs text-slate-400 font-medium">minutos</span>
@@ -197,7 +197,7 @@ export default function RetentionPredictor() {
                 step="5"
                 value={tiempoTraslado}
                 onChange={(e) => setTiempoTraslado(Number(e.target.value))}
-                className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500 hover:accent-sky-400 transition"
+                className="w-full h-2.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-sky-500 hover:accent-sky-600 transition"
               />
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span>10 min (Parque cercano)</span>
@@ -214,44 +214,44 @@ export default function RetentionPredictor() {
               {/* Switch Turnos Fijos */}
               <div 
                 onClick={() => setTurnosFijos(!turnosFijos)}
-                className={`p-4 rounded-xl border cursor-pointer transition flex items-start gap-3 select-none ${
+                className={`p-4 rounded-2xl border cursor-pointer transition flex items-start gap-3 select-none ${
                   turnosFijos 
-                    ? 'bg-emerald-500/10 border-emerald-500/50 text-white' 
-                    : 'bg-slate-800/40 border-slate-700 text-slate-400 hover:border-slate-600'
+                    ? 'bg-emerald-50 border-emerald-300 text-slate-900 shadow-sm' 
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
                 }`}
               >
-                <div className={`mt-0.5 p-1.5 rounded-lg ${turnosFijos ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-500'}`}>
+                <div className={`mt-0.5 p-1.5 rounded-lg ${turnosFijos ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
                   <CalendarCheck className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-100">Turnos Fijos</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold">+2.0m</span>
+                    <span className="text-xs font-bold text-slate-900">Turnos Fijos</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold">+2.0m</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
                     Turnos continuos sin rolación para reducir fatiga biológica.
                   </p>
                 </div>
               </div>
 
-              {/* Switch Apoyo INEA */}
+              {/* Switch Apoyo Educativo / INEA */}
               <div 
                 onClick={() => setApoyoInea(!apoyoInea)}
-                className={`p-4 rounded-xl border cursor-pointer transition flex items-start gap-3 select-none ${
+                className={`p-4 rounded-2xl border cursor-pointer transition flex items-start gap-3 select-none ${
                   apoyoInea 
-                    ? 'bg-purple-500/10 border-purple-500/50 text-white' 
-                    : 'bg-slate-800/40 border-slate-700 text-slate-400 hover:border-slate-600'
+                    ? 'bg-purple-50 border-purple-300 text-slate-900 shadow-sm' 
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
                 }`}
               >
-                <div className={`mt-0.5 p-1.5 rounded-lg ${apoyoInea ? 'bg-purple-500 text-slate-950' : 'bg-slate-800 text-slate-500'}`}>
+                <div className={`mt-0.5 p-1.5 rounded-lg ${apoyoInea ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
                   <GraduationCap className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-100">Apoyo INEA</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold">+3.5m</span>
+                    <span className="text-xs font-bold text-slate-900">Apoyo INEA</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 font-bold">+3.5m</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
                     Aula o tiempo para certificar primaria/secundaria en planta.
                   </p>
                 </div>
@@ -267,7 +267,7 @@ export default function RetentionPredictor() {
                   setTurnosFijos(true);
                   setApoyoInea(true);
                 }}
-                className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition"
+                className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1 transition font-medium"
               >
                 <RotateCcw className="w-3 h-3" />
                 Restablecer valores por defecto
@@ -278,11 +278,8 @@ export default function RetentionPredictor() {
 
         {/* Panel de Resultados del Predictor (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl p-6 border border-slate-800 shadow-2xl relative overflow-hidden">
-            {/* Background decorative glow */}
-            <div className="absolute -top-24 -right-24 w-56 h-56 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Permanencia Proyectada
               </span>
@@ -294,59 +291,54 @@ export default function RetentionPredictor() {
             </div>
 
             {/* Resultado Numérico Central */}
-            <div className="py-6 text-center">
+            <div className="py-4 text-center">
               <div className="inline-flex items-baseline gap-2">
-                <span className="text-6xl font-black tracking-tight text-white drop-shadow-sm">
+                <span className="text-6xl font-black tracking-tight text-slate-900">
                   {prediction ? prediction.retention_months.toFixed(1) : '--'}
                 </span>
-                <span className="text-lg font-bold text-emerald-400">meses</span>
+                <span className="text-lg font-bold text-emerald-600">meses</span>
               </div>
-              <p className="text-xs font-semibold text-slate-300 mt-1">
+              <p className="text-xs font-semibold text-slate-500 mt-1">
                 {prediction?.risk_category}
               </p>
             </div>
 
             {/* Cascada de Desglose de Factores */}
             {prediction && (
-              <div className="space-y-2.5 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 mb-6">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <div className="space-y-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
                   Desglose de la Ecuación Predictiva
                 </h3>
 
-                {/* Base */}
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400">Permanencia Base del Mercado</span>
-                  <span className="font-bold text-slate-300">+{prediction.base_months.toFixed(1)} meses</span>
+                  <span className="text-slate-600">Permanencia Base del Mercado</span>
+                  <span className="font-bold text-slate-900">+{prediction.base_months.toFixed(1)} meses</span>
                 </div>
 
-                {/* Sueldo */}
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400">Impacto Salarial (${sueldo}/sem)</span>
-                  <span className={`font-bold ${prediction.sueldo_impact >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <span className="text-slate-600">Impacto Salarial (${sueldo}/sem)</span>
+                  <span className={`font-bold ${prediction.sueldo_impact >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {prediction.sueldo_impact >= 0 ? `+${prediction.sueldo_impact.toFixed(2)}` : prediction.sueldo_impact.toFixed(2)} meses
                   </span>
                 </div>
 
-                {/* Traslado */}
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400">Distancia ({tiempoTraslado} min)</span>
-                  <span className={`font-bold ${prediction.traslado_impact < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                  <span className="text-slate-600">Distancia ({tiempoTraslado} min)</span>
+                  <span className={`font-bold ${prediction.traslado_impact < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
                     {prediction.traslado_impact.toFixed(2)} meses
                   </span>
                 </div>
 
-                {/* Turnos */}
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400">Turnos Fijos</span>
-                  <span className={`font-bold ${turnosFijos ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className="text-slate-600">Turnos Fijos</span>
+                  <span className={`font-bold ${turnosFijos ? 'text-emerald-600' : 'text-slate-400'}`}>
                     {turnosFijos ? `+${prediction.turnos_impact.toFixed(1)} meses` : '0.0 meses'}
                   </span>
                 </div>
 
-                {/* INEA */}
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400">Programa Aula / Horarios INEA</span>
-                  <span className={`font-bold ${apoyoInea ? 'text-purple-400' : 'text-slate-500'}`}>
+                  <span className="text-slate-600">Programa Aula / Horarios INEA</span>
+                  <span className={`font-bold ${apoyoInea ? 'text-purple-600' : 'text-slate-400'}`}>
                     {apoyoInea ? `+${prediction.inea_impact.toFixed(1)} meses` : '0.0 meses'}
                   </span>
                 </div>
@@ -355,14 +347,14 @@ export default function RetentionPredictor() {
 
             {/* Recomendaciones Tácticas para el Reclutador */}
             <div className="space-y-2">
-              <h3 className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+              <h3 className="text-xs font-bold text-amber-600 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 Recomendaciones Tácticas para RRHH:
               </h3>
               <div className="space-y-1.5">
                 {prediction?.recommendations.map((rec, i) => (
-                  <div key={i} className="text-xs text-slate-300 bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/40 flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">•</span>
+                  <div key={i} className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-start gap-2">
+                    <span className="text-emerald-600 font-bold">•</span>
                     <span>{rec}</span>
                   </div>
                 ))}

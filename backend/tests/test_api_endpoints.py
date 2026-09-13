@@ -92,13 +92,49 @@ def test_google_profile_sync():
     assert data["status"] == "success"
     assert data["nombre"] == "Rogelio Valdez"
     assert data["email"] == "rogelio@chambachat.com"
-    assert data["tag_inea"] is True
-
 def test_admin_prompts():
     res = client.get("/api/v1/admin/prompts")
     assert res.status_code == 200
     prompts = res.json()
     assert len(prompts) >= 5
+
+def test_applications_and_recruiter_chat():
+    # 1. Obtener primera vacante
+    jobs = client.get("/api/v1/jobs").json()
+    job_id = jobs[0]["id"]
+
+    # 2. Postularse
+    apply_payload = {
+        "job_id": job_id,
+        "session_id": "test_sess_999",
+        "candidate_name": "Rogelio Valdez",
+        "candidate_email": "rogelio@chambachat.com",
+        "candidate_phone": "81-1234-5678",
+        "municipio": "Apodaca"
+    }
+    apply_res = client.post("/api/v1/applications/apply", json=apply_payload)
+    assert apply_res.status_code == 200
+    app_data = apply_res.json()
+    assert app_data["candidate_name"] == "Rogelio Valdez"
+    assert len(app_data["messages"]) >= 1
+
+    # 3. Enviar mensaje de reclutador
+    app_id = app_data["id"]
+    msg_payload = {
+        "sender_type": "recruiter",
+        "sender_name": "Reclutador Whirlpool",
+        "mensaje": "Hola Rogelio, ¿cuándo podrías venir a entrevista presencial?"
+    }
+    msg_res = client.post(f"/api/v1/applications/{app_id}/messages", json=msg_payload)
+    assert msg_res.status_code == 200
+    assert msg_res.json()["mensaje"] == "Hola Rogelio, ¿cuándo podrías venir a entrevista presencial?"
+
+    # 4. Obtener mensajes por session_id del candidato
+    sess_res = client.get("/api/v1/applications/by-session/test_sess_999")
+    assert sess_res.status_code == 200
+    sess_apps = sess_res.json()
+    assert len(sess_apps) >= 1
+    assert any(m["sender_type"] == "recruiter" for m in sess_apps[0]["messages"])
 
 if __name__ == "__main__":
     test_health()
@@ -109,4 +145,5 @@ if __name__ == "__main__":
     test_chat_flow_and_jobs()
     test_google_profile_sync()
     test_admin_prompts()
-    print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE (8/8) <<<")
+    test_applications_and_recruiter_chat()
+    print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE (9/9) <<<")

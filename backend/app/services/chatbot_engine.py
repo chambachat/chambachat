@@ -31,10 +31,13 @@ async def process_chat_message(
     db: Session,
     session_id: str = None,
     user_message: str = None,
-    selected_option: str = None
+    selected_option: str = None,
+    user_name: str = None,
+    user_phone: str = None,
+    user_email: str = None
 ) -> Dict[str, Any]:
     """
-    Motor conversacional híbrido con DeepSeek AI que mantiene el contexto de puesto y ubicación sin INEA.
+    Motor conversacional híbrido con DeepSeek AI que mantiene el contexto de puesto, usuario y ubicación.
     """
     if not session_id:
         session_id = f"session_{uuid.uuid4().hex[:12]}"
@@ -59,6 +62,13 @@ async def process_chat_message(
             db.commit()
 
     data = json.loads(chat_session.collected_data or "{}")
+    if user_name:
+        data["nombre"] = user_name
+    if user_phone:
+        data["telefono"] = user_phone
+    if user_email:
+        data["email"] = user_email
+
     input_text = (selected_option or user_message or "").strip()
     
     bot_messages = []
@@ -73,6 +83,8 @@ async def process_chat_message(
     if not input_text:
         # Mensaje de bienvenida inicial
         welcome_text = get_prompt_text(db, "welcome")
+        if data.get("nombre"):
+            welcome_text = f"¡Qué onda, {data['nombre']}! 🤠 Bienvenido a Chambachat. ¿Qué tipo de vacante estás buscando hoy?"
         bot_messages.append(welcome_text)
         options = [
             {"label": "🚜 Montacarguista", "value": "Busco vacantes de montacarguista"},

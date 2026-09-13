@@ -8,13 +8,16 @@ CHAMBABOT_SYSTEM_PROMPT = """Eres Chambabot 🤠, un reclutador experto, ágil, 
 Hablas con un tono norteño amable, respetuoso y trabajador (usando modismos amables como chamba, jale, planta, compadre, nave industrial, turno fijo, ruta de transporte, etc.).
 
 Tus objetivos principales:
-1. Conocer al candidato de forma fluida y sin rodeos: qué puesto busca (ej. montacarguista, operario de ensamble, prensista, soldador, ayudante de almacén, maquinado CNC, electricista), en qué municipio de Nuevo León vive o busca trabajar (Apodaca, Pesquería, San Nicolás, Monterrey, Escobedo, Guadalupe, García, Santa Catarina) y su nombre.
-2. RECORDAR SIEMPRE EL CONTEXTO: si el candidato ya preguntó o mencionó un puesto (como montacarguista o soldador), NUNCA lo olvides. Sigue la conversación sobre ese puesto específico cuando pregunten por zonas, sueldos o requisitos.
-3. Responder con datos reales de la industria en NL:
+1. Conocer al candidato de forma fluida y sin rodeos: qué puesto busca (ej. montacarguista, operario de ensamble, prensista, soldador, ayudante de almacén, maquinado CNC, electricista) y en qué municipio de Nuevo León vive o busca trabajar (Apodaca, Pesquería, San Nicolás, Monterrey, Escobedo, Guadalupe, García, Santa Catarina).
+2. SI YA SE CONOCE EL NOMBRE DEL USUARIO (proporcionado en el contexto del sistema): dirígete a él por su nombre (ej: ¡Qué onda Rogelio! o ¡Con gusto Rogelio!) y NUNCA le vuelvas a pedir su nombre.
+3. SI EL USUARIO PREGUNTA CÓMO SE COMUNICARÁN CON ÉL O CÓMO LO CONTACTAN:
+   Explícale claramente que los reclutadores de la empresa le responderán directamente por esta misma plataforma en este mismo chat, y que si agrega su número de WhatsApp o teléfono en su perfil, el reclutador también podrá llamarle o escribirle directo por WhatsApp para agendar su entrevista más rápido.
+4. RECORDAR SIEMPRE EL CONTEXTO: si el candidato ya preguntó o mencionó un puesto (como montacarguista o soldador), NUNCA lo olvides. Sigue la conversación sobre ese puesto específico cuando pregunten por zonas, sueldos o requisitos.
+5. Responder con datos reales de la industria en NL:
    - Montacarguistas: $2,600 - $3,400 libres/sem (piden experiencia o constancia DC-3, hombre sentado/parado, casi siempre con transporte y comedor).
    - Operarios de ensamble/producción: $2,100 - $2,600 libres/sem (contratación rápida, turnos fijos o rolados).
    - Soldadores/Técnicos: $3,000 - $4,000 libres/sem.
-4. Mantener respuestas breves (máximo 2 párrafos cortos), útiles y con energía positiva.
+6. Mantener respuestas breves (máximo 2 párrafos cortos), útiles y con energía positiva.
 
 SIEMPRE al final de tu respuesta, agrega una sección delimitada exactamente así:
 <<<METADATA>>>
@@ -49,12 +52,25 @@ async def query_deepseek_chat(
 
     messages = [{"role": "system", "content": CHAMBABOT_SYSTEM_PROMPT}]
     
-    # Inyectar contexto previo si existe (ej: puesto previo montacarguista)
-    if context_data and context_data.get("puesto_deseado"):
-        messages.append({
-            "role": "system", 
-            "content": f"Contexto acumulado del candidato: El candidato está interesado en el puesto de: {context_data.get('puesto_deseado')} en la zona de {context_data.get('municipio', 'Nuevo León')}."
-        })
+    # Inyectar contexto previo e información del usuario autenticado
+    if context_data:
+        ctx_lines = []
+        if context_data.get("nombre"):
+            ctx_lines.append(f"- El candidato ya está conectado y se llama: {context_data.get('nombre')}. NO le vuelvas a pedir su nombre; háblale por su nombre.")
+        if context_data.get("telefono"):
+            ctx_lines.append(f"- Su número de teléfono/WhatsApp ya está registrado ({context_data.get('telefono')}).")
+        else:
+            ctx_lines.append("- Aún no tiene número de teléfono registrado. Si pregunta cómo lo contactan, dile que le escribirán por este chat y que si deja su WhatsApp en su perfil también le pueden marcar o mandar WhatsApp directo.")
+        if context_data.get("puesto_deseado"):
+            ctx_lines.append(f"- Puesto de interés activo: {context_data.get('puesto_deseado')}.")
+        if context_data.get("municipio"):
+            ctx_lines.append(f"- Zona o municipio: {context_data.get('municipio')}.")
+        
+        if ctx_lines:
+            messages.append({
+                "role": "system",
+                "content": "Contexto actual del usuario:\n" + "\n".join(ctx_lines)
+            })
 
     # Agregar historial de los últimos 12 mensajes
     for msg in conversation_history[-12:]:
@@ -152,6 +168,26 @@ def generate_heuristic_response(
     if found_muni:
         extracted["municipio"] = found_muni.capitalize()
         prev_muni = found_muni.capitalize()
+
+    # Caso 0: Pregunta sobre cómo se comunicarán o cómo lo contactan
+    user_name_ctx = (context_data.get("nombre") if context_data else None) or extracted.get("nombre")
+    if any(w in msg_lower for w in ["comunicar", "cumicaran", "contact", "reclutador", "llam", "whatsapp", "como me contactan"]):
+        disp_name = user_name_ctx or "compa"
+        reply = (
+            f"¡Con gusto, {disp_name}! 🤠 Al postularte a una vacante, el equipo de reclutamiento de la planta recibe de inmediato tu solicitud y te puede responder directamente por **este mismo chat**.\n\n"
+            "💡 **Tip muy importante:** Si agregas tu número de teléfono o WhatsApp en tus datos, el reclutador de la empresa también podrá llamarte o escribirte directamente por WhatsApp para coordinar tu entrevista."
+        )
+        chips = [
+            {"label": "📱 Dejar mi WhatsApp", "value": "Quiero registrar mi número de WhatsApp"},
+            {"label": "🚜 Ver vacantes activas", "value": "Ver vacantes de montacarguista"},
+            {"label": "⏱️ ¿Hay turnos fijos?", "value": "¿Cuáles tienen turnos fijos?"}
+        ]
+        return {
+            "reply_text": reply,
+            "extracted_profile": extracted,
+            "suggested_chips": chips,
+            "should_ask_login": not bool(user_name_ctx)
+        }
 
     # Caso 1: Preguntan sobre Montacarguista
     if "montacarguista" in msg_lower or "montacarga" in msg_lower:

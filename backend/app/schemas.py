@@ -29,6 +29,9 @@ class ChatMessageRequest(BaseModel):
     session_id: Optional[str] = None
     message: Optional[str] = None
     selected_option: Optional[str] = None
+    user_name: Optional[str] = None
+    user_phone: Optional[str] = None
+    user_email: Optional[str] = None
 
 class ChatOption(BaseModel):
     label: str
@@ -43,6 +46,51 @@ class ChatMessageResponse(BaseModel):
     completed: bool = False
     candidate_profile: Optional[Dict[str, Any]] = None
     should_ask_login: Optional[bool] = False
+
+# ==========================================
+# APPLICATION & RECRUITER MESSAGES SCHEMAS
+# ==========================================
+class ApplicationCreateRequest(BaseModel):
+    job_id: int
+    session_id: Optional[str] = None
+    candidate_name: str
+    candidate_email: Optional[str] = None
+    candidate_phone: Optional[str] = None
+    municipio: Optional[str] = "Apodaca"
+
+class MessageCreateRequest(BaseModel):
+    sender_type: str = "recruiter"  # 'recruiter' | 'candidate'
+    sender_name: str
+    mensaje: str
+
+class MessageResponse(BaseModel):
+    id: int
+    application_id: int
+    sender_type: str
+    sender_name: str
+    mensaje: str
+    leido: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ApplicationResponse(BaseModel):
+    id: int
+    job_id: int
+    session_id: Optional[str] = None
+    candidate_name: str
+    candidate_email: Optional[str] = None
+    candidate_phone: Optional[str] = None
+    municipio: Optional[str] = None
+    status: str
+    created_at: datetime
+    job_titulo: Optional[str] = None
+    empresa_nombre: Optional[str] = None
+    messages: List[MessageResponse] = []
+
+    class Config:
+        from_attributes = True
 
 # ==========================================
 # JOBS SCHEMAS
