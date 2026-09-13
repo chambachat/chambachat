@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import GeminiChatLayout from './components/Chat/GeminiChatLayout';
 import RetentionPredictor from './components/B2B/RetentionPredictor';
 import JobsManager from './components/B2B/JobsManager';
@@ -7,6 +7,7 @@ import AnalyticsDashboard from './components/B2B/AnalyticsDashboard';
 import CandidateApplications from './components/B2B/CandidateApplications';
 import FlowOrchestrator from './components/Admin/FlowOrchestrator';
 import UserProfileModal from './components/UserProfile/UserProfileModal';
+import AuthModal from './components/Auth/AuthModal';
 import { 
   ArrowLeft, 
   Building2, 
@@ -15,7 +16,8 @@ import {
   Users, 
   BarChart3, 
   Settings2,
-  MessageSquare
+  MessageSquare,
+  LogOut
 } from 'lucide-react';
 
 import { getStoredUser, signOut } from './services/supabaseClient';
@@ -26,9 +28,54 @@ export default function App() {
   const [empresaTab, setEmpresaTab] = useState('applications');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(getStoredUser());
+  
+  // Modal de autenticación protegido para Empresa o acciones restringidas
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authPrompt, setAuthPrompt] = useState({ title: '', message: '' });
+  const [pendingAction, setPendingAction] = useState(null);
 
   // Perfil de operario activo en la sesión
   const [activeProfile, setActiveProfile] = useState(null);
+
+  // Validación: Solo usuarios autenticados pueden acceder al portal de Empresa
+  const handleOpenEmpresa = () => {
+    const user = currentUser || getStoredUser();
+    if (!user) {
+      setAuthPrompt({
+        title: 'Acceso Restringido al Portal Empresa',
+        message: 'Debes iniciar sesión con Google o tu correo personal para acceder al Portal Empresa y gestionar vacantes de reclutamiento.'
+      });
+      setPendingAction(() => () => setCurrentView('empresa'));
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setCurrentView('empresa');
+  };
+
+  // Cerrar sesión global
+  const handleLogout = async () => {
+    await signOut();
+    setCurrentUser(null);
+    if (currentView === 'empresa') {
+      setCurrentView('chat');
+    }
+  };
+
+  // Guard: Si por algún motivo cambia a empresa sin estar autenticado, redirigir al chat
+  useEffect(() => {
+    if (currentView === 'empresa') {
+      const user = currentUser || getStoredUser();
+      if (!user) {
+        setCurrentView('chat');
+        setAuthPrompt({
+          title: 'Acceso Restringido al Portal Empresa',
+          message: 'Debes iniciar sesión con Google o tu correo personal para acceder al Portal Empresa y gestionar vacantes de reclutamiento.'
+        });
+        setPendingAction(() => () => setCurrentView('empresa'));
+        setIsAuthModalOpen(true);
+      }
+    }
+  }, [currentView, currentUser]);
 
   const b2bTabs = [
     { id: 'applications', label: 'Postulaciones & Chat', icon: MessageSquare },
@@ -43,9 +90,12 @@ export default function App() {
       {/* VISTA 1: CHAT PRINCIPAL MINIMALISTA (ChatGPT / Gemini Style) */}
       {currentView === 'chat' && (
         <GeminiChatLayout
-          onOpenEmpresa={() => setCurrentView('empresa')}
+          onOpenEmpresa={handleOpenEmpresa}
           onOpenPerfil={() => setIsProfileOpen(true)}
           onOpenAdmin={() => setCurrentView('admin')}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onUserAuthenticated={(user) => setCurrentUser(user)}
         />
       )}
 
@@ -75,27 +125,52 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Pestañas internas de Empresa */}
-              <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto max-w-full">
-                {b2bTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = empresaTab === tab.id;
-                  return (
+              {/* Pestañas internas de Empresa & Perfil con Logout */}
+              <div className="flex items-center gap-2 max-w-full overflow-x-auto">
+                <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto max-w-full">
+                  {b2bTabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = empresaTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setEmpresaTab(tab.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 ${
+                          isActive
+                            ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80 font-black'
+                            : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+
+                {/* Perfil y botón de Cerrar sesión en Portal Empresa */}
+                {currentUser && (
+                  <div className="flex items-center gap-2 pl-2 border-l border-slate-200 shrink-0">
+                    <img
+                      src={currentUser.avatar_url}
+                      alt={currentUser.name}
+                      className="w-7 h-7 rounded-full bg-slate-100 border border-emerald-300 object-cover"
+                    />
+                    <span className="text-xs font-bold text-slate-800 hidden lg:inline truncate max-w-[110px]">
+                      {currentUser.name}
+                    </span>
                     <button
-                      key={tab.id}
-                      onClick={() => setEmpresaTab(tab.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 ${
-                        isActive
-                          ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80 font-black'
-                          : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
-                      }`}
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 font-bold px-2.5 py-1.5 rounded-xl hover:bg-rose-50 border border-rose-200 transition shrink-0"
+                      title="Cerrar sesión"
                     >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{tab.label}</span>
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Cerrar sesión</span>
                     </button>
-                  );
-                })}
-              </nav>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -142,13 +217,39 @@ export default function App() {
         onClose={() => setIsProfileOpen(false)}
         candidateProfile={activeProfile}
         currentUser={currentUser}
-        onLogout={async () => {
-          await signOut();
-          setCurrentUser(null);
+        onLogout={handleLogout}
+        onOpenAuth={() => {
+          setIsProfileOpen(false);
+          setAuthPrompt({
+            title: 'Inicia Sesión o Regístrate',
+            message: 'Accede con Google o tu correo personal para guardar tu perfil y postulaciones.'
+          });
+          setIsAuthModalOpen(true);
         }}
         onReturnToChat={() => {
           setIsProfileOpen(false);
           setCurrentView('chat');
+        }}
+      />
+
+      {/* MODAL GLOBAL DE AUTENTICACIÓN (PROTECCIÓN DE ACCESO) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setAuthPrompt({ title: '', message: '' });
+          setPendingAction(null);
+        }}
+        promptTitle={authPrompt.title}
+        promptMessage={authPrompt.message}
+        onAuthenticated={(user) => {
+          setCurrentUser(user);
+          setIsAuthModalOpen(false);
+          setAuthPrompt({ title: '', message: '' });
+          if (pendingAction) {
+            pendingAction();
+            setPendingAction(null);
+          }
         }}
       />
     </div>

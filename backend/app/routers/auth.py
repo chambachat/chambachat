@@ -18,11 +18,30 @@ class GoogleProfileSyncRequest(BaseModel):
     municipio: Optional[str] = "Monterrey"
     nivel_educativo: Optional[str] = "Secundaria"
     tag_inea: Optional[bool] = False
+    telefono: Optional[str] = None
+
+class VerificationCodeRequest(BaseModel):
+    email: str
+
+@router.post("/send-verification-code")
+def send_verification_code(req: VerificationCodeRequest):
+    """
+    Envía / simula el envío del código de verificación de 4 dígitos al correo personal del usuario.
+    """
+    import random
+    code = f"{random.randint(1000, 9999)}"
+    # En producción se conecta a servicio SMTP/Resend/SendGrid
+    return {
+        "status": "sent",
+        "email": req.email,
+        "code": code,
+        "message": f"Código de confirmación enviado exitosamente a {req.email}"
+    }
 
 @router.post("/sync-google-profile")
 def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get_db)):
     """
-    Sincroniza o crea el perfil de operario en Supabase a partir de la autenticación con Google.
+    Sincroniza o crea el perfil de operario en Supabase a partir de la autenticación con Google o Correo Personal.
     """
     # Buscar si ya existe por nombre o teléfono/email
     coords = MUNICIPIOS_NL_COORDS.get((req.municipio or "monterrey").lower(), (25.6866, -100.3161))
@@ -31,7 +50,7 @@ def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get
     if not user:
         user = User(
             nombre=req.nombre,
-            telefono=None,
+            telefono=req.telefono,
             municipio=req.municipio or "Monterrey",
             nivel_educativo=req.nivel_educativo or "Secundaria",
             tag_inea=bool(req.tag_inea),
@@ -48,6 +67,8 @@ def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get
             user.tag_inea = True
         if req.municipio:
             user.municipio = req.municipio
+        if req.telefono:
+            user.telefono = req.telefono
         db.commit()
         db.refresh(user)
 
@@ -58,7 +79,9 @@ def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get
             data = json.loads(chat_sess.collected_data or "{}")
             data["user_id"] = user.id
             data["email"] = req.email
-            data["google_logged_in"] = True
+            if req.telefono:
+                data["telefono"] = req.telefono
+            data["logged_in"] = True
             chat_sess.collected_data = json.dumps(data)
             db.commit()
 
@@ -67,6 +90,7 @@ def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get
         "user_id": user.id,
         "nombre": user.nombre,
         "email": req.email,
+        "telefono": user.telefono,
         "municipio": user.municipio,
         "nivel_educativo": user.nivel_educativo,
         "tag_inea": user.tag_inea,

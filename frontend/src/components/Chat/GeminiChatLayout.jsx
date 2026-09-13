@@ -41,7 +41,14 @@ import {
 } from '../../services/supabaseClient';
 import AuthModal from '../Auth/AuthModal';
 
-export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAdmin }) {
+export default function GeminiChatLayout({ 
+  onOpenEmpresa, 
+  onOpenPerfil, 
+  onOpenAdmin,
+  currentUser: propCurrentUser,
+  onLogout: propOnLogout,
+  onUserAuthenticated: propOnUserAuthenticated
+}) {
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(() => 
@@ -50,7 +57,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [options, setOptions] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(propCurrentUser || getStoredUser());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showVacancies, setShowVacancies] = useState(true);
   const [appliedJobIds, setAppliedJobIds] = useState(new Set());
@@ -67,8 +74,14 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
   }, [activeSession?.messages, isTyping]);
 
   useEffect(() => {
+    if (propCurrentUser !== undefined) {
+      setCurrentUser(propCurrentUser);
+    }
+  }, [propCurrentUser]);
+
+  useEffect(() => {
     const user = getStoredUser();
-    setCurrentUser(user);
+    if (user && !propCurrentUser) setCurrentUser(user);
 
     const loaded = loadAllSessions();
 
@@ -254,8 +267,11 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
   const handleUserAuthenticated = async (user) => {
     if (!user) return;
     setCurrentUser(user);
+    if (propOnUserAuthenticated) propOnUserAuthenticated(user);
+
     const displayName = user.name || 'Compa';
     const displayEmail = user.email || 'tu cuenta';
+    const methodStr = user.provider === 'email' ? 'tu correo personal' : 'Google';
 
     await syncUserWithBackend(user, {
       sessionId: activeSession?.backendSessionId,
@@ -266,7 +282,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     const confirmMsg = {
       id: Math.random().toString(),
       sender: 'bot',
-      text: `¡Qué onda, ${displayName}! 🤠 Ya vinculamos tu cuenta (${displayEmail}). Tus datos y vacantes afines quedaron guardados con éxito. Ahora te avisaremos directo cuando salgan nuevas chambas cerca de tu zona.`,
+      text: `¡Qué onda, ${displayName}! 🤠 Ya vinculamos tu cuenta con ${methodStr} (${displayEmail}). Tus datos y vacantes afines quedaron guardados con éxito. Ahora te avisaremos directo cuando salgan nuevas chambas cerca de tu zona.`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
@@ -283,6 +299,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
   const handleLogout = async () => {
     await signOut();
     setCurrentUser(null);
+    if (propOnLogout) propOnLogout();
   };
 
   // Enviar mensaje al bot
@@ -476,38 +493,42 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
         {/* Footer Sidebar: Perfil & Accesos */}
         <div className="p-3 border-t border-slate-200 bg-white/70 space-y-2 shrink-0">
           {currentUser ? (
-            <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-200/60 flex items-center justify-between">
-              <div className="flex items-center gap-2.5 truncate">
+            <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col gap-2">
+              <div 
+                onClick={onOpenPerfil}
+                className="flex items-center gap-2.5 truncate min-w-0 cursor-pointer hover:opacity-85 transition"
+                title="Ver mi perfil"
+              >
                 <img
                   src={currentUser.avatar_url}
                   alt={currentUser.name}
-                  className="w-8 h-8 rounded-full bg-slate-200 border border-emerald-300 shrink-0"
+                  className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-300 shrink-0 object-cover"
                 />
-                <div className="truncate">
+                <div className="truncate min-w-0">
                   <span className="text-xs font-bold text-slate-900 block truncate">{currentUser.name}</span>
-                  <span className="text-[10px] text-emerald-700 block truncate">{currentUser.email}</span>
+                  <span className="text-[10px] text-slate-500 block truncate">{currentUser.email}</span>
                 </div>
               </div>
+
+              {/* Botón explícito para cerrar sesión */}
               <button
+                type="button"
                 onClick={handleLogout}
-                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition shrink-0"
-                title="Cerrar sesión"
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-bold border border-rose-200 shadow-xs transition group"
+                title="Cerrar sesión activa"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                <span>Cerrar sesión</span>
               </button>
             </div>
           ) : (
             <button
+              type="button"
               onClick={() => setIsAuthModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-sm transition"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-slate-200 shadow-xs transition"
             >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
-                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-              </svg>
-              <span>Acceder con Google</span>
+              <User className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Iniciar sesión / Registrarse</span>
             </button>
           )}
 
@@ -587,28 +608,37 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
           <div className="flex items-center gap-2 shrink-0">
             {!currentUser ? (
               <button
+                type="button"
                 onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm transition shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition shrink-0"
               >
-                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
-                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-                </svg>
-                <span>Acceder con Google</span>
+                <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Iniciar sesión</span>
               </button>
             ) : (
-              <div
-                onClick={onOpenPerfil}
-                className="flex items-center gap-2 cursor-pointer p-1 pr-2 rounded-full hover:bg-slate-100 transition shrink-0"
-              >
-                <img
-                  src={currentUser.avatar_url}
-                  alt={currentUser.name}
-                  className="w-7 h-7 rounded-full bg-slate-200 border border-emerald-400"
-                />
-                <span className="text-xs font-bold text-slate-800 hidden sm:inline">{currentUser.name}</span>
+              <div className="flex items-center gap-1.5">
+                <div
+                  onClick={onOpenPerfil}
+                  className="flex items-center gap-2 cursor-pointer p-1 pr-2 rounded-full hover:bg-slate-100 transition shrink-0"
+                  title="Ver mi perfil"
+                >
+                  <img
+                    src={currentUser.avatar_url}
+                    alt={currentUser.name}
+                    className="w-7 h-7 rounded-full bg-slate-200 border border-emerald-400 object-cover"
+                  />
+                  <span className="text-xs font-bold text-slate-800 hidden sm:inline truncate max-w-[120px]">
+                    {currentUser.name}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition shrink-0"
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
               </div>
             )}
           </div>
@@ -736,16 +766,12 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                       Vincula tu cuenta para guardar tu municipio, ver las mejores vacantes y recibir avisos de contratación.
                     </p>
                     <button
+                      type="button"
                       onClick={() => setIsAuthModalOpen(true)}
-                      className="flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-slate-300 shadow-sm transition"
+                      className="flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-slate-300 shadow-xs transition"
                     >
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
-                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-                      </svg>
-                      <span>Guardar con Google</span>
+                      <User className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Conectar Cuenta (Google o Correo)</span>
                     </button>
                   </div>
                 </div>

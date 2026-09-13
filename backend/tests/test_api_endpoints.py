@@ -84,7 +84,8 @@ def test_google_profile_sync():
         "google_id": "google_123456",
         "municipio": "Apodaca",
         "nivel_educativo": "Secundaria",
-        "tag_inea": True
+        "tag_inea": True,
+        "telefono": "81-1234-5678"
     }
     res = client.post("/api/v1/auth/sync-google-profile", json=payload)
     assert res.status_code == 200
@@ -92,6 +93,15 @@ def test_google_profile_sync():
     assert data["status"] == "success"
     assert data["nombre"] == "Rogelio Valdez"
     assert data["email"] == "rogelio@chambachat.com"
+    assert data["telefono"] == "81-1234-5678"
+
+def test_send_verification_code():
+    res = client.post("/api/v1/auth/send-verification-code", json={"email": "usuario@correo.com"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "sent"
+    assert "code" in data
+    assert len(data["code"]) == 4
 def test_admin_prompts():
     res = client.get("/api/v1/admin/prompts")
     assert res.status_code == 200
