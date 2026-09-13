@@ -25,6 +25,19 @@ from app.services.email_service import send_real_verification_email
 class VerificationCodeRequest(BaseModel):
     email: str
 
+@router.get("/email-status")
+def get_email_status():
+    import os
+    resend_key = os.getenv("RESEND_API_KEY")
+    resend_from = os.getenv("RESEND_FROM")
+    smtp_user = os.getenv("SMTP_USER")
+    return {
+        "resend_key_set": bool(resend_key),
+        "resend_key_prefix": (resend_key[:6] + "...") if resend_key and len(resend_key) > 6 else None,
+        "resend_from": resend_from or "Chambachat <onboarding@resend.dev>",
+        "smtp_configured": bool(smtp_user and os.getenv("SMTP_PASSWORD"))
+    }
+
 @router.post("/send-verification-code")
 def send_verification_code(req: VerificationCodeRequest):
     """
