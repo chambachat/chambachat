@@ -67,6 +67,7 @@ def send_real_verification_email(to_email: str, code: str) -> dict:
     """
 
     # 1. Intentar con Resend API
+    resend_error = None
     if resend_key:
         try:
             from_sender = os.getenv("RESEND_FROM", "Chambachat <onboarding@resend.dev>")
@@ -87,8 +88,10 @@ def send_real_verification_email(to_email: str, code: str) -> dict:
             if res.status_code in (200, 201):
                 return {"sent": True, "provider": "resend", "detail": res.json()}
             else:
+                resend_error = f"Resend HTTP {res.status_code}: {res.text}"
                 print(f"[Resend Error] {res.status_code}: {res.text}")
         except Exception as e:
+            resend_error = f"Resend Exception: {str(e)}"
             print(f"[Resend Exception]: {e}")
 
     # 2. Intentar con SMTP estándar (ej. Gmail, Brevo, Outlook, etc.)
@@ -110,4 +113,4 @@ def send_real_verification_email(to_email: str, code: str) -> dict:
             print(f"[SMTP Exception]: {e}")
             return {"sent": False, "error": str(e)}
 
-    return {"sent": False, "error": "SMTP_NOT_CONFIGURED"}
+    return {"sent": False, "error": resend_error or "SMTP_NOT_CONFIGURED"}
