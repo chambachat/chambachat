@@ -17,11 +17,14 @@ import {
   MessageSquare
 } from 'lucide-react';
 
+import { getStoredUser, signOut } from './services/supabaseClient';
+
 export default function App() {
   // 'chat' es la pantalla principal por defecto (minimalista, tonos claros)
   const [currentView, setCurrentView] = useState('chat');
   const [empresaTab, setEmpresaTab] = useState('predictor');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(getStoredUser());
 
   // Perfil de operario activo en la sesión
   const [activeProfile, setActiveProfile] = useState(null);
@@ -135,6 +138,11 @@ export default function App() {
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         candidateProfile={activeProfile}
+        currentUser={currentUser}
+        onLogout={async () => {
+          await signOut();
+          setCurrentUser(null);
+        }}
         onReturnToChat={() => {
           setIsProfileOpen(false);
           setCurrentView('chat');

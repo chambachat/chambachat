@@ -42,6 +42,7 @@ class ChatMessageResponse(BaseModel):
     matched_jobs: List[Dict[str, Any]] = []
     completed: bool = False
     candidate_profile: Optional[Dict[str, Any]] = None
+    should_ask_login: Optional[bool] = False
 
 # ==========================================
 # JOBS SCHEMAS

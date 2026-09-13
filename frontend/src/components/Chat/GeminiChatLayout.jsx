@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Sparkles,
   Settings,
-  Share2
+  LogOut,
+  CheckCircle2
 } from 'lucide-react';
 import { 
   loadAllSessions, 
@@ -29,6 +30,12 @@ import {
   updateSession 
 } from '../../services/chatStorage';
 import { startChat, sendChatMessage } from '../../services/api';
+import { 
+  getStoredUser, 
+  signInWithGoogle, 
+  signOut, 
+  syncUserWithBackend 
+} from '../../services/supabaseClient';
 
 export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAdmin }) {
   const [sessions, setSessions] = useState([]);
@@ -37,6 +44,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [options, setOptions] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -49,8 +57,11 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     scrollToBottom();
   }, [activeSession?.messages, isTyping]);
 
-  // Cargar sesiones al montar
+  // Cargar usuario y sesiones al montar
   useEffect(() => {
+    const user = getStoredUser();
+    setCurrentUser(user);
+
     const loaded = loadAllSessions();
     if (loaded.length === 0) {
       const fresh = createNewSession();
@@ -99,7 +110,48 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     }
   };
 
-  // Enviar mensaje
+  // Login con Google
+  const handleGoogleLogin = async () => {
+    try {
+      const user = await signInWithGoogle();
+      if (user) {
+        setCurrentUser(user);
+        // Sincronizar datos con el backend en Supabase
+        await syncUserWithBackend(user, {
+          sessionId: activeSession?.backendSessionId,
+          municipio: activeSession?.candidateProfile?.municipio || 'Apodaca',
+          nivel_educativo: activeSession?.candidateProfile?.nivel_educativo || 'Secundaria',
+          tag_inea: activeSession?.candidateProfile?.tag_inea || false
+        });
+
+        // Mensaje del bot confirmando el guardado
+        const confirmMsg = {
+          id: Math.random().toString(),
+          sender: 'bot',
+          text: `¡Qué onda, ${user.name}! 🤠 Ya vinculamos tu cuenta de Google (${user.email}). Tus datos y vacantes afines quedaron guardados en Supabase. Ahora te avisaremos directo cuando salgan nuevas chambas cerca de tu zona.`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        const finalMsgs = [...(activeSession?.messages || []), confirmMsg];
+        const updated = {
+          ...activeSession,
+          messages: finalMsgs,
+          shouldAskLogin: false
+        };
+        setActiveSession(updated);
+        updateSession(activeSession.id, { messages: finalMsgs, shouldAskLogin: false });
+      }
+    } catch (e) {
+      console.error('Error logging in with Google:', e);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    setCurrentUser(null);
+  };
+
+  // Enviar mensaje al bot
   const handleSendMessage = async (textToSend, optionVal = null) => {
     const text = textToSend || inputMessage;
     if (!text && !optionVal) return;
@@ -117,7 +169,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    // Actualizar sesión con mensaje del usuario
     const newMessages = [...(activeSession.messages || []), userMsg];
     let newTitle = activeSession.title;
     if (activeSession.messages.length === 0) {
@@ -139,7 +190,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     setIsTyping(true);
 
     try {
-      // Si la sesión no tiene backendSessionId, iniciamos una o usamos el backend
       let res;
       if (!activeSession.backendSessionId && activeSession.messages.length === 0) {
         const startRes = await startChat();
@@ -152,7 +202,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
         selectedOption: optionVal
       });
 
-      // Asegurar guardar backendSessionId
       if (res.session_id) {
         activeSession.backendSessionId = res.session_id;
       }
@@ -170,9 +219,10 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
         const finalSession = {
           ...activeSession,
           messages: finalMessages,
-          matchedJobs: res.matched_jobs || activeSession.matchedJobs || [],
+          matchedJobs: res.matched_jobs?.length ? res.matched_jobs : activeSession.matchedJobs || [],
           candidateProfile: res.candidate_profile || activeSession.candidateProfile || null,
-          backendSessionId: res.session_id || activeSession.backendSessionId
+          backendSessionId: res.session_id || activeSession.backendSessionId,
+          shouldAskLogin: res.should_ask_login && !currentUser
         };
 
         setActiveSession(finalSession);
@@ -180,7 +230,8 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
           messages: finalMessages,
           matchedJobs: finalSession.matchedJobs,
           candidateProfile: finalSession.candidateProfile,
-          backendSessionId: finalSession.backendSessionId
+          backendSessionId: finalSession.backendSessionId,
+          shouldAskLogin: finalSession.shouldAskLogin
         });
         setSessions(loadAllSessions());
         setOptions(res.options || []);
@@ -189,51 +240,35 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     } catch (err) {
       console.error('Error enviando mensaje al bot:', err);
       setIsTyping(false);
-      // Respuesta de fallback
-      const fallbackMsg = {
-        id: Math.random().toString(),
-        sender: 'bot',
-        text: '¡Entendido! Déjame buscarte las mejores vacantes operativas de Nuevo León cerca de tu zona. ¿En qué municipio te gustaría laborar?',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      const finalMessages = [...newMessages, fallbackMsg];
-      setActiveSession({ ...activeSession, messages: finalMessages });
-      updateSession(activeSession.id, { messages: finalMessages });
-      setOptions([
-        { label: 'Apodaca', value: 'Apodaca' },
-        { label: 'Pesquería', value: 'Pesquería' },
-        { label: 'San Nicolás', value: 'San Nicolás' },
-        { label: 'Monterrey', value: 'Monterrey' }
-      ]);
     }
   };
 
   const starterPrompts = [
     {
       title: '🏭 Buscar jale en Apodaca',
-      subtitle: 'Vacantes de operario de ensamble y prensas',
-      prompt: 'Hola, busco vacantes de operario en Apodaca con transporte'
+      subtitle: 'Vacantes de ensamble y prensas en parques industriales',
+      prompt: 'Hola, busco vacantes de operario en Apodaca con ruta de transporte'
     },
     {
-      title: '🎓 Terminar estudios con INEA',
-      subtitle: 'Trabaja y saca tu certificado oficial',
-      prompt: 'Quiero información sobre vacantes con apoyo para certificar primaria o secundaria con el INEA'
+      title: '🎓 Terminar secundaria con INEA',
+      subtitle: 'Trabaja y saca tu certificado oficial con apoyo de la planta',
+      prompt: 'No terminé la secundaria, ¿cómo me ayuda Chambachat con el INEA mientras trabajo?'
     },
     {
-      title: '⏱️ Turnos Fijos sin Rotar',
-      subtitle: 'Mayor estabilidad y mejor descanso',
+      title: '⏱️ Turnos Fijos sin Rolar',
+      subtitle: 'Mayor descanso y estabilidad familiar',
       prompt: 'Busco puestos operativos que ofrezcan turnos fijos'
     },
     {
       title: '💰 Sueldos mayores a $2,500/sem',
-      subtitle: 'Puestos de soldadura o maquinado CNC',
+      subtitle: 'Puestos de soldadura, inyección o maquinado CNC',
       prompt: '¿Cuáles son las vacantes con sueldo superior a $2,500 semanales?'
     }
   ];
 
   return (
     <div className="flex h-screen bg-[#fcfdfd] text-slate-800 font-sans overflow-hidden">
-      {/* SIDEBAR IZQUIERDA (Estilo ChatGPT / Gemini) */}
+      {/* SIDEBAR IZQUIERDA (Historial) */}
       <aside
         className={`fixed md:static inset-y-0 left-0 z-40 w-72 bg-[#f9fafb] border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:w-0 md:border-none'
@@ -290,11 +325,48 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
           })}
         </div>
 
-        {/* Footer Sidebar: Accesos Directos a Empresa y Perfil */}
-        <div className="p-3 border-t border-slate-200 bg-white/70 space-y-1">
+        {/* Footer Sidebar: Perfil de Google & Accesos */}
+        <div className="p-3 border-t border-slate-200 bg-white/70 space-y-2">
+          {/* Card de Usuario Logueado o Botón de Google */}
+          {currentUser ? (
+            <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-200/60 flex items-center justify-between">
+              <div className="flex items-center gap-2.5 truncate">
+                <img
+                  src={currentUser.avatar_url}
+                  alt={currentUser.name}
+                  className="w-8 h-8 rounded-full bg-slate-200 border border-emerald-300 shrink-0"
+                />
+                <div className="truncate">
+                  <span className="text-xs font-bold text-slate-900 block truncate">{currentUser.name}</span>
+                  <span className="text-[10px] text-emerald-700 block truncate">{currentUser.email}</span>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-sm transition"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
+                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+              </svg>
+              <span>Acceder con Google</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenEmpresa}
-            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 transition border border-transparent hover:border-emerald-200"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 transition border border-transparent hover:border-emerald-200"
           >
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
@@ -310,14 +382,14 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
 
           <button
             onClick={onOpenPerfil}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition"
+            className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
           >
             <div className="flex items-center gap-2.5">
-              <User className="w-4 h-4 text-slate-500" />
-              <span>Mi Perfil de Operario</span>
+              <User className="w-3.5 h-3.5 text-slate-500" />
+              <span>Mi Perfil Guardado</span>
             </div>
             {activeSession?.candidateProfile?.tag_inea && (
-              <span className="text-[10px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.2 rounded">
+              <span className="text-[9px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.2 rounded">
                 INEA
               </span>
             )}
@@ -325,10 +397,10 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
 
           <button
             onClick={onOpenAdmin}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+            className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-400 hover:text-slate-600 transition"
           >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Admin Flujos (Prompts)</span>
+            <Settings className="w-3 h-3" />
+            <span className="text-[11px]">Admin Flujos</span>
           </button>
         </div>
       </aside>
@@ -341,9 +413,9 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
         />
       )}
 
-      {/* ÁREA PRINCIPAL DE CHAT (Luz / Minimalista) */}
+      {/* ÁREA PRINCIPAL DE CHAT */}
       <main className="flex-1 flex flex-col h-full bg-white relative">
-        {/* Top Navbar Minimalista */}
+        {/* Top Navbar */}
         <header className="h-14 border-b border-slate-100 px-4 flex items-center justify-between bg-white/95 backdrop-blur z-10">
           <div className="flex items-center gap-3">
             <button
@@ -359,12 +431,39 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                 Chamba<span className="text-emerald-600">chat</span>
               </span>
               <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-                Nuevo León 🤠
+                IA DeepSeek · NL 🤠
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {!currentUser ? (
+              <button
+                onClick={handleGoogleLogin}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm transition"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                </svg>
+                <span>Acceder con Google</span>
+              </button>
+            ) : (
+              <div
+                onClick={onOpenPerfil}
+                className="flex items-center gap-2 cursor-pointer p-1 pr-2 rounded-full hover:bg-slate-100 transition"
+              >
+                <img
+                  src={currentUser.avatar_url}
+                  alt={currentUser.name}
+                  className="w-7 h-7 rounded-full bg-slate-200 border border-emerald-400"
+                />
+                <span className="text-xs font-bold text-slate-800 hidden sm:inline">{currentUser.name}</span>
+              </div>
+            )}
+
             <button
               onClick={onOpenEmpresa}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
@@ -375,10 +474,10 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
           </div>
         </header>
 
-        {/* Contenedor de Mensajes */}
+        {/* Mensajes del Chat */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 max-w-3xl mx-auto w-full">
           {(!activeSession?.messages || activeSession.messages.length === 0) ? (
-            /* Empty State: Gemini / ChatGPT Style */
+            /* Pantalla inicial vacía */
             <div className="py-12 sm:py-16 text-center space-y-8 animate-fadeIn">
               <div className="inline-flex p-4 rounded-3xl bg-emerald-50 text-3xl shadow-sm border border-emerald-100">
                 🤠
@@ -388,11 +487,11 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                   ¡Qué onda! ¿En qué te ayudo hoy a jalar?
                 </h1>
                 <p className="text-sm text-slate-500 max-w-md mx-auto">
-                  Pregúntame sobre vacantes de manufactura en Monterrey, turnos fijos, transporte o cómo terminar tus estudios con el INEA mientras trabajas.
+                  Asistente inteligente con DeepSeek para encontrar empleo en manufactura y certificar tus estudios con el INEA en Nuevo León.
                 </p>
               </div>
 
-              {/* Tarjetas de Sugerencias Rápidas */}
+              {/* Tarjetas de Sugerencias */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left pt-4">
                 {starterPrompts.map((item, idx) => (
                   <button
@@ -411,7 +510,6 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
               </div>
             </div>
           ) : (
-            /* Lista de Mensajes */
             <div className="space-y-6">
               {activeSession.messages.map((msg) => (
                 <div
@@ -424,7 +522,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                     </div>
                   )}
 
-                  <div className={`space-y-2 max-w-[82%]`}>
+                  <div className="space-y-2 max-w-[82%]">
                     <div
                       className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
                         msg.sender === 'user'
@@ -432,15 +530,14 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                           : 'bg-slate-50 text-slate-800 rounded-tl-none border border-slate-200/80'
                       }`}
                     >
-                      {/* Destacar mensaje especial de INEA si aplica */}
                       {msg.text.includes('INEA') && msg.sender === 'bot' && (
                         <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 bg-purple-100 px-2.5 py-1 rounded-lg mb-2 w-fit">
                           <GraduationCap className="w-4 h-4 text-purple-600" />
-                          Programa de Acreditación Oficial INEA
+                          Acreditación Oficial INEA
                         </div>
                       )}
                       <p className="whitespace-pre-wrap">{msg.text}</p>
-                      <span className={`text-[10px] block text-right mt-1 ${msg.sender === 'user' ? 'text-slate-400' : 'text-slate-400'}`}>
+                      <span className="text-[10px] block text-right mt-1 text-slate-400">
                         {msg.time}
                       </span>
                     </div>
@@ -448,7 +545,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                 </div>
               ))}
 
-              {/* Indicador de escribiendo */}
+              {/* Bot escribiendo */}
               {isTyping && (
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm text-white font-bold">
@@ -462,7 +559,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                 </div>
               )}
 
-              {/* Chips de Respuestas Rápidas */}
+              {/* Botones de sugerencias rápidas (Chips dinámicos) */}
               {options.length > 0 && (
                 <div className="pl-11 pt-1 space-y-1.5">
                   <div className="flex flex-wrap gap-2">
@@ -471,7 +568,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                         key={i}
                         onClick={() => handleSendMessage(null, opt.value)}
                         className={`text-xs font-semibold px-3.5 py-2 rounded-xl transition border shadow-sm ${
-                          opt.value === 'SI_INEA'
+                          opt.value.toLowerCase().includes('inea')
                             ? 'bg-purple-600 hover:bg-purple-700 text-white border-purple-600 animate-pulse font-bold'
                             : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 hover:border-emerald-500'
                         }`}
@@ -483,12 +580,39 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                 </div>
               )}
 
+              {/* IN-CHAT NUDGE: Tarjeta de Login con Google si no está logueado */}
+              {(!currentUser && activeSession?.shouldAskLogin) && (
+                <div className="pl-11 py-2 animate-fadeIn">
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90 shadow-sm max-w-md space-y-2.5">
+                    <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Guarda tu perfil con Google en 1 clic</span>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Vincula tu cuenta para guardar tu municipio, postulaciones a plantas y tu seguimiento de certificación con el INEA.
+                    </p>
+                    <button
+                      onClick={handleGoogleLogin}
+                      className="flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-slate-300 shadow-sm transition"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
+                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                      </svg>
+                      <span>Continuar con Google</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Vacantes Afines Desplegadas en el Chat */}
-              {activeSession.matchedJobs && activeSession.matchedJobs.length > 0 && (
-                <div className="pl-11 pt-4 space-y-3">
+              {activeSession?.matchedJobs && activeSession.matchedJobs.length > 0 && (
+                <div className="pl-11 pt-3 space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
                     <Sparkles className="w-4 h-4 text-emerald-600" />
-                    <span>Vacantes Recomendadas para ti en Nuevo León</span>
+                    <span>Vacantes Recomendadas en Nuevo León</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -531,8 +655,17 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                           )}
                         </div>
 
-                        <button className="w-full text-center py-1.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition">
-                          Postularme de Volada
+                        <button
+                          onClick={() => {
+                            if (!currentUser) {
+                              handleGoogleLogin();
+                            } else {
+                              alert(`¡Felicidades ${currentUser.name}! Tu postulación para ${job.titulo} en ${job.empresa_nombre} ha sido enviada exitosamente.`);
+                            }
+                          }}
+                          className="w-full text-center py-1.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition"
+                        >
+                          {currentUser ? 'Postularme de Volada' : 'Postularme con Google'}
                         </button>
                       </div>
                     ))}
@@ -545,7 +678,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
           )}
         </div>
 
-        {/* BARRA INFERIOR DE INPUT FLOTANTE (ChatGPT / Gemini Style) */}
+        {/* BARRA INFERIOR DE INPUT */}
         <div className="p-4 bg-gradient-to-t from-white via-white to-transparent">
           <div className="max-w-3xl mx-auto">
             <form
@@ -560,7 +693,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Escribe tu mensaje a Chambachat..."
+                placeholder="Pregúntale a Chambabot sobre jale, sueldos o el INEA..."
                 className="w-full py-3.5 pl-4 pr-12 text-sm text-slate-800 bg-transparent focus:outline-none placeholder-slate-400"
               />
 
@@ -574,7 +707,7 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
             </form>
 
             <p className="text-[11px] text-center text-slate-400 mt-2 font-medium">
-              Chambachat te conecta con plantas de manufactura y programas de acreditación oficial en Nuevo León.
+              Chambachat IA te orienta sobre oportunidades industriales y acreditación oficial en Nuevo León.
             </p>
           </div>
         </div>

@@ -11,3 +11,5 @@ services:
         value: 3.11.6
       - key: DATABASE_URL
         sync: false # Configurar con la URL de Supabase en el Dashboard de Render
+      - key: DEEPSEEK_API_KEY
+        sync: false # Clave sk-... de DeepSeek en el Dashboard de Render

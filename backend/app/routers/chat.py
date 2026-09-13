@@ -8,11 +8,11 @@ from app.models import ChatSession
 router = APIRouter(prefix="/api/v1/chat", tags=["Chatbot"])
 
 @router.post("/message", response_model=ChatMessageResponse)
-def handle_chat_message(request: ChatMessageRequest, db: Session = Depends(get_db)):
+async def handle_chat_message(request: ChatMessageRequest, db: Session = Depends(get_db)):
     """
-    Procesa un mensaje del candidato o la selección de una opción en el flujo conversacional.
+    Procesa un mensaje del candidato mediante DeepSeek LLM o árbol guiado.
     """
-    response_data = process_chat_message(
+    response_data = await process_chat_message(
         db=db,
         session_id=request.session_id,
         user_message=request.message,
@@ -21,11 +21,11 @@ def handle_chat_message(request: ChatMessageRequest, db: Session = Depends(get_d
     return response_data
 
 @router.get("/start", response_model=ChatMessageResponse)
-def start_chat(db: Session = Depends(get_db)):
+async def start_chat(db: Session = Depends(get_db)):
     """
     Inicia una nueva sesión conversacional y retorna el saludo inicial configurado.
     """
-    response_data = process_chat_message(
+    response_data = await process_chat_message(
         db=db,
         session_id=None,
         user_message="",

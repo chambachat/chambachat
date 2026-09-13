@@ -23,7 +23,6 @@ def test_predict_retention_endpoint():
     res = client.post("/api/v1/predict-retention", json=payload)
     assert res.status_code == 200
     data = res.json()
-    # 3.0 + 2.5 (sueldo) + 0.0 (traslado) + 2.0 (turnos) + 3.5 (inea) = 11.0 meses
     assert data["retention_months"] == 11.0
     assert data["retention_level"] == "Excelente"
     assert len(data["recommendations"]) > 0
@@ -55,42 +54,46 @@ def test_chat_flow_and_inea():
     assert start_res.status_code == 200
     session_id = start_res.json()["session_id"]
     
-    # 2. Provide name
+    # 2. Enviar mensaje de búsqueda en Apodaca
     msg1 = client.post("/api/v1/chat/message", json={
         "session_id": session_id,
-        "message": "Rogelio Valdez"
+        "message": "Hola, busco trabajo de operario en Apodaca y no terminé la secundaria"
     })
     assert msg1.status_code == 200
-    assert "ask_municipio" in msg1.json()["current_step"]
+    res1 = msg1.json()
+    assert len(res1["bot_messages"]) > 0
+    # Comprobar que detecta rezago educativo y menciona INEA
+    assert any("INEA" in m or "estudios" in m.lower() for m in res1["bot_messages"])
+    assert len(res1["options"]) > 0
 
-    # 3. Provide municipality
+    # 3. Aceptar apoyo del INEA
     msg2 = client.post("/api/v1/chat/message", json={
         "session_id": session_id,
-        "selected_option": "Apodaca"
+        "selected_option": "Sí, me interesa mucho el apoyo para terminar mis estudios con el INEA"
     })
     assert msg2.status_code == 200
-    assert "ask_education" in msg2.json()["current_step"]
+    res2 = msg2.json()
+    assert res2["candidate_profile"] is not None
+    assert res2["candidate_profile"]["tag_inea"] is True
+    assert len(res2["matched_jobs"]) > 0
 
-    # 4. Provide Primaria_Incompleta -> should trigger INEA prompt
-    msg3 = client.post("/api/v1/chat/message", json={
-        "session_id": session_id,
-        "selected_option": "Primaria_Incompleta"
-    })
-    assert msg3.status_code == 200
-    res3 = msg3.json()
-    assert "inea_response" in res3["current_step"]
-    assert any("INEA" in m for m in res3["bot_messages"])
-
-    # 5. Accept INEA support
-    msg4 = client.post("/api/v1/chat/message", json={
-        "session_id": session_id,
-        "selected_option": "SI_INEA"
-    })
-    assert msg4.status_code == 200
-    res4 = msg4.json()
-    assert res4["completed"] is True
-    assert res4["candidate_profile"]["tag_inea"] is True
-    assert len(res4["matched_jobs"]) > 0
+def test_google_profile_sync():
+    payload = {
+        "email": "rogelio@chambachat.com",
+        "nombre": "Rogelio Valdez",
+        "avatar_url": "https://lh3.googleusercontent.com/a/default-user",
+        "google_id": "google_123456",
+        "municipio": "Apodaca",
+        "nivel_educativo": "Secundaria",
+        "tag_inea": True
+    }
+    res = client.post("/api/v1/auth/sync-google-profile", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert data["nombre"] == "Rogelio Valdez"
+    assert data["email"] == "rogelio@chambachat.com"
+    assert data["tag_inea"] is True
 
 def test_admin_prompts():
     res = client.get("/api/v1/admin/prompts")
@@ -105,5 +108,6 @@ if __name__ == "__main__":
     test_candidates_list()
     test_analytics_summary()
     test_chat_flow_and_inea()
+    test_google_profile_sync()
     test_admin_prompts()
-    print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE (7/7) <<<")
+    print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE (8/8) <<<")
