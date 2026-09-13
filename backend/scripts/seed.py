@@ -267,7 +267,7 @@ def seed_database():
             db.add(history)
 
         db.commit()
-        print("¡Base de datos poblada exitosamente con 8 vacantes, 100 operarios y 100 históricos de contratación!")
+        print("[OK] Base de datos poblada exitosamente con 8 vacantes, 100 operarios y 100 historicos de contratacion!")
 
     finally:
         db.close()
