@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: chambachat-v2
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.6
+      - key: DATABASE_URL
+        sync: false # Configurar con la URL de Supabase en el Dashboard de Render

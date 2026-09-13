@@ -1,0 +1,109 @@
+﻿PRD y Documento de Arquitectura Base: Chambachat V2
+Este documento está estructurado como un Product Requirements Document (PRD) y guía de arquitectura técnica, optimizado para ser ingerido por Google Antigravity u otros frameworks de agentes múltiples. Define las entidades de negocio, la lógica predictiva y los flujos conversacionales necesarios para iniciar la codificación.
+
+
+1. Visión General del Producto
+Chambachat es una plataforma de reclutamiento B2B/B2C enfocada en personal operativo de manufactura en Nuevo León. Se divide en dos frentes:
+* B2C (Candidatos): Un flujo de onboarding conversacional (chatbot) amigable, sin fricción, que perfila al operario, identifica rezago educativo (canalización al INEA) y hace match con vacantes cercanas.
+* B2B (Reclutadores): Un portal web/dashboard (SaaS) que permite la publicación de vacantes y ofrece herramientas de People Analytics, destacando un Predictor de Retención basado en modelos estadísticos (regresión lineal/logística).
+
+
+2. Arquitectura del Sistema (Tech Stack)
+El sistema debe construirse considerando despliegues rápidos y escalabilidad:
+Componente
+	Tecnología Sugerida
+	Función
+	Infraestructura Web
+	Render / Cloudflare
+	Hosting de la landing page, webhooks del bot y portal B2B. Gestión de DNS y SSL.
+	Backend & APIs
+	Python (FastAPI) o C# / PHP
+	Motor estadístico de retención, endpoints del portal B2B, conexión a BD.
+	Orquestación de Flujos (Propia)
+	Backend Propio / Panel de Administración
+	Sustituye a herramientas de terceros para manejar el flujo conversacional. Un panel donde el dueño/desarrollador puede ajustar prompts, flujos de decisiones y reglas de negocio dinámicamente.
+	Base de Datos
+	PostgreSQL
+	Almacenamiento relacional de perfiles, vacantes y métricas históricas de retención.
+	
+
+3. Arquitectura de Base de Datos (Core Entities en PostgreSQL)
+Para que Antigravity inicialice la base de datos en PostgreSQL, el esquema debe contener las siguientes entidades principales:
+-- 1. Usuarios (Operarios)
+CREATE TYPE educacion_enum AS ENUM ('Primaria_Incompleta', 'Secundaria', 'Preparatoria', 'Tecnico');
+
+CREATE TABLE Users (
+ id SERIAL PRIMARY KEY,
+ nombre VARCHAR(255),
+ telefono VARCHAR(50),
+ codigo_postal VARCHAR(10),
+ nivel_educativo educacion_enum,
+ tag_inea BOOLEAN DEFAULT FALSE,
+ coordenadas_gps POINT
+);
+
+-- 2. Vacantes (Ofertas)
+CREATE TABLE Jobs (
+ id SERIAL PRIMARY KEY,
+ empresa_id INT,
+ titulo VARCHAR(255),
+ sueldo_semanal_libre DECIMAL(10,2),
+ turnos_fijos BOOLEAN,
+ apoyo_inea BOOLEAN,
+ latitud_longitud POINT
+);
+
+-- 3. Histórico de Contrataciones (Para el Predictor)
+CREATE TABLE Hiring_History (
+ id SERIAL PRIMARY KEY,
+ user_id INT REFERENCES Users(id),
+ job_id INT REFERENCES Jobs(id),
+ fecha_contratacion DATE,
+ fecha_baja DATE NULL,
+ meses_permanencia DECIMAL(5,2),
+ motivo_baja VARCHAR(255)
+);
+
+
+
+4. Módulo B2C: Flujo Conversacional Dinámico (Admin-Driven) e Integración INEA
+El backend propio debe procesar el NLP y gestionar el árbol de decisiones parametrizado desde el panel de control:
+* Paso 1: Recopilación de datos básicos (Nombre, Zona, Puesto deseado).
+* Paso 2 (Validación Educativa): Si nivel_educativo es menor a Secundaria, el motor de flujos inyecta el prompt configurado por el administrador (ej: "Veo que no terminaste la secundaria. En Chambachat te ayudamos a jalar y a terminar tus estudios gratis. ¿Te interesaría aplicar a vacantes que te den el tiempo y el apoyo para sacar tu certificado del INEA?").
+* Paso 3 (Tagging): Si la respuesta es positiva, actualizar tag_inea = TRUE en PostgreSQL.
+* Paso 4 (Matchmaking): Filtrar vacantes en PostgreSQL usando cálculos de distancia sobre el tipo POINT.
+
+
+5. Módulo B2B: Dashboard B2B y Predictor de Retención
+El agente encargado de Data Science/Backend debe implementar un endpoint que calcule la permanencia estimada (Regresión Lineal) para alimentar el dashboard interactivo de los reclutadores.
+Lógica Base (Pseudocódigo para Antigravity):
+def calculate_predicted_retention(sueldo, tiempo_traslado_min, turnos_fijos_bool, apoyo_inea_bool):
+   # Base = 3 meses
+   retention = 3.0
+   
+   # Impacto Sueldo (+0.25 meses por cada $100 sobre la base de $1500)
+   retention += ((sueldo - 1500) / 100) * 0.25
+   
+   # Impacto Traslado (-0.4 meses por cada 10 min por encima de los 20 min)
+   if tiempo_traslado_min > 20:
+       retention -= ((tiempo_traslado_min - 20) / 10) * 0.4
+       
+   # Impacto Turnos (Turnos fijos reducen desgaste)
+   if turnos_fijos_bool:
+       retention += 2.0
+       
+   # Impacto INEA (Fuerte anclaje de lealtad)
+   if apoyo_inea_bool:
+       retention += 3.5
+       
+   # Piso mínimo de permanencia
+   return max(0.5, retention)
+
+El frontend debe consumir este endpoint consumiendo los inputs en tiempo real (sliders de sueldo, tiempo de traslado, y toggles de INEA/Turnos).
+
+
+6. Instrucciones de Ejecución para Agentes (Antigravity Tasks)
+1. @Agent_DB: Genera los scripts SQL para crear las tablas en PostgreSQL (Users, Jobs y Hiring_History). Añade datos sintéticos (mock data) de 100 operarios con diferentes tiempos de traslado y sueldos para probar el modelo.
+2. @Agent_Backend: Crea una API en Python (FastAPI) o C# con dos funciones principales: un endpoint /api/v1/predict-retention, y un motor de reglas propio para procesar mensajes entrantes (webhook) donde los prompts se lean desde una tabla de configuración para el chat.
+3. @Agent_Workflow: Desarrolla el Panel de Administración (Admin Panel) para que el dueño/desarrollador pueda modificar visualmente los prompts, respuestas automatizadas y reglas del chatbot sin tocar el código fuente.
+4. @Agent_Frontend: Desarrolla el componente React/HTML del "Predictor de Retención" para el portal de empresas, conectando los sliders al endpoint de predicción.
