@@ -71,10 +71,11 @@ export async function sendVerificationCode(email) {
   // Fallback local garantizado
   const localCode = `${Math.floor(1000 + Math.random() * 9000)}`;
   return {
-    status: 'sent',
+    status: 'warning',
     email,
     code: localCode,
-    message: `Código enviado a ${email}`
+    real_email_sent: false,
+    message: `Aún no se ha conectado el servidor SMTP para enviar correos a ${email}`
   };
 }
 

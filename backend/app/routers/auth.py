@@ -20,23 +20,40 @@ class GoogleProfileSyncRequest(BaseModel):
     tag_inea: Optional[bool] = False
     telefono: Optional[str] = None
 
+from app.services.email_service import send_real_verification_email
+
 class VerificationCodeRequest(BaseModel):
     email: str
 
 @router.post("/send-verification-code")
 def send_verification_code(req: VerificationCodeRequest):
     """
-    Envía / simula el envío del código de verificación de 4 dígitos al correo personal del usuario.
+    Envía el código de confirmación de 4 dígitos al correo personal del usuario.
+    Si SMTP o Resend están configurados, despacha el correo real a su bandeja.
     """
     import random
     code = f"{random.randint(1000, 9999)}"
-    # En producción se conecta a servicio SMTP/Resend/SendGrid
-    return {
-        "status": "sent",
-        "email": req.email,
-        "code": code,
-        "message": f"Código de confirmación enviado exitosamente a {req.email}"
-    }
+    email_result = send_real_verification_email(req.email, code)
+
+    if email_result.get("sent"):
+        return {
+            "status": "sent",
+            "email": req.email,
+            "code": code,
+            "real_email_sent": True,
+            "provider": email_result.get("provider"),
+            "message": f"Código enviado exitosamente a tu correo {req.email}"
+        }
+    else:
+        error_msg = email_result.get("error", "SMTP_NOT_CONFIGURED")
+        return {
+            "status": "warning" if error_msg == "SMTP_NOT_CONFIGURED" else "error",
+            "email": req.email,
+            "code": code,
+            "real_email_sent": False,
+            "error_detail": error_msg,
+            "message": "Servidor de correo SMTP aún no configurado en el servidor." if error_msg == "SMTP_NOT_CONFIGURED" else f"Error al enviar correo: {error_msg}"
+        }
 
 @router.post("/sync-google-profile")
 def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get_db)):

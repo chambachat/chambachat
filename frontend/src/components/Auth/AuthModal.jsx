@@ -35,6 +35,7 @@ export default function AuthModal({
   const [enteredCode, setEnteredCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [codeSuccessMsg, setCodeSuccessMsg] = useState('');
+  const [isRealEmailSent, setIsRealEmailSent] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -45,6 +46,7 @@ export default function AuthModal({
       setCodeError('');
       setCodeSuccessMsg('');
       setEnteredCode('');
+      setIsRealEmailSent(false);
     }
   }, [isOpen]);
 
@@ -87,12 +89,14 @@ export default function AuthModal({
       const res = await sendVerificationCode(email);
       const code = res?.code || `${Math.floor(1000 + Math.random() * 9000)}`;
       setVerificationCode(code);
+      setIsRealEmailSent(Boolean(res?.real_email_sent));
       setStep('verify');
-      setCodeSuccessMsg(`Te enviamos tu código de 4 dígitos a ${email}`);
+      setCodeSuccessMsg(res?.message || `Código generado para ${email}`);
     } catch (err) {
       console.error('Error al enviar código:', err);
       const fallbackCode = `${Math.floor(1000 + Math.random() * 9000)}`;
       setVerificationCode(fallbackCode);
+      setIsRealEmailSent(false);
       setStep('verify');
     } finally {
       setLoading(false);
@@ -107,7 +111,8 @@ export default function AuthModal({
       const res = await sendVerificationCode(email);
       const newCode = res?.code || `${Math.floor(1000 + Math.random() * 9000)}`;
       setVerificationCode(newCode);
-      setCodeSuccessMsg('¡Nuevo código enviado!');
+      setIsRealEmailSent(Boolean(res?.real_email_sent));
+      setCodeSuccessMsg(res?.message || '¡Nuevo código enviado!');
     } catch (e) {
       console.error(e);
     } finally {
@@ -423,23 +428,46 @@ export default function AuthModal({
         {/* PASO 2: VERIFICACIÓN DEL CÓDIGO DE CORREO */}
         {step === 'verify' && (
           <div className="space-y-4 pt-1">
-            {/* Aviso visual del correo enviado */}
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
-              <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Correo de confirmación enviado</span>
+            {/* Aviso visual del correo */}
+            {isRealEmailSent ? (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-1.5">
+                <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>¡Correo enviado a tu bandeja!</span>
+                </div>
+                <p className="text-[11px] text-emerald-700 leading-relaxed">
+                  Enviamos el código a <strong className="text-emerald-950">{email}</strong>. Revisa tu bandeja de entrada o carpeta de spam si no lo ves en unos momentos.
+                </p>
               </div>
-              <p className="text-[11px] text-emerald-700 leading-relaxed">
-                Enviamos tu código de verificación a: <strong className="text-emerald-950">{email}</strong>.
-              </p>
-              {/* Notificación con el código para facilitar la prueba */}
-              <div className="p-2 rounded-xl bg-white border border-emerald-200 flex items-center justify-between">
-                <span className="text-[11px] text-slate-600">Código de confirmación:</span>
-                <span className="font-mono font-black text-sm text-emerald-700 tracking-widest bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
-                  {verificationCode}
-                </span>
+            ) : (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 text-xs font-bold">
+                  <span className="text-base">⚠️</span>
+                  <span>Servidor de correo SMTP pendiente de conectar</span>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Aún no se han configurado credenciales de envío de correo en el servidor. Para continuar tu prueba:
+                </p>
+                <div className="p-2 rounded-xl bg-white border border-amber-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[11px] text-slate-600 shrink-0">Código generado:</span>
+                    <span className="font-mono font-black text-sm text-emerald-700 tracking-widest bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                      {verificationCode}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnteredCode(verificationCode);
+                      setCodeError('');
+                    }}
+                    className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200 px-2 py-1 rounded-lg transition shrink-0"
+                  >
+                    Usar código
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <form onSubmit={handleConfirmVerification} className="space-y-3">
               <div>

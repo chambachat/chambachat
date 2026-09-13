@@ -99,9 +99,24 @@ def test_send_verification_code():
     res = client.post("/api/v1/auth/send-verification-code", json={"email": "usuario@correo.com"})
     assert res.status_code == 200
     data = res.json()
-    assert data["status"] == "sent"
+    assert data["status"] in ["sent", "warning"]
     assert "code" in data
     assert len(data["code"]) == 4
+
+def test_send_verification_code_with_mock_smtp(monkeypatch):
+    import smtplib
+    from unittest.mock import MagicMock
+    monkeypatch.setenv("SMTP_USER", "notificaciones@chambachat.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "app_password_123")
+    
+    mock_server = MagicMock()
+    monkeypatch.setattr(smtplib, "SMTP", MagicMock(return_value=mock_server))
+
+    res = client.post("/api/v1/auth/send-verification-code", json={"email": "usuario@correo.com"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "sent"
+    assert data["real_email_sent"] is True
 def test_admin_prompts():
     res = client.get("/api/v1/admin/prompts")
     assert res.status_code == 200
