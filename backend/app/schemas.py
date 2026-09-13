@@ -84,6 +84,7 @@ class ApplicationResponse(BaseModel):
     candidate_phone: Optional[str] = None
     municipio: Optional[str] = None
     status: str
+    match_score: Optional[int] = 85
     created_at: datetime
     job_titulo: Optional[str] = None
     empresa_nombre: Optional[str] = None

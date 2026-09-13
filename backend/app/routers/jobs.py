@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/v1/jobs", tags=["Jobs"])
 def get_jobs(
     municipio: Optional[str] = None,
     apoyo_inea: Optional[bool] = None,
+    empresa: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -22,6 +23,8 @@ def get_jobs(
         query = query.filter(Job.municipio.ilike(f"%{municipio}%"))
     if apoyo_inea is not None:
         query = query.filter(Job.apoyo_inea == apoyo_inea)
+    if empresa:
+        query = query.filter(Job.empresa_nombre.ilike(f"%{empresa}%"))
     return query.order_by(Job.id.desc()).all()
 
 @router.post("", response_model=JobResponse)

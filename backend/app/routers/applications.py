@@ -12,6 +12,19 @@ from app.schemas import (
 
 router = APIRouter(prefix="/api/v1/applications", tags=["Applications & Recruiter Chat"])
 
+def compute_match_score(job: Optional[Job], candidate_muni: Optional[str], candidate_phone: Optional[str]) -> int:
+    score = 70
+    if job and candidate_muni:
+        if candidate_muni.lower() in job.municipio.lower() or job.municipio.lower() in candidate_muni.lower():
+            score += 18
+        elif candidate_muni in ["Apodaca", "Pesquería", "San Nicolás", "Guadalupe", "Escobedo", "Monterrey"]:
+            score += 12
+    if candidate_phone and len(candidate_phone.strip()) >= 7:
+        score += 8
+    if job and job.turnos_fijos:
+        score += 2
+    return min(98, max(72, score))
+
 @router.post("/apply", response_model=ApplicationResponse)
 def apply_to_job(payload: ApplicationCreateRequest, db: Session = Depends(get_db)):
     """
@@ -21,6 +34,8 @@ def apply_to_job(payload: ApplicationCreateRequest, db: Session = Depends(get_db
     if not job:
         raise HTTPException(status_code=404, detail="La vacante especificada no existe")
 
+    calculated_score = compute_match_score(job, payload.municipio or job.municipio, payload.candidate_phone)
+
     application = JobApplication(
         job_id=payload.job_id,
         session_id=payload.session_id,
@@ -28,7 +43,8 @@ def apply_to_job(payload: ApplicationCreateRequest, db: Session = Depends(get_db
         candidate_email=payload.candidate_email,
         candidate_phone=payload.candidate_phone,
         municipio=payload.municipio or job.municipio,
-        status="Pendiente"
+        status="Pendiente",
+        match_score=calculated_score
     )
     db.add(application)
     db.commit()
@@ -54,6 +70,7 @@ def apply_to_job(payload: ApplicationCreateRequest, db: Session = Depends(get_db
         candidate_phone=application.candidate_phone,
         municipio=application.municipio,
         status=application.status,
+        match_score=application.match_score or calculated_score,
         created_at=application.created_at,
         job_titulo=job.titulo,
         empresa_nombre=job.empresa_nombre,
@@ -78,6 +95,7 @@ def get_all_applications(db: Session = Depends(get_db)):
     applications = db.query(JobApplication).order_by(JobApplication.created_at.desc()).all()
     results = []
     for app in applications:
+        score = app.match_score or compute_match_score(app.job, app.municipio, app.candidate_phone)
         results.append(ApplicationResponse(
             id=app.id,
             job_id=app.job_id,
@@ -87,6 +105,7 @@ def get_all_applications(db: Session = Depends(get_db)):
             candidate_phone=app.candidate_phone,
             municipio=app.municipio,
             status=app.status,
+            match_score=score,
             created_at=app.created_at,
             job_titulo=app.job.titulo if app.job else "Vacante",
             empresa_nombre=app.job.empresa_nombre if app.job else "Empresa",

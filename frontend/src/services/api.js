@@ -80,6 +80,7 @@ export async function sendRecruiterMessage(applicationId, { senderType = 'recrui
 export async function getJobs(filters = {}) {
   const params = new URLSearchParams();
   if (filters.municipio) params.append('municipio', filters.municipio);
+  if (filters.empresa) params.append('empresa', filters.empresa);
   if (filters.apoyo_inea !== undefined && filters.apoyo_inea !== null && filters.apoyo_inea !== '') {
     params.append('apoyo_inea', filters.apoyo_inea);
   }

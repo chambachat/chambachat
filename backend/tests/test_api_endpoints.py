@@ -116,6 +116,8 @@ def test_applications_and_recruiter_chat():
     assert apply_res.status_code == 200
     app_data = apply_res.json()
     assert app_data["candidate_name"] == "Rogelio Valdez"
+    assert "match_score" in app_data
+    assert app_data["match_score"] >= 70
     assert len(app_data["messages"]) >= 1
 
     # 3. Enviar mensaje de reclutador
@@ -136,6 +138,13 @@ def test_applications_and_recruiter_chat():
     assert len(sess_apps) >= 1
     assert any(m["sender_type"] == "recruiter" for m in sess_apps[0]["messages"])
 
+def test_jobs_filter_by_empresa():
+    res = client.get("/api/v1/jobs?empresa=Whirlpool")
+    assert res.status_code == 200
+    jobs = res.json()
+    assert len(jobs) >= 1
+    assert all("whirlpool" in j["empresa_nombre"].lower() for j in jobs)
+
 if __name__ == "__main__":
     test_health()
     test_predict_retention_endpoint()
@@ -146,4 +155,5 @@ if __name__ == "__main__":
     test_google_profile_sync()
     test_admin_prompts()
     test_applications_and_recruiter_chat()
-    print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE (9/9) <<<")
+    test_jobs_filter_by_empresa()
+    print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE (10/10) <<<")

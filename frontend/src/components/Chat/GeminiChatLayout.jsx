@@ -31,7 +31,8 @@ import {
   startChat, 
   sendChatMessage, 
   submitApplication, 
-  getApplicationsBySession 
+  getApplicationsBySession,
+  getJobs
 } from '../../services/api';
 import { 
   getStoredUser, 
@@ -70,16 +71,53 @@ export default function GeminiChatLayout({ onOpenEmpresa, onOpenPerfil, onOpenAd
     setCurrentUser(user);
 
     const loaded = loadAllSessions();
-    if (loaded.length === 0) {
-      const fresh = createNewSession();
-      setSessions([fresh]);
-      setActiveSession(fresh);
+
+    // Verificar si el usuario ingresó por un Smart Link (ej. ?empresa=Whirlpool)
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const empresaParam = urlParams?.get('empresa');
+
+    if (empresaParam) {
+      const smartTitle = `Bolsa ${empresaParam}`;
+      const existingSmart = loaded.find(s => s.title === smartTitle);
+      if (existingSmart) {
+        setSessions(loaded);
+        setActiveSession(existingSmart);
+        setActiveSessionId(existingSmart.id);
+      } else {
+        getJobs({ empresa: empresaParam }).then(jobs => {
+          const freshSmart = createNewSession();
+          freshSmart.title = smartTitle;
+          freshSmart.matchedJobs = jobs || [];
+          freshSmart.messages = [
+            {
+              id: 'smart_welcome_' + Date.now(),
+              sender: 'bot',
+              text: `¡Qué onda! 🤠 Bienvenido a la bolsa de trabajo oficial de **${empresaParam}** en Nuevo León.\n\nAquí tienes las vacantes activas y verificadas de la planta. Puedes revisarlas y darle clic a **"Postularme de Volada"** para apartar tu lugar, o preguntarme sobre transporte, turnos fijos o sueldos libres.`,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+          ];
+          freshSmart.candidateProfile = { empresa_interes: empresaParam };
+          const updated = [freshSmart, ...loaded.filter(s => s.id !== freshSmart.id)];
+          setSessions(updated);
+          setActiveSession(freshSmart);
+          setActiveSessionId(freshSmart.id);
+          setShowVacancies(true);
+        }).catch(err => {
+          console.error('Error cargando vacantes de Smart Link:', err);
+        });
+      }
     } else {
-      setSessions(loaded);
-      const activeId = getActiveSessionId();
-      const current = loaded.find(s => s.id === activeId) || loaded[0];
-      setActiveSession(current);
-      setActiveSessionId(current.id);
+      if (loaded.length === 0) {
+        const fresh = createNewSession();
+        setSessions([fresh]);
+        setActiveSession(fresh);
+      } else {
+        setSessions(loaded);
+        const activeId = getActiveSessionId();
+        const current = loaded.find(s => s.id === activeId) || loaded[0];
+        setActiveSession(current);
+        setActiveSessionId(current.id);
+      }
     }
   }, []);
 
