@@ -252,6 +252,78 @@ def test_tripartite_group_chat_and_bot_fallback():
     assert toggle_res.status_code == 200
     assert toggle_res.json()["bot_silenced"] is False
 
+def test_company_management_and_team_invitations():
+    # 1. Crear empresa
+    comp_payload = {
+        "nombre": "Carrier Planta Santa Catarina",
+        "municipio": "Santa Catarina",
+        "industria": "Climatización y Manufactura",
+        "creator_email": "rh.carrier@carrier.com",
+        "creator_name": "Lic. Roberto Sada",
+        "telefono_contacto": "81-1000-2000"
+    }
+    create_res = client.post("/api/v1/companies", json=comp_payload)
+    assert create_res.status_code == 200
+    comp_data = create_res.json()["company"]
+    comp_id = comp_data["id"]
+    assert comp_data["nombre"] == "Carrier Planta Santa Catarina"
+
+    # 2. Listar empresas del usuario
+    list_res = client.get("/api/v1/companies?user_email=rh.carrier@carrier.com")
+    assert list_res.status_code == 200
+    companies = list_res.json()
+    assert any(c["id"] == comp_id for c in companies)
+
+    # 3. Actualizar datos de la empresa
+    update_res = client.put(f"/api/v1/companies/{comp_id}", json={"telefono_contacto": "81-9988-7766"})
+    assert update_res.status_code == 200
+    assert update_res.json()["company"]["telefono_contacto"] == "81-9988-7766"
+
+    # 4. Invitar a un miembro al equipo por correo
+    invite_payload = {
+        "email": "reclutador2@carrier.com",
+        "nombre": "Lic. Ana Sofía Garza",
+        "role": "recruiter",
+        "inviter_name": "Lic. Roberto Sada",
+        "inviter_email": "rh.carrier@carrier.com"
+    }
+    invite_res = client.post(f"/api/v1/companies/{comp_id}/invite", json=invite_payload)
+    assert invite_res.status_code == 200
+    invite_data = invite_res.json()
+    assert invite_data["status"] == "success"
+    assert "token" in invite_data
+    token = invite_data["token"]
+
+    # 5. Consultar equipo: debe haber 1 activo y 1 invitación pendiente
+    team_res = client.get(f"/api/v1/companies/{comp_id}/members")
+    assert team_res.status_code == 200
+    team_data = team_res.json()
+    assert team_data["total_members"] == 1
+    assert team_data["total_pending"] == 1
+    assert team_data["pending_invitations"][0]["email"] == "reclutador2@carrier.com"
+
+    # 6. Aceptar invitación
+    accept_payload = {
+        "token": token,
+        "user_email": "reclutador2@carrier.com",
+        "user_name": "Lic. Ana Sofía Garza"
+    }
+    accept_res = client.post("/api/v1/companies/accept-invitation", json=accept_payload)
+    assert accept_res.status_code == 200
+    assert accept_res.json()["status"] == "success"
+
+    # 7. Consultar equipo nuevamente: ahora 2 miembros activos y 0 pendientes
+    team2_res = client.get(f"/api/v1/companies/{comp_id}/members")
+    assert team2_res.status_code == 200
+    team2_data = team2_res.json()
+    assert team2_data["total_members"] == 2
+    assert team2_data["total_pending"] == 0
+
+    # 8. Eliminar segundo miembro
+    second_member_id = [m["id"] for m in team2_data["active_members"] if m["email"] == "reclutador2@carrier.com"][0]
+    del_res = client.delete(f"/api/v1/companies/{comp_id}/members/{second_member_id}")
+    assert del_res.status_code == 200
+
 if __name__ == "__main__":
     test_health()
     test_predict_retention_endpoint()
@@ -264,4 +336,5 @@ if __name__ == "__main__":
     test_applications_and_recruiter_chat()
     test_jobs_filter_by_empresa()
     test_tripartite_group_chat_and_bot_fallback()
+    test_company_management_and_team_invitations()
     print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE <<<")

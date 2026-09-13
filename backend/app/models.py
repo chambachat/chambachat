@@ -124,3 +124,55 @@ class ApplicationMessage(Base):
 
     application = relationship("JobApplication", back_populates="messages")
 
+
+class Company(Base):
+    __tablename__ = "companies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(255), nullable=False, index=True)
+    rfc = Column(String(50), nullable=True)
+    industria = Column(String(100), default="Manufactura y Logística")
+    municipio = Column(String(100), default="Apodaca")
+    direccion = Column(Text, nullable=True)
+    telefono_contacto = Column(String(50), nullable=True)
+    logo_url = Column(String(500), nullable=True)
+    created_by_email = Column(String(255), nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    members = relationship("CompanyMember", back_populates="company", cascade="all, delete-orphan")
+    invitations = relationship("CompanyInvitation", back_populates="company", cascade="all, delete-orphan")
+
+
+class CompanyMember(Base):
+    __tablename__ = "company_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    email = Column(String(255), nullable=False, index=True)
+    nombre = Column(String(255), nullable=True)
+    role = Column(String(50), default="recruiter")  # "admin" | "recruiter"
+    status = Column(String(50), default="active")  # "active" | "pending"
+    invited_by_email = Column(String(255), nullable=True)
+    joined_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    company = relationship("Company", back_populates="members")
+
+
+class CompanyInvitation(Base):
+    __tablename__ = "company_invitations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    nombre = Column(String(255), nullable=True)
+    role = Column(String(50), default="recruiter")  # "admin" | "recruiter"
+    token = Column(String(100), unique=True, index=True, nullable=False)
+    status = Column(String(50), default="pending")  # "pending" | "accepted" | "revoked"
+    invited_by_email = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+
+    company = relationship("Company", back_populates="invitations")
+

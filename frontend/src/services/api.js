@@ -152,3 +152,82 @@ export async function getAnalytics() {
   if (!res.ok) throw new Error('Error al obtener analíticas');
   return res.json();
 }
+
+// --- EMPRESAS & MI EQUIPO (B2B SaaS) ---
+
+export async function getUserCompanies(userEmail, empresaHint) {
+  const params = new URLSearchParams();
+  if (userEmail) params.append('user_email', userEmail);
+  if (empresaHint) params.append('empresa_hint', empresaHint);
+  const url = `${API_BASE}/companies${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Error al obtener empresas');
+  return res.json();
+}
+
+export async function createCompany(data) {
+  const res = await fetch(`${API_BASE}/companies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al registrar empresa' }));
+    throw new Error(err.detail || 'Error al registrar empresa');
+  }
+  return res.json();
+}
+
+export async function updateCompany(companyId, data) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Error al actualizar datos de la empresa');
+  return res.json();
+}
+
+export async function getCompanyTeam(companyId) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/members`);
+  if (!res.ok) throw new Error('Error al obtener equipo de la empresa');
+  return res.json();
+}
+
+export async function inviteTeamMember(companyId, data) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al enviar invitación' }));
+    throw new Error(err.detail || 'Error al enviar invitación');
+  }
+  return res.json();
+}
+
+export async function acceptCompanyInvitation(token, userData = {}) {
+  const res = await fetch(`${API_BASE}/companies/accept-invitation`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      user_email: userData.email,
+      user_name: userData.name
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al procesar invitación' }));
+    throw new Error(err.detail || 'Error al procesar invitación');
+  }
+  return res.json();
+}
+
+export async function removeTeamMember(companyId, memberId) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/members/${memberId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Error al remover miembro del equipo');
+  return res.json();
+}
