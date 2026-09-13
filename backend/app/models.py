@@ -8,6 +8,9 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True, index=True)
+    role = Column(String(50), default="candidate", index=True)  # "candidate" | "recruiter" | "admin"
+    empresa_nombre = Column(String(255), nullable=True)  # Empresa asignada si es reclutador
     telefono = Column(String(50), nullable=True)
     codigo_postal = Column(String(10), nullable=True)
     municipio = Column(String(100), nullable=True)
@@ -16,6 +19,8 @@ class User(Base):
     latitud = Column(Float, nullable=True)
     longitud = Column(Float, nullable=True)
     sueldo_deseado = Column(Float, nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    google_id = Column(String(255), nullable=True)
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

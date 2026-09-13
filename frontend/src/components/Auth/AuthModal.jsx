@@ -8,39 +8,44 @@ import {
   ArrowRight, 
   Lock, 
   CheckCircle2, 
+  Building2,
+  Briefcase,
   KeyRound, 
   RefreshCw 
 } from 'lucide-react';
 import { authenticateUser, sendVerificationCode } from '../../services/supabaseClient';
+
+const TOP_COMPANIES_NL = [
+  'Kia Mobis Logistics',
+  'Ternium Guerrero',
+  'Whirlpool Planta Supsa',
+  'Carrier México',
+  'Nemak Aluminios',
+  'DHL Supply Chain',
+  'Frisa Forjados',
+  'Danfoss San Nicolás',
+  'Metalsa Estructuras',
+  'Otra empresa...'
+];
 
 export default function AuthModal({ 
   isOpen, 
   onClose, 
   onAuthenticated, 
   promptMessage,
-  promptTitle 
+  promptTitle,
+  initialRole = 'candidate'
 }) {
+  // Lado de la plataforma (Multi-Sided Platform): 'candidate' (Operario) | 'recruiter' (Empresa)
+  const [role, setRole] = useState(initialRole);
+  const [selectedCompany, setSelectedCompany] = useState('Kia Mobis Logistics');
+  const [customCompany, setCustomCompany] = useState('');
+
   const [activeTab, setActiveTab] = useState('google'); // 'google' | 'email'
   const [emailMode, setEmailMode] = useState('register'); // 'register' | 'login'
   const [step, setStep] = useState('form'); // 'form' | 'verify'
 
-  // Google quick-access states
-  const [googleEmail, setGoogleEmail] = useState(() => {
-    try {
-      return localStorage.getItem('chambachat_last_google_email') || 'rvaldezl@gmail.com';
-    } catch {
-      return 'rvaldezl@gmail.com';
-    }
-  });
-  const [googleName, setGoogleName] = useState(() => {
-    try {
-      return localStorage.getItem('chambachat_last_google_name') || 'Rogelio Valdez';
-    } catch {
-      return 'Rogelio Valdez';
-    }
-  });
-
-  // Form states
+  // Form states - Limpios por defecto para cada usuario
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,7 +60,7 @@ export default function AuthModal({
 
   const [loading, setLoading] = useState(false);
 
-  // Reset states when opened
+  // Inicializar estados al abrir
   useEffect(() => {
     if (isOpen) {
       setStep('form');
@@ -63,52 +68,71 @@ export default function AuthModal({
       setCodeSuccessMsg('');
       setEnteredCode('');
       setIsRealEmailSent(false);
-      try {
-        const storedGoogle = localStorage.getItem('chambachat_last_google_email');
-        if (storedGoogle) setGoogleEmail(storedGoogle);
-      } catch {}
+
+      if (promptTitle?.toLowerCase().includes('empresa') || initialRole === 'recruiter') {
+        setRole('recruiter');
+      } else {
+        setRole('candidate');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, promptTitle, initialRole]);
 
   if (!isOpen) return null;
 
-  // Manejo de acceso directo con Google
-  const handleQuickGoogle = async () => {
-    const finalEmail = (googleEmail.trim() || 'rvaldezl@gmail.com').toLowerCase();
-    const finalName = (googleName.trim() || (finalEmail.includes('@') ? finalEmail.split('@')[0].replace('.', ' ') : 'Rogelio Valdez'));
+  const getFinalCompany = () => {
+    if (role !== 'recruiter') return null;
+    if (selectedCompany === 'Otra empresa...') {
+      return customCompany.trim() || 'Empresa Industrial NL';
+    }
+    return selectedCompany;
+  };
 
-    try {
-      localStorage.setItem('chambachat_last_google_email', finalEmail);
-      localStorage.setItem('chambachat_last_google_name', finalName);
-    } catch (e) {
-      console.error(e);
+  // Manejo de acceso con Google
+  const handleGoogleAuth = async (e) => {
+    e?.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setCodeError('Por favor ingresa tu correo de Google o Gmail.');
+      return;
+    }
+    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      setCodeError('Ingresa un correo electrónico válido.');
+      return;
     }
 
+    const finalName = name.trim() || cleanEmail.split('@')[0].replace('.', ' ');
+    const finalCompany = getFinalCompany();
+
     setLoading(true);
+    setCodeError('');
     try {
       const user = await authenticateUser({
         name: finalName,
-        email: finalEmail,
-        phone: phone.trim() || '81-1234-5678',
+        email: cleanEmail,
+        phone: phone.trim(),
+        role: role,
+        company_name: finalCompany,
         provider: 'google'
       });
       onAuthenticated(user);
       onClose();
     } catch (err) {
       console.error('Error logging in with Google:', err);
+      setCodeError('No se pudo autenticar con Google. Verifica tus datos.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Enviar código de confirmación al correo personal
+  // Enviar código de confirmación al correo
   const handleSendEmailVerification = async (e) => {
     e?.preventDefault();
-    if (!email.trim() || !name.trim()) {
-      setCodeError('Por favor completa tu nombre y correo personal.');
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !name.trim()) {
+      setCodeError('Por favor completa tu nombre y correo electrónico.');
       return;
     }
-    if (!email.includes('@') || !email.includes('.')) {
+    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
       setCodeError('Ingresa un correo electrónico válido.');
       return;
     }
@@ -116,12 +140,12 @@ export default function AuthModal({
     setLoading(true);
     setCodeError('');
     try {
-      const res = await sendVerificationCode(email);
+      const res = await sendVerificationCode(cleanEmail);
       const code = res?.code || `${Math.floor(1000 + Math.random() * 9000)}`;
       setVerificationCode(code);
       setIsRealEmailSent(Boolean(res?.real_email_sent));
       setStep('verify');
-      setCodeSuccessMsg(res?.message || `Código generado para ${email}`);
+      setCodeSuccessMsg(res?.message || `Código generado para ${cleanEmail}`);
     } catch (err) {
       console.error('Error al enviar código:', err);
       const fallbackCode = `${Math.floor(1000 + Math.random() * 9000)}`;
@@ -163,12 +187,16 @@ export default function AuthModal({
       return;
     }
 
+    const finalCompany = getFinalCompany();
+
     setLoading(true);
     try {
       const user = await authenticateUser({
         name: name.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: phone.trim(),
+        role: role,
+        company_name: finalCompany,
         provider: 'email'
       });
       onAuthenticated(user);
@@ -184,23 +212,28 @@ export default function AuthModal({
   // Iniciar sesión con correo existente
   const handleEmailLogin = async (e) => {
     e?.preventDefault();
-    if (!email.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
       setCodeError('Ingresa tu correo electrónico.');
       return;
     }
     setLoading(true);
     try {
-      const derivedName = name.trim() || email.split('@')[0].replace('.', ' ');
+      const derivedName = name.trim() || cleanEmail.split('@')[0].replace('.', ' ');
+      const finalCompany = getFinalCompany();
       const user = await authenticateUser({
         name: derivedName,
-        email: email.trim(),
+        email: cleanEmail,
         phone: phone.trim(),
+        role: role,
+        company_name: finalCompany,
         provider: 'email'
       });
       onAuthenticated(user);
       onClose();
     } catch (err) {
       console.error('Error logging in:', err);
+      setCodeError('Error al iniciar sesión.');
     } finally {
       setLoading(false);
     }
@@ -217,7 +250,7 @@ export default function AuthModal({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Mensaje de restricción si fue disparado por 'Soy Empresa' o acción protegida */}
+        {/* Mensaje contextual si fue disparado por acción restringida */}
         {promptMessage && (
           <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
             <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -242,94 +275,175 @@ export default function AuthModal({
             />
           </div>
           <h2 className="text-lg font-black text-slate-900">
-            {step === 'verify' ? 'Confirma tu Correo' : 'Conecta tu Cuenta'}
+            {step === 'verify' ? 'Confirma tu Correo' : 'Conecta tu Cuenta en ChambaChat'}
           </h2>
           <p className="text-xs text-slate-500 max-w-xs mx-auto">
             {step === 'verify' 
-              ? 'Ingresa el código que te enviamos para activar tu cuenta personal.' 
-              : 'Accede para guardar tu perfil, postularte en 1 clic y acceder al portal.'}
+              ? 'Ingresa el código que te enviamos para activar tu cuenta.' 
+              : 'Plataforma industrial para candidatos operativos y reclutadores de Nuevo León.'}
           </p>
         </div>
 
-        {/* Selector de Pestañas: Google vs Correo */}
         {step === 'form' && (
-          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('google');
-                setCodeError('');
-              }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition ${
-                activeTab === 'google'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
-                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-              </svg>
-              <span>Google</span>
-            </button>
+          <>
+            {/* SELECTOR MULTI-SIDE: Candidato vs Empresa */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Selecciona tu rol en la plataforma:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('candidate');
+                    setCodeError('');
+                  }}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition text-left text-xs ${
+                    role === 'candidate'
+                      ? 'bg-emerald-50/80 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold mb-0.5">
+                    <User className="w-4 h-4 text-emerald-600" />
+                    <span>Soy Candidato</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 text-center leading-tight">
+                    Busco empleo operativo
+                  </span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('email');
-                setCodeError('');
-              }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition ${
-                activeTab === 'email'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Mail className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Correo Personal</span>
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('recruiter');
+                    setCodeError('');
+                  }}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition text-left text-xs ${
+                    role === 'recruiter'
+                      ? 'bg-blue-50/80 border-blue-500 text-blue-950 ring-2 ring-blue-500/20'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold mb-0.5">
+                    <Building2 className="w-4 h-4 text-blue-600" />
+                    <span>Soy Empresa</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 text-center leading-tight">
+                    Reclutador / Publico vacantes
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* SELECCIÓN DE PLANTA/EMPRESA SI ES RECLUTADOR */}
+            {role === 'recruiter' && (
+              <div className="p-3 bg-blue-50/60 border border-blue-200/80 rounded-2xl space-y-2">
+                <label className="block text-xs font-bold text-blue-900">
+                  Empresa o Planta Industrial *
+                </label>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  className="w-full text-xs font-semibold bg-white border border-blue-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-500"
+                >
+                  {TOP_COMPANIES_NL.map((comp) => (
+                    <option key={comp} value={comp}>
+                      {comp}
+                    </option>
+                  ))}
+                </select>
+                {selectedCompany === 'Otra empresa...' && (
+                  <input
+                    type="text"
+                    placeholder="Escribe el nombre de tu empresa"
+                    value={customCompany}
+                    onChange={(e) => setCustomCompany(e.target.value)}
+                    className="w-full text-xs bg-white border border-blue-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-500"
+                  />
+                )}
+                <p className="text-[10px] text-blue-700 leading-tight">
+                  Tus respuestas a los candidatos y las vacantes se firmarán bajo esta empresa.
+                </p>
+              </div>
+            )}
+
+            {/* Selector de Pestañas: Google vs Correo */}
+            <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('google');
+                  setCodeError('');
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === 'google'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                </svg>
+                <span>Google</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('email');
+                  setCodeError('');
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === 'email'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Correo Electrónico</span>
+              </button>
+            </div>
+          </>
         )}
 
-        {/* PESTAÑA 1: GOOGLE (1 CLIC) */}
+        {/* PESTAÑA 1: GOOGLE */}
         {activeTab === 'google' && step === 'form' && (
-          <div className="space-y-3.5 pt-1">
-            {/* Tarjeta de cuenta de Google vinculada */}
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
-                    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-                  </svg>
-                  Cuenta de Google vinculada:
-                </span>
-                <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-md border border-blue-200/60">
-                  Gmail
-                </span>
+          <form onSubmit={handleGoogleAuth} className="space-y-3 pt-1">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Tu Nombre Completo *
+              </label>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
+                <User className="w-4 h-4 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder={role === 'recruiter' ? 'Ej. Lic. Laura Sánchez' : 'Ej. Juan Pérez Garza'}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full bg-transparent focus:outline-none text-slate-800"
+                />
               </div>
+            </div>
 
-              <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
-                  {googleName ? googleName.charAt(0).toUpperCase() : 'R'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-slate-900 truncate">
-                    {googleName || 'Rogelio Valdez'}
-                  </div>
-                  <input
-                    type="email"
-                    value={googleEmail}
-                    onChange={(e) => setGoogleEmail(e.target.value)}
-                    placeholder="rvaldezl@gmail.com"
-                    className="w-full text-[11px] text-slate-600 font-medium bg-transparent focus:outline-none border-b border-transparent focus:border-emerald-500 transition py-0.5"
-                    title="Haz clic si deseas ajustar o confirmar tu correo de Gmail"
-                  />
-                </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Tu Correo de Google / Gmail *
+              </label>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
+                <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+                <input
+                  type="email"
+                  placeholder="tucorreo@gmail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full bg-transparent focus:outline-none text-slate-800"
+                />
               </div>
             </div>
 
@@ -337,7 +451,7 @@ export default function AuthModal({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 WhatsApp o Teléfono (Opcional)
               </label>
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
                 <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
                 <input
                   type="tel"
@@ -347,32 +461,43 @@ export default function AuthModal({
                   className="w-full bg-transparent focus:outline-none text-slate-800"
                 />
               </div>
-              <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200/60 rounded-xl p-2.5 mt-2 leading-relaxed">
-                💡 <strong>Recomendado:</strong> Si dejas tu WhatsApp, los reclutadores de las plantas podrán llamarte o mandarte mensaje directo además de responderte por este chat.
-              </p>
             </div>
 
+            {codeError && (
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                ⚠️ {codeError}
+              </div>
+            )}
+
             <button
-              type="button"
-              onClick={handleQuickGoogle}
+              type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-slate-300 shadow-xs hover:shadow transition cursor-pointer"
+              className={`w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl text-white text-xs font-bold transition shadow-sm ${
+                role === 'recruiter' 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
-                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                <path fill="#ffffff" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                <path fill="#ffffff" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
+                <path fill="#ffffff" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                <path fill="#ffffff" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
               </svg>
-              <span>{loading ? 'Accediendo...' : `Continuar con Google (${googleEmail || 'rvaldezl@gmail.com'})`}</span>
+              <span>
+                {loading 
+                  ? 'Accediendo...' 
+                  : role === 'recruiter' 
+                    ? 'Conectar como Empresa con Google' 
+                    : 'Conectar como Candidato con Google'}
+              </span>
             </button>
-          </div>
+          </form>
         )}
 
-        {/* PESTAÑA 2: CORREO PERSONAL */}
+        {/* PESTAÑA 2: CORREO PERSONAL / EMPRESARIAL */}
         {activeTab === 'email' && step === 'form' && (
           <div className="space-y-3 pt-1">
-            {/* Sub-selector: Crear cuenta vs Iniciar sesión */}
             <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-100">
               <span className="font-semibold text-slate-700">
                 {emailMode === 'register' ? 'Crear cuenta nueva' : 'Acceder con mi cuenta'}
@@ -402,7 +527,7 @@ export default function AuthModal({
                     <User className="w-4 h-4 text-slate-400 shrink-0" />
                     <input
                       type="text"
-                      placeholder="Ej. Roberto Garza"
+                      placeholder={role === 'recruiter' ? 'Ej. Lic. Laura Sánchez' : 'Ej. Juan Pérez'}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
@@ -414,13 +539,13 @@ export default function AuthModal({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Correo Electrónico Personal *
+                  {role === 'recruiter' ? 'Correo Empresarial o Personal *' : 'Correo Electrónico *'}
                 </label>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
                   <Mail className="w-4 h-4 text-slate-400 shrink-0" />
                   <input
                     type="email"
-                    placeholder="tucorreo@ejemplo.com"
+                    placeholder={role === 'recruiter' ? 'reclutamiento@planta.com' : 'tucorreo@ejemplo.com'}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -434,7 +559,7 @@ export default function AuthModal({
                   Contraseña *
                 </label>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
-                  <KeyRound className="w-4 h-4 text-slate-400 shrink-0" />
+                  <Lock className="w-4 h-4 text-slate-400 shrink-0" />
                   <input
                     type="password"
                     placeholder="Mínimo 6 caracteres"
@@ -460,11 +585,6 @@ export default function AuthModal({
                     className="w-full bg-transparent focus:outline-none text-slate-800"
                   />
                 </div>
-                {emailMode === 'register' && (
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Permite que las empresas te llamen o te contacten por WhatsApp sobre vacantes.
-                  </p>
-                )}
               </div>
 
               {codeError && (
@@ -476,7 +596,11 @@ export default function AuthModal({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
+                className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-white text-xs font-bold transition shadow-sm ${
+                  role === 'recruiter' 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
               >
                 {loading ? (
                   <span>Procesando...</span>
@@ -496,10 +620,9 @@ export default function AuthModal({
           </div>
         )}
 
-        {/* PASO 2: VERIFICACIÓN DEL CÓDIGO DE CORREO */}
+        {/* PASO 2: VERIFICACIÓN DE CÓDIGO */}
         {step === 'verify' && (
           <div className="space-y-4 pt-1">
-            {/* Aviso visual del correo */}
             {isRealEmailSent ? (
               <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-1.5">
                 <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
@@ -507,18 +630,15 @@ export default function AuthModal({
                   <span>¡Correo enviado a tu bandeja!</span>
                 </div>
                 <p className="text-[11px] text-emerald-700 leading-relaxed">
-                  Enviamos el código a <strong className="text-emerald-950">{email}</strong>. Revisa tu bandeja de entrada o carpeta de spam si no lo ves en unos momentos.
+                  Enviamos el código a <strong className="text-emerald-950">{email}</strong>. Revisa tu bandeja de entrada o spam.
                 </p>
               </div>
             ) : (
               <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
                 <div className="flex items-center gap-2 text-amber-900 text-xs font-bold">
                   <span className="text-base">⚠️</span>
-                  <span>Servidor de correo SMTP pendiente de conectar</span>
+                  <span>Servidor de correo SMTP en modo de prueba</span>
                 </div>
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Aún no se han configurado credenciales de envío de correo en el servidor. Para continuar tu prueba:
-                </p>
                 <div className="p-2 rounded-xl bg-white border border-amber-200 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-[11px] text-slate-600 shrink-0">Código generado:</span>
@@ -568,7 +688,11 @@ export default function AuthModal({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
+                className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-white text-xs font-bold transition shadow-sm ${
+                  role === 'recruiter' 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
               >
                 {loading ? 'Verificando...' : 'Confirmar Cuenta y Acceder'}
               </button>
@@ -599,7 +723,7 @@ export default function AuthModal({
         )}
 
         <p className="text-[10px] text-center text-slate-400 pt-1">
-          Tus datos se resguardan de forma segura para tus postulaciones de empleo en Nuevo León.
+          Plataforma segura para el ecosistema laboral e industrial de Nuevo León.
         </p>
       </div>
     </div>

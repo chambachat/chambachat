@@ -22,7 +22,7 @@ import {
   checkBotFallback 
 } from '../../services/api';
 
-export default function CandidateApplications() {
+export default function CandidateApplications({ currentUser }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState(null);
@@ -30,21 +30,39 @@ export default function CandidateApplications() {
   const [sending, setSending] = useState(false);
   const [botActionLoading, setBotActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [recruiterName, setRecruiterName] = useState('Reclutador Whirlpool');
-  const [selectedCompany, setSelectedCompany] = useState('Whirlpool Planta Supsa');
+  const [recruiterName, setRecruiterName] = useState(
+    currentUser?.name ? (currentUser.role === 'recruiter' ? currentUser.name : `Reclutador ${currentUser.name}`) : 'Reclutador Industrial'
+  );
+  const [selectedCompany, setSelectedCompany] = useState(
+    currentUser?.empresa_nombre || currentUser?.company_name || 'Kia Mobis Logistics'
+  );
   const [copied, setCopied] = useState(false);
 
-  const companiesList = [
-    'Whirlpool Planta Supsa',
-    'DHL Supply Chain',
+  useEffect(() => {
+    if (currentUser?.name) {
+      setRecruiterName(currentUser.role === 'recruiter' ? currentUser.name : `Reclutador ${currentUser.name}`);
+    }
+    if (currentUser?.empresa_nombre || currentUser?.company_name) {
+      setSelectedCompany(currentUser.empresa_nombre || currentUser.company_name);
+    }
+  }, [currentUser]);
+
+  const defaultCompanies = [
     'Kia Mobis Logistics',
     'Ternium Guerrero',
+    'Whirlpool Planta Supsa',
     'Carrier México',
+    'Nemak Aluminios',
+    'DHL Supply Chain',
     'Frisa Forjados',
     'Danfoss San Nicolás',
-    'Metalsa Estructuras',
-    'Nemak Aluminios'
+    'Metalsa Estructuras'
   ];
+
+  const userCompany = currentUser?.empresa_nombre || currentUser?.company_name;
+  const companiesList = userCompany && !defaultCompanies.includes(userCompany)
+    ? [userCompany, ...defaultCompanies]
+    : defaultCompanies;
 
   const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://chambachat.onrender.com';
   const smartLinkUrl = `${originUrl}/?empresa=${encodeURIComponent(selectedCompany)}`;

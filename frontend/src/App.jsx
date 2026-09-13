@@ -31,6 +31,7 @@ export default function App() {
   
   // Modal de autenticación protegido para Empresa o acciones restringidas
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authInitialRole, setAuthInitialRole] = useState('candidate');
   const [authPrompt, setAuthPrompt] = useState({ title: '', message: '' });
   const [pendingAction, setPendingAction] = useState(null);
 
@@ -41,9 +42,10 @@ export default function App() {
   const handleOpenEmpresa = () => {
     const user = currentUser || getStoredUser();
     if (!user) {
+      setAuthInitialRole('recruiter');
       setAuthPrompt({
-        title: 'Acceso Restringido al Portal Empresa',
-        message: 'Debes iniciar sesión con Google o tu correo personal para acceder al Portal Empresa y gestionar vacantes de reclutamiento.'
+        title: 'Acceso al Portal Empresa (B2B)',
+        message: 'Inicia sesión con tu perfil de Reclutador / Empresa para gestionar vacantes de tu planta y comunicarte con los candidatos.'
       });
       setPendingAction(() => () => setCurrentView('empresa'));
       setIsAuthModalOpen(true);
@@ -67,9 +69,10 @@ export default function App() {
       const user = currentUser || getStoredUser();
       if (!user) {
         setCurrentView('chat');
+        setAuthInitialRole('recruiter');
         setAuthPrompt({
-          title: 'Acceso Restringido al Portal Empresa',
-          message: 'Debes iniciar sesión con Google o tu correo personal para acceder al Portal Empresa y gestionar vacantes de reclutamiento.'
+          title: 'Acceso al Portal Empresa (B2B)',
+          message: 'Inicia sesión con tu perfil de Reclutador / Empresa para gestionar vacantes de tu planta y comunicarte con los candidatos.'
         });
         setPendingAction(() => () => setCurrentView('empresa'));
         setIsAuthModalOpen(true);
@@ -181,7 +184,7 @@ export default function App() {
 
           {/* Contenido del módulo B2B seleccionado */}
           <div className="flex-1 pb-16">
-            {empresaTab === 'applications' && <CandidateApplications />}
+            {empresaTab === 'applications' && <CandidateApplications currentUser={currentUser} />}
             {empresaTab === 'jobs' && <JobsManager />}
             {empresaTab === 'predictor' && <RetentionPredictor />}
             {empresaTab === 'candidates' && <CandidatesList />}
@@ -216,15 +219,20 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE PERFIL DE OPERARIO */}
+      {/* MODAL DE PERFIL */}
       <UserProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         candidateProfile={activeProfile}
         currentUser={currentUser}
         onLogout={handleLogout}
+        onOpenEmpresa={() => {
+          setIsProfileOpen(false);
+          handleOpenEmpresa();
+        }}
         onOpenAuth={() => {
           setIsProfileOpen(false);
+          setAuthInitialRole('candidate');
           setAuthPrompt({
             title: 'Inicia Sesión o Regístrate',
             message: 'Accede con Google o tu correo personal para guardar tu perfil y postulaciones.'
@@ -245,6 +253,7 @@ export default function App() {
           setAuthPrompt({ title: '', message: '' });
           setPendingAction(null);
         }}
+        initialRole={authInitialRole}
         promptTitle={authPrompt.title}
         promptMessage={authPrompt.message}
         onAuthenticated={(user) => {

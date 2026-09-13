@@ -23,36 +23,44 @@ export function setStoredUser(user) {
 }
 
 /**
- * Autenticación inmediata y segura sin redirecciones rotas
- * Soporta Google (1 clic) o Correo Electrónico Personal
+ * Autenticación multiusuario inmediata y segura
+ * Soporta Google y Correo Electrónico para Candidatos y Reclutadores
  */
-export async function authenticateUser({ name, email, phone, provider = 'google' }) {
-  let defaultGoogleEmail = 'rvaldezl@gmail.com';
-  let defaultGoogleName = 'Rogelio Valdez';
-  try {
-    if (typeof window !== 'undefined') {
-      defaultGoogleEmail = localStorage.getItem('chambachat_last_google_email') || defaultGoogleEmail;
-      defaultGoogleName = localStorage.getItem('chambachat_last_google_name') || defaultGoogleName;
-    }
-  } catch {}
+export async function authenticateUser({ 
+  name, 
+  email, 
+  phone, 
+  role = 'candidate', 
+  company_name = null, 
+  provider = 'google',
+  avatar_url = null
+}) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail) {
+    throw new Error('El correo electrónico es requerido para autenticar');
+  }
 
-  const cleanName = (name || (provider === 'google' ? defaultGoogleName : 'Candidato')).trim();
-  const cleanEmail = (email || (provider === 'google' ? defaultGoogleEmail : 'candidato@correo.com')).trim();
+  const cleanName = (name || (cleanEmail.includes('@') ? cleanEmail.split('@')[0].replace('.', ' ') : 'Usuario')).trim();
   const cleanPhone = (phone || '').trim();
+  const cleanRole = role === 'recruiter' ? 'recruiter' : 'candidate';
+  const cleanCompany = cleanRole === 'recruiter' ? (company_name || 'Planta Industrial') : null;
+  const avatar = avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanName)}`;
 
   const user = {
     id: 'user_' + Date.now().toString(36),
     name: cleanName,
     email: cleanEmail,
     phone: cleanPhone,
-    avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanName)}`,
+    role: cleanRole,
+    company_name: cleanCompany,
+    avatar_url: avatar,
     provider: provider,
     logged_at: new Date().toISOString()
   };
 
   setStoredUser(user);
 
-  // Sincronizar directamente con Supabase PostgreSQL
+  // Sincronizar directamente con Supabase PostgreSQL / backend
   await syncUserWithBackend(user);
   return user;
 }
@@ -97,8 +105,10 @@ export async function syncUserWithBackend(userData, sessionData = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: userData.email || 'rvaldezl@gmail.com',
-        nombre: userData.name || 'Rogelio Valdez',
+        email: userData.email,
+        nombre: userData.name,
+        role: userData.role || 'candidate',
+        empresa_nombre: userData.company_name || null,
         avatar_url: userData.avatar_url,
         google_id: userData.id,
         session_id: sessionData.sessionId || null,

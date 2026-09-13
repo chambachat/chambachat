@@ -94,6 +94,24 @@ def test_google_profile_sync():
     assert data["nombre"] == "Rogelio Valdez"
     assert data["email"] == "rogelio@chambachat.com"
     assert data["telefono"] == "81-1234-5678"
+    assert data["role"] == "candidate"
+
+def test_recruiter_profile_sync():
+    payload = {
+        "email": "rh@ternium.com",
+        "nombre": "Lic. Marcela Treviño",
+        "role": "recruiter",
+        "empresa_nombre": "Ternium Guerrero",
+        "telefono": "81-8888-9999"
+    }
+    res = client.post("/api/v1/auth/sync-google-profile", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert data["nombre"] == "Lic. Marcela Treviño"
+    assert data["email"] == "rh@ternium.com"
+    assert data["role"] == "recruiter"
+    assert data["empresa_nombre"] == "Ternium Guerrero"
 
 def test_send_verification_code():
     res = client.post("/api/v1/auth/send-verification-code", json={"email": "usuario@correo.com"})

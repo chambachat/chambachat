@@ -14,16 +14,42 @@ from app.routers import predictor, chat, jobs, candidates, admin, analytics, aut
 Base.metadata.create_all(bind=engine)
 
 def auto_upgrade_schema():
-    """Garantiza que columnas nuevas en job_applications existan tanto en SQLite como Postgres."""
+    """Garantiza que columnas nuevas en job_applications y users existan tanto en SQLite como Postgres."""
     from sqlalchemy import text
-    with engine.begin() as conn:
-        for col_def in [
-            ("bot_silenced", "BOOLEAN DEFAULT FALSE"),
-            ("last_candidate_message_at", "TIMESTAMP NULL"),
-            ("last_recruiter_message_at", "TIMESTAMP NULL")
-        ]:
+    is_postgres = "postgres" in str(engine.url)
+
+    if is_postgres:
+        postgres_queries = [
+            "ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS bot_silenced BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS last_candidate_message_at TIMESTAMP NULL",
+            "ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS last_recruiter_message_at TIMESTAMP NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'candidate'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa_nombre VARCHAR(255) NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500) NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) NULL"
+        ]
+        for q in postgres_queries:
             try:
-                conn.execute(text(f"ALTER TABLE job_applications ADD COLUMN {col_def[0]} {col_def[1]}"))
+                with engine.begin() as conn:
+                    conn.execute(text(q))
+            except Exception:
+                pass
+    else:
+        sqlite_queries = [
+            "ALTER TABLE job_applications ADD COLUMN bot_silenced BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE job_applications ADD COLUMN last_candidate_message_at TIMESTAMP NULL",
+            "ALTER TABLE job_applications ADD COLUMN last_recruiter_message_at TIMESTAMP NULL",
+            "ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL",
+            "ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'candidate'",
+            "ALTER TABLE users ADD COLUMN empresa_nombre VARCHAR(255) NULL",
+            "ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500) NULL",
+            "ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL"
+        ]
+        for q in sqlite_queries:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(q))
             except Exception:
                 pass
 

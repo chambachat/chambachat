@@ -14,6 +14,8 @@ class GoogleProfileSyncRequest(BaseModel):
     nombre: str
     avatar_url: Optional[str] = None
     google_id: Optional[str] = None
+    role: Optional[str] = "candidate"  # "candidate" | "recruiter" | "admin"
+    empresa_nombre: Optional[str] = None
     session_id: Optional[str] = None
     municipio: Optional[str] = "Monterrey"
     nivel_educativo: Optional[str] = "Secundaria"
@@ -71,15 +73,24 @@ def send_verification_code(req: VerificationCodeRequest):
 @router.post("/sync-google-profile")
 def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get_db)):
     """
-    Sincroniza o crea el perfil de operario en Supabase a partir de la autenticación con Google o Correo Personal.
+    Sincroniza o crea el perfil de usuario (Candidato o Reclutador de Empresa)
+    en Supabase/PostgreSQL de forma multiusuario independiente.
     """
-    # Buscar si ya existe por nombre o teléfono/email
     coords = MUNICIPIOS_NL_COORDS.get((req.municipio or "monterrey").lower(), (25.6866, -100.3161))
+    clean_email = req.email.strip().lower() if req.email else ""
 
-    user = db.query(User).filter(User.nombre == req.nombre).first()
+    user = None
+    if clean_email:
+        user = db.query(User).filter(User.email == clean_email).first()
+    if not user and req.nombre:
+        user = db.query(User).filter(User.nombre == req.nombre.strip()).first()
+
     if not user:
         user = User(
-            nombre=req.nombre,
+            nombre=req.nombre.strip(),
+            email=clean_email or None,
+            role=req.role or "candidate",
+            empresa_nombre=req.empresa_nombre,
             telefono=req.telefono,
             municipio=req.municipio or "Monterrey",
             nivel_educativo=req.nivel_educativo or "Secundaria",
@@ -87,14 +98,27 @@ def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get
             latitud=coords[0],
             longitud=coords[1],
             sueldo_deseado=2400.0,
+            avatar_url=req.avatar_url,
+            google_id=req.google_id,
             activo=True
         )
         db.add(user)
         db.commit()
         db.refresh(user)
     else:
-        if req.tag_inea:
-            user.tag_inea = True
+        user.nombre = req.nombre.strip() or user.nombre
+        if clean_email:
+            user.email = clean_email
+        if req.role:
+            user.role = req.role
+        if req.empresa_nombre:
+            user.empresa_nombre = req.empresa_nombre
+        if req.avatar_url:
+            user.avatar_url = req.avatar_url
+        if req.google_id:
+            user.google_id = req.google_id
+        if req.tag_inea is not None:
+            user.tag_inea = bool(req.tag_inea)
         if req.municipio:
             user.municipio = req.municipio
         if req.telefono:
@@ -108,7 +132,7 @@ def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get
         if chat_sess:
             data = json.loads(chat_sess.collected_data or "{}")
             data["user_id"] = user.id
-            data["email"] = req.email
+            data["email"] = clean_email
             if req.telefono:
                 data["telefono"] = req.telefono
             data["logged_in"] = True
@@ -119,10 +143,12 @@ def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get
         "status": "success",
         "user_id": user.id,
         "nombre": user.nombre,
-        "email": req.email,
+        "email": user.email or clean_email,
+        "role": user.role or "candidate",
+        "empresa_nombre": user.empresa_nombre,
         "telefono": user.telefono,
         "municipio": user.municipio,
         "nivel_educativo": user.nivel_educativo,
         "tag_inea": user.tag_inea,
-        "avatar_url": req.avatar_url
+        "avatar_url": user.avatar_url or req.avatar_url
     }
