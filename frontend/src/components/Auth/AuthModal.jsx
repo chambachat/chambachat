@@ -204,8 +204,12 @@ export default function AuthModal({
 
         {/* Encabezado */}
         <div className="text-center space-y-1 pt-1">
-          <div className="inline-flex p-2.5 rounded-2xl bg-emerald-50 text-2xl mb-1 shadow-xs border border-emerald-100">
-            🤠
+          <div className="flex justify-center mb-1">
+            <img 
+              src="/chambot.png" 
+              alt="Chambot" 
+              className="w-14 h-14 object-contain drop-shadow-sm rounded-2xl" 
+            />
           </div>
           <h2 className="text-lg font-black text-slate-900">
             {step === 'verify' ? 'Confirma tu Correo' : 'Conecta tu Cuenta'}

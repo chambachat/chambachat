@@ -19,7 +19,7 @@ def send_real_verification_email(to_email: str, code: str) -> dict:
     smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user or "noreply@chambachat.com")
     resend_key = os.getenv("RESEND_API_KEY")
 
-    subject = f"{code} es tu código de confirmación en Chambachat 🤠"
+    subject = f"{code} es tu código de confirmación en Chambachat"
 
     html_content = f"""
     <!DOCTYPE html>
@@ -29,22 +29,30 @@ def send_real_verification_email(to_email: str, code: str) -> dict:
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Confirma tu correo en Chambachat</title>
       <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; }}
-        .card {{ max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 24px; border: 1px solid #e2e8f0; padding: 36px 28px; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,0.05); }}
-        .logo {{ font-size: 36px; margin-bottom: 12px; }}
-        .title {{ font-size: 22px; font-weight: 900; color: #0f172a; margin-bottom: 8px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; }}
+        .card {{ max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 28px; border: 1px solid #e2e8f0; padding: 36px 28px; text-align: center; box-shadow: 0 4px 20px rgba(11,34,70,0.08); }}
+        .logo-header {{ margin-bottom: 24px; text-align: center; }}
+        .logo-img {{ max-height: 52px; width: auto; border-radius: 12px; }}
+        .mascot-box {{ margin-bottom: 12px; }}
+        .mascot-img {{ width: 64px; height: 64px; object-fit: contain; }}
+        .title {{ font-size: 22px; font-weight: 900; color: #0b2246; margin-bottom: 8px; letter-spacing: -0.5px; }}
         .desc {{ font-size: 14px; color: #475569; line-height: 1.5; margin-bottom: 24px; }}
-        .code-box {{ display: inline-block; background-color: #ecfdf5; border: 2px solid #10b981; border-radius: 18px; padding: 14px 32px; font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #047857; margin-bottom: 24px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }}
+        .code-box {{ display: inline-block; background-color: #ecfdf5; border: 2px solid #10b981; border-radius: 20px; padding: 14px 36px; font-size: 38px; font-weight: 900; letter-spacing: 10px; color: #047857; margin-bottom: 24px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; box-shadow: 0 2px 8px rgba(16,185,129,0.15); }}
         .note {{ font-size: 12px; color: #94a3b8; line-height: 1.4; margin-top: 16px; }}
         .footer {{ font-size: 11px; color: #94a3b8; margin-top: 32px; border-top: 1px solid #f1f5f9; padding-top: 16px; }}
       </style>
     </head>
     <body>
       <div class="card">
-        <div class="logo">🤠</div>
-        <div class="title">Confirma tu Correo en Chambachat</div>
+        <div class="logo-header">
+          <img src="https://chambachat.onrender.com/logo-chambachat.png" alt="ChambaChat" class="logo-img" />
+        </div>
+        <div class="mascot-box">
+          <img src="https://chambachat.onrender.com/chambot.png" alt="Chambot" class="mascot-img" />
+        </div>
+        <div class="title">Confirma tu Correo Personal</div>
         <div class="desc">
-          ¡Qué onda! Usa el siguiente código de 4 dígitos para activar tu cuenta personal y postularte a las mejores vacantes industriales de Nuevo León:
+          ¡Qué onda! Usa el siguiente código de 4 dígitos para activar tu cuenta y postularte a las mejores vacantes industriales de Nuevo León:
         </div>
         <div class="code-box">{code}</div>
         <div class="note">

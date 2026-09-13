@@ -156,9 +156,11 @@ export default function ChatSimulator() {
             <div className="bg-[#121b22] px-4 pt-8 pb-3 border-b border-slate-800/80 flex items-center justify-between text-white z-10">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center text-xl shadow">
-                    🤠
-                  </div>
+                  <img
+                    src="/chambot.png"
+                    alt="Chambot"
+                    className="w-10 h-10 rounded-full bg-emerald-800 p-0.5 object-contain shadow"
+                  />
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950" />
                 </div>
                 <div>

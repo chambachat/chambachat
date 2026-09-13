@@ -17,9 +17,11 @@ export default function Navbar({ activeTab, setActiveTab }) {
         <div className="flex items-center justify-between h-16">
           {/* Brand */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('predictor')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-xl shadow-lg shadow-emerald-500/20">
-              🤠
-            </div>
+            <img
+              src="/chambot.png"
+              alt="Chambot"
+              className="w-10 h-10 object-contain rounded-xl drop-shadow-sm"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl font-extrabold tracking-tight text-white">Chamba<span className="text-emerald-400">chat</span></span>

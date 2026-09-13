@@ -117,6 +117,11 @@ export default function App() {
                 <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
 
                 <div className="flex items-center gap-2">
+                  <img
+                    src="/logo-chambachat.png"
+                    alt="ChambaChat Logo"
+                    className="h-7 w-auto object-contain rounded-md shadow-xs border border-slate-900/10 shrink-0"
+                  />
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-sm font-black text-slate-900">Portal Empresa & Reclutamiento</span>
                   <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">

@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Sparkles,
   Settings,
-  LogOut,
   CheckCircle2
 } from 'lucide-react';
 import { 
@@ -509,17 +508,6 @@ export default function GeminiChatLayout({
                   <span className="text-[10px] text-slate-500 block truncate">{currentUser.email}</span>
                 </div>
               </div>
-
-              {/* Botón explícito para cerrar sesión */}
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-bold border border-rose-200 shadow-xs transition group"
-                title="Cerrar sesión activa"
-              >
-                <LogOut className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                <span>Cerrar sesión</span>
-              </button>
             </div>
           ) : (
             <button
@@ -599,6 +587,11 @@ export default function GeminiChatLayout({
             </button>
 
             <div className="flex items-center gap-2 truncate">
+              <img
+                src="/logo-chambachat.png"
+                alt="ChambaChat Logo"
+                className="h-8 sm:h-9 w-auto object-contain rounded-lg shadow-xs border border-slate-900/10 shrink-0"
+              />
               <span className="text-base font-extrabold tracking-tight text-slate-900 truncate">
                 Chamba<span className="text-emerald-600">chat</span>
               </span>
@@ -616,29 +609,19 @@ export default function GeminiChatLayout({
                 <span>Iniciar sesión</span>
               </button>
             ) : (
-              <div className="flex items-center gap-1.5">
-                <div
-                  onClick={onOpenPerfil}
-                  className="flex items-center gap-2 cursor-pointer p-1 pr-2 rounded-full hover:bg-slate-100 transition shrink-0"
-                  title="Ver mi perfil"
-                >
-                  <img
-                    src={currentUser.avatar_url}
-                    alt={currentUser.name}
-                    className="w-7 h-7 rounded-full bg-slate-200 border border-emerald-400 object-cover"
-                  />
-                  <span className="text-xs font-bold text-slate-800 hidden sm:inline truncate max-w-[120px]">
-                    {currentUser.name}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition shrink-0"
-                  title="Cerrar sesión"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
+              <div
+                onClick={onOpenPerfil}
+                className="flex items-center gap-2 cursor-pointer p-1 pr-2 rounded-full hover:bg-slate-100 transition shrink-0 border border-transparent hover:border-slate-200"
+                title="Ver mi perfil"
+              >
+                <img
+                  src={currentUser.avatar_url}
+                  alt={currentUser.name}
+                  className="w-7 h-7 rounded-full bg-slate-200 border border-emerald-400 object-cover"
+                />
+                <span className="text-xs font-bold text-slate-800 hidden sm:inline truncate max-w-[120px]">
+                  {currentUser.name}
+                </span>
               </div>
             )}
           </div>
@@ -649,8 +632,12 @@ export default function GeminiChatLayout({
           {(!activeSession?.messages || activeSession.messages.length === 0) ? (
             /* Pantalla inicial vacía */
             <div className="py-8 sm:py-16 text-center space-y-6 sm:space-y-8 animate-fadeIn">
-              <div className="inline-flex p-3.5 sm:p-4 rounded-3xl bg-emerald-50 text-2xl sm:text-3xl shadow-sm border border-emerald-100">
-                🤠
+              <div className="flex justify-center">
+                <img
+                  src="/chambot.png"
+                  alt="Chambot"
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-md hover:scale-105 transition-transform"
+                />
               </div>
               <div className="space-y-1.5 sm:space-y-2 px-2">
                 <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -687,9 +674,11 @@ export default function GeminiChatLayout({
                   className={`flex gap-2.5 sm:gap-3.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} min-w-0 w-full`}
                 >
                   {msg.sender === 'bot' && (
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 flex items-center justify-center text-xs sm:text-sm shadow shrink-0 text-white font-bold">
-                      🤠
-                    </div>
+                    <img
+                      src="/chambot.png"
+                      alt="Chambot"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 p-0.5 border border-emerald-300/80 object-contain shadow-xs shrink-0"
+                    />
                   )}
 
                   {msg.sender === 'recruiter' && (
@@ -726,9 +715,11 @@ export default function GeminiChatLayout({
               {/* Bot escribiendo */}
               {isTyping && (
                 <div className="flex items-center gap-2.5 sm:gap-3">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 flex items-center justify-center text-xs sm:text-sm text-white font-bold shrink-0">
-                    🤠
-                  </div>
+                  <img
+                    src="/chambot.png"
+                    alt="Chambot"
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 p-0.5 border border-emerald-300/80 object-contain shadow-xs shrink-0"
+                  />
                   <div className="bg-slate-100 text-slate-500 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl rounded-tl-none flex items-center gap-1.5">
                     <span className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce" />
                     <span className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce [animation-delay:0.2s]" />
