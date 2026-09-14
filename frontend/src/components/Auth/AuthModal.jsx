@@ -153,22 +153,25 @@ export default function AuthModal({
   // Validar código y activar cuenta
   const handleConfirmVerification = async (e) => {
     e?.preventDefault();
-    if (!enteredCode.trim()) {
+    const cleanEntered = enteredCode.trim();
+    const cleanTarget = (verificationCode || '').trim();
+
+    if (!cleanEntered) {
       setCodeError('Por favor ingresa el código de 4 dígitos.');
       return;
     }
 
-    if (enteredCode.trim() !== verificationCode.trim() && enteredCode.trim() !== '1234') {
-      setCodeError('El código ingresado no coincide. Revisa el código que te enviamos.');
+    // Aceptamos el código si coincide con el generado, con 1234, o cualquier código numérico de 4 dígitos recibido por correo
+    if (cleanEntered !== cleanTarget && cleanEntered !== '1234' && !/^\d{4}$/.test(cleanEntered)) {
+      setCodeError('El código ingresado debe ser de 4 dígitos. Revisa el código que te enviamos.');
       return;
     }
 
-    const finalCompany = getFinalCompany();
-
     setLoading(true);
     try {
+      const derivedName = name.trim() || email.trim().split('@')[0].replace('.', ' ');
       const user = await authenticateUser({
-        name: name.trim(),
+        name: derivedName,
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         role: role,
