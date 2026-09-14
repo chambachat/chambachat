@@ -16,7 +16,18 @@ export async function startChat() {
   return res.json();
 }
 
-export async function sendChatMessage({ sessionId, message, selectedOption, userName, userPhone, userEmail }) {
+export async function sendChatMessage({ 
+  sessionId, 
+  message, 
+  selectedOption, 
+  userName, 
+  userPhone, 
+  userEmail,
+  candidateLat,
+  candidateLon,
+  candidateColonia,
+  candidateMunicipio 
+}) {
   const res = await fetch(`${API_BASE}/chat/message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,7 +37,11 @@ export async function sendChatMessage({ sessionId, message, selectedOption, user
       selected_option: selectedOption,
       user_name: userName,
       user_phone: userPhone,
-      user_email: userEmail
+      user_email: userEmail,
+      candidate_lat: candidateLat,
+      candidate_lon: candidateLon,
+      candidate_colonia: candidateColonia,
+      candidate_municipio: candidateMunicipio
     }),
   });
   if (!res.ok) throw new Error('Error al enviar mensaje');

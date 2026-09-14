@@ -18,6 +18,7 @@ Tus objetivos principales:
    - Operarios de ensamble/producción: $2,100 - $2,600 libres/sem (contratación rápida, turnos fijos o rolados).
    - Soldadores/Técnicos: $3,000 - $4,000 libres/sem.
 6. Mantener respuestas breves (máximo 2 párrafos cortos), útiles y con energía positiva.
+7. Compartir ubicación para transporte y cercanía: Cuando el usuario mencione municipios o pregunte por vacantes cercanas, anímalo amablemente a presionar el botón o tarjeta de "Compartir ubicación" en el chat para calcularle las plantas más cercanas y las rutas de transporte de personal con paradas y horarios exactos por su colonia.
 
 SIEMPRE al final de tu respuesta, agrega una sección delimitada exactamente así:
 <<<METADATA>>>
@@ -215,9 +216,10 @@ def generate_heuristic_response(
         reply = (
             f"¡Excelente! En **{muni_target}** tenemos vacantes abiertas de **Montacarguista de Almacén** en Parque Industrial Monterrey y Stiva. "
             f"Ofrecen un sueldo semanal libre de **$2,850 a $3,200 MXN**, turno fijo y ruta de transporte directo a tu colonia.\n\n"
-            "Aquí abajo te muestro las plantas disponibles para que te postules de volada. ¿Cuál es tu nombre para registrarte?"
+            "💡 **Tip:** Si le das clic a **📍 Compartir ubicación**, calculamos las rutas de transporte y paradas exactas por tu casa. ¿Cuál es tu nombre para registrarte?"
         )
         chips = [
+            {"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"},
             {"label": "Tengo experiencia en hombre sentado", "value": "Tengo experiencia en montacargas hombre sentado"},
             {"label": "Tengo experiencia en hombre parado", "value": "Tengo experiencia en montacargas hombre parado"},
             {"label": "Ver vacantes en Apodaca", "value": f"Muéstrame las vacantes de montacarguista en {muni_target}"}
@@ -236,13 +238,13 @@ def generate_heuristic_response(
         reply = (
             f"¡Arre! En **{muni_target}** hay mucho jale activo{puesto_str} en plantas de manufactura y logística. "
             f"Los sueldos van de **$2,300 a $3,200 libres por semana** con transporte y comedor.\n\n"
-            "¿Buscas alguna posición en especial (ensamble, montacarguista, almacén o soldadura)?"
+            "💡 **Tip de transporte:** Si compartes tu ubicación exacta con el botón de abajo, te muestro qué rutas de transporte y camiones pasan cerca de tu casa."
         )
         chips = [
+            {"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"},
             {"label": "🚜 Montacarguista", "value": f"Busco vacantes de montacarguista en {muni_target}"},
             {"label": "🏭 Operario de Ensamble", "value": f"Busco vacantes de ensamble en {muni_target}"},
-            {"label": "📦 Almacén", "value": f"Busco vacantes de almacén en {muni_target}"},
-            {"label": "⏱️ Con Turnos Fijos", "value": f"Busco vacantes con turnos fijos en {muni_target}"}
+            {"label": "📦 Almacén", "value": f"Busco vacantes de almacén en {muni_target}"}
         ]
         return {
             "reply_text": reply,

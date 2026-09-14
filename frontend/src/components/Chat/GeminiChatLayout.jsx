@@ -15,7 +15,10 @@ import {
   ShieldCheck,
   Sparkles,
   Settings,
-  CheckCircle2
+  CheckCircle2,
+  Navigation,
+  Bus,
+  Compass
 } from 'lucide-react';
 import { 
   loadAllSessions, 
@@ -42,6 +45,7 @@ import {
 } from '../../services/supabaseClient';
 import AuthModal from '../Auth/AuthModal';
 import JobDetailModal from '../Jobs/JobDetailModal';
+import LocationPickerModal from './LocationPickerModal';
 
 export default function GeminiChatLayout({ 
   onOpenEmpresa, 
@@ -64,6 +68,15 @@ export default function GeminiChatLayout({
   const [showVacancies, setShowVacancies] = useState(true);
   const [appliedJobIds, setAppliedJobIds] = useState(new Set());
   const [selectedDetailJob, setSelectedDetailJob] = useState(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [candidateLocation, setCandidateLocation] = useState(() => {
+    try {
+      const stored = localStorage.getItem('candidate_location');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -81,6 +94,17 @@ export default function GeminiChatLayout({
       setCurrentUser(propCurrentUser);
     }
   }, [propCurrentUser]);
+
+  useEffect(() => {
+    if (currentUser?.latitud && currentUser?.longitud) {
+      setCandidateLocation({
+        lat: currentUser.latitud,
+        lon: currentUser.longitud,
+        colonia: currentUser.colonia || '',
+        municipio: currentUser.municipio || 'Apodaca'
+      });
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     const user = getStoredUser();
@@ -344,6 +368,17 @@ export default function GeminiChatLayout({
     const text = textToSend || inputMessage;
     if (!text && !optionVal) return;
 
+    // Si el usuario da clic en un chip o envía texto para compartir ubicación, abrir modal interactivo
+    if (
+      optionVal === 'Quiero compartir mi ubicación para ver rutas de transporte' ||
+      (typeof optionVal === 'string' && optionVal.toLowerCase().includes('compartir mi ubicación')) ||
+      (typeof text === 'string' && text.toLowerCase().includes('compartir mi ubicación')) ||
+      (typeof text === 'string' && text.toLowerCase().includes('compartir ubicacion'))
+    ) {
+      setIsLocationModalOpen(true);
+      return;
+    }
+
     if (!activeSession) return;
 
     const userText = optionVal 
@@ -403,7 +438,11 @@ export default function GeminiChatLayout({
         selectedOption: optionVal,
         userName: currentUser?.name,
         userPhone: currentUser?.phone,
-        userEmail: currentUser?.email
+        userEmail: currentUser?.email,
+        candidateLat: candidateLocation?.lat,
+        candidateLon: candidateLocation?.lon,
+        candidateColonia: candidateLocation?.colonia,
+        candidateMunicipio: candidateLocation?.municipio
       });
 
       if (res.session_id) {
@@ -424,6 +463,7 @@ export default function GeminiChatLayout({
           ...activeSession,
           messages: finalMessages,
           matchedJobs: res.matched_jobs?.length ? res.matched_jobs : activeSession.matchedJobs || [],
+          nearbyRoutes: res.nearby_routes?.length ? res.nearby_routes : activeSession.nearbyRoutes || [],
           candidateProfile: res.candidate_profile || activeSession.candidateProfile || null,
           backendSessionId: res.session_id || activeSession.backendSessionId,
           shouldAskLogin: res.should_ask_login && !currentUser
@@ -433,6 +473,7 @@ export default function GeminiChatLayout({
         updateSession(activeSession.id, {
           messages: finalMessages,
           matchedJobs: finalSession.matchedJobs,
+          nearbyRoutes: finalSession.nearbyRoutes,
           candidateProfile: finalSession.candidateProfile,
           backendSessionId: finalSession.backendSessionId,
           shouldAskLogin: finalSession.shouldAskLogin
@@ -443,6 +484,87 @@ export default function GeminiChatLayout({
 
     } catch (err) {
       console.error('Error enviando mensaje al bot:', err);
+      setIsTyping(false);
+    }
+  };
+
+  // Manejo de ubicación confirmada por el usuario desde LocationPickerModal
+  const handleLocationConfirmed = async (newLoc) => {
+    setCandidateLocation(newLoc);
+    try {
+      localStorage.setItem('candidate_location', JSON.stringify(newLoc));
+    } catch (e) {}
+
+    if (!activeSession) return;
+
+    const userText = `📍 Compartí mi ubicación en ${newLoc.colonia}, ${newLoc.municipio}`;
+    const userMsg = {
+      id: Math.random().toString(),
+      sender: 'user',
+      text: userText,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    const newMessages = [...(activeSession.messages || []), userMsg];
+    setActiveSession(prev => ({ ...prev, messages: newMessages }));
+    setIsTyping(true);
+
+    try {
+      let sId = activeSession.backendSessionId;
+      if (!sId) {
+        const startRes = await startChat();
+        sId = startRes.session_id;
+        activeSession.backendSessionId = sId;
+      }
+
+      const res = await sendChatMessage({
+        sessionId: sId,
+        message: userText,
+        candidateLat: newLoc.lat,
+        candidateLon: newLoc.lon,
+        candidateColonia: newLoc.colonia,
+        candidateMunicipio: newLoc.municipio,
+        userName: currentUser?.name,
+        userPhone: currentUser?.phone,
+        userEmail: currentUser?.email
+      });
+
+      setTimeout(() => {
+        setIsTyping(false);
+        const botMsgs = (res.bot_messages || []).map(m => ({
+          id: Math.random().toString(),
+          sender: 'bot',
+          text: m,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }));
+
+        const finalMessages = [...newMessages, ...botMsgs];
+        const finalSession = {
+          ...activeSession,
+          messages: finalMessages,
+          matchedJobs: res.matched_jobs?.length ? res.matched_jobs : activeSession.matchedJobs || [],
+          nearbyRoutes: res.nearby_routes?.length ? res.nearby_routes : activeSession.nearbyRoutes || [],
+          candidateProfile: res.candidate_profile || activeSession.candidateProfile || null,
+          backendSessionId: res.session_id || sId,
+          shouldAskLogin: res.should_ask_login && !currentUser
+        };
+
+        setActiveSession(finalSession);
+        updateSession(activeSession.id, {
+          messages: finalMessages,
+          matchedJobs: finalSession.matchedJobs,
+          nearbyRoutes: finalSession.nearbyRoutes,
+          candidateProfile: finalSession.candidateProfile,
+          backendSessionId: finalSession.backendSessionId,
+          shouldAskLogin: finalSession.shouldAskLogin
+        });
+        setSessions(loadAllSessions());
+        setOptions(res.options || []);
+        setShowVacancies(true);
+      }, 400);
+
+    } catch (err) {
+      console.error('Error enviando ubicación al bot:', err);
       setIsTyping(false);
     }
   };
@@ -837,6 +959,107 @@ export default function GeminiChatLayout({
                 </div>
               )}
 
+              {/* Tarjeta Interactiva de Ubicación y Rutas de Transporte */}
+              <div className="pl-0 sm:pl-10 py-1 animate-fadeIn w-full min-w-0">
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-teal-50/70 to-sky-50/80 border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <MapPin className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-extrabold text-slate-900">
+                          {candidateLocation ? '📍 Tu Ubicación Registrada' : '📍 Ubicación para Transporte y Cercanía'}
+                        </span>
+                        {candidateLocation && (
+                          <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                            {candidateLocation.colonia}, {candidateLocation.municipio}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+                        {candidateLocation 
+                          ? 'Calculamos las empresas con menor tiempo de traslado y las rutas de camión con paradas por tu casa.'
+                          : 'Comparte dónde vives (GPS o selecciona en el mapa) para ver qué plantas y camiones de personal pasan por tu colonia.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-center"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>{candidateLocation ? 'Cambiar ubicación' : 'Compartir mi ubicación'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tarjeta de Rutas de Transporte Cercanas */}
+              {activeSession?.nearbyRoutes && activeSession.nearbyRoutes.length > 0 && (
+                <div className="pl-0 sm:pl-10 pt-1 space-y-2 w-full max-w-full overflow-hidden animate-fadeIn">
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      <Bus className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Rutas de Transporte Cercanas a Tu Colonia ({activeSession.nearbyRoutes.length})</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
+                    {activeSession.nearbyRoutes.map((route, idx) => (
+                      <div 
+                        key={idx}
+                        className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 shadow-xs hover:shadow-sm transition space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span 
+                              className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md inline-block text-white mb-1"
+                              style={{ backgroundColor: route.color_hex || '#059669' }}
+                            >
+                              {route.nombre_ruta}
+                            </span>
+                            <h5 className="text-xs font-bold text-slate-900 truncate">
+                              {route.empresa_nombre}
+                            </h5>
+                          </div>
+                          <span className="text-[10px] bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded-full shrink-0">
+                            {route.turno || 'Matutino'}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1 text-[11px] text-slate-600">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span className="font-semibold text-slate-800">Parada:</span>
+                            <span className="truncate">{route.nombre_parada}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="font-semibold text-slate-800">Pasa:</span>
+                            <span className="text-emerald-700 font-bold">{route.horario_paso}</span>
+                            {route.hora_llegada_planta && (
+                              <span className="text-slate-400 text-[10px]">(Llega a planta {route.hora_llegada_planta})</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                          <span className="text-slate-500 font-medium">
+                            🚶 ~{route.caminando_min} min caminando a la parada
+                          </span>
+                          <span className="font-bold text-emerald-600">
+                            {route.distancia_km} km
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Vacantes Afines Desplegadas en el Chat (Diseño Compacto y Colapsable) */}
               {activeSession?.matchedJobs && activeSession.matchedJobs.length > 0 && (
                 <div className="pl-0 sm:pl-10 pt-2 space-y-2 w-full max-w-full overflow-hidden">
@@ -994,6 +1217,14 @@ export default function GeminiChatLayout({
         onStartDirectChat={handleApplyJob}
         isApplied={selectedDetailJob ? appliedJobIds.has(selectedDetailJob.id) : false}
         currentUser={currentUser}
+      />
+
+      {/* Modal Interactivo de Ubicación de Candidato */}
+      <LocationPickerModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onLocationConfirmed={handleLocationConfirmed}
+        initialLocation={candidateLocation}
       />
     </div>
   );

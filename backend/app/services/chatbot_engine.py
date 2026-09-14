@@ -2,8 +2,8 @@ import json
 import uuid
 from typing import Dict, Any, Tuple, List
 from sqlalchemy.orm import Session
-from app.models import BotFlowConfig, ChatSession, User, Job
-from app.services.matchmaking import match_jobs_for_candidate, MUNICIPIOS_NL_COORDS
+from app.models import BotFlowConfig, ChatSession, User, Job, RouteStop, TransportRoute
+from app.services.matchmaking import match_jobs_for_candidate, MUNICIPIOS_NL_COORDS, haversine_distance_km
 from app.services.deepseek_engine import query_deepseek_chat
 from app.config import settings
 
@@ -34,7 +34,11 @@ async def process_chat_message(
     selected_option: str = None,
     user_name: str = None,
     user_phone: str = None,
-    user_email: str = None
+    user_email: str = None,
+    candidate_lat: float = None,
+    candidate_lon: float = None,
+    candidate_colonia: str = None,
+    candidate_municipio: str = None
 ) -> Dict[str, Any]:
     """
     Motor conversacional híbrido con DeepSeek AI que mantiene el contexto de puesto, usuario y ubicación.
@@ -68,19 +72,27 @@ async def process_chat_message(
         data["telefono"] = user_phone
     if user_email:
         data["email"] = user_email
+    if candidate_lat is not None and candidate_lon is not None:
+        data["latitud"] = candidate_lat
+        data["longitud"] = candidate_lon
+    if candidate_colonia:
+        data["colonia"] = candidate_colonia
+    if candidate_municipio:
+        data["municipio"] = candidate_municipio
 
     input_text = (selected_option or user_message or "").strip()
     
     bot_messages = []
     options = []
     matched_jobs = []
+    nearby_routes = []
     completed = False
     candidate_profile = None
     should_ask_login = False
 
     history = data.get("history", [])
 
-    if not input_text:
+    if not input_text and candidate_lat is None:
         # Mensaje de bienvenida inicial
         welcome_text = get_prompt_text(db, "welcome")
         if data.get("nombre"):
@@ -104,8 +116,12 @@ async def process_chat_message(
                 data["municipio"] = m
                 break
 
+        # Si se acaba de enviar la ubicación geográfica
+        is_location_event = candidate_lat is not None and candidate_lon is not None
+        
         # Registrar mensaje del usuario en el historial
-        history.append({"sender": "user", "text": input_text})
+        if input_text:
+            history.append({"sender": "user", "text": input_text})
 
         # Invocar a DeepSeek con todo el historial y contexto de la sesión
         llm_response = await query_deepseek_chat(
@@ -115,8 +131,18 @@ async def process_chat_message(
         )
         
         reply_text = llm_response["reply_text"]
-        bot_messages.append(reply_text)
-        history.append({"sender": "bot", "text": reply_text})
+        
+        # Si fue un evento de compartir ubicación, anteponer mensaje enfocado en transporte
+        if is_location_event:
+            zona_label = data.get("colonia") or data.get("municipio") or "tu zona"
+            bot_messages.append(
+                f"📍 ¡Excelente compadre! Ya guardé tu ubicación en **{zona_label}**. "
+                f"A continuación calculé las vacantes más cercanas a ti y las rutas de transporte de personal con paradas y horarios por tu casa."
+            )
+        else:
+            bot_messages.append(reply_text)
+
+        history.append({"sender": "bot", "text": bot_messages[-1]})
 
         # Actualizar perfil extraído
         extracted = llm_response.get("extracted_profile", {})
@@ -127,24 +153,57 @@ async def process_chat_message(
         options = llm_response.get("suggested_chips", [])
         should_ask_login = llm_response.get("should_ask_login", False)
 
-        # Matchmaking inteligente con la base de datos de Supabase
+        # Matchmaking inteligente con la base de datos
         target_muni = data.get("municipio")
         puesto_kw = data.get("puesto_deseado")
 
-        coords = MUNICIPIOS_NL_COORDS.get((target_muni or "monterrey").lower(), (25.6866, -100.3161))
+        if data.get("latitud") is not None and data.get("longitud") is not None:
+            c_lat = float(data["latitud"])
+            c_lon = float(data["longitud"])
+        else:
+            coords = MUNICIPIOS_NL_COORDS.get((target_muni or "monterrey").lower(), (25.6866, -100.3161))
+            c_lat, c_lon = coords[0], coords[1]
+
         all_jobs = db.query(Job).all()
 
-        if all_jobs and (target_muni or puesto_kw or any(w in input_text.lower() for w in ["vacante", "jale", "chamba", "montacarguista", "apodaca", "pesquer"])):
+        if all_jobs and (target_muni or puesto_kw or is_location_event or any(w in input_text.lower() for w in ["vacante", "jale", "chamba", "montacarguista", "apodaca", "pesquer"])):
             matched_jobs = match_jobs_for_candidate(
-                candidate_lat=coords[0],
-                candidate_lon=coords[1],
+                candidate_lat=c_lat,
+                candidate_lon=c_lon,
                 municipio=target_muni or "Monterrey",
                 puesto_keyword=puesto_kw,
                 all_jobs=all_jobs
             )[:4]
 
-        # Guardar en base de datos si tenemos al menos nombre o puesto/municipio
-        if data.get("nombre") or data.get("municipio") or data.get("puesto_deseado"):
+        # Calcular rutas de transporte cercanas
+        try:
+            active_stops = db.query(RouteStop).join(TransportRoute).filter(TransportRoute.activa == True).all()
+            for stop in active_stops:
+                d_km = haversine_distance_km(c_lat, c_lon, stop.latitud, stop.longitud)
+                if d_km <= 8.0:
+                    walking_min = max(2, int((d_km / 4.5) * 60))
+                    nearby_routes.append({
+                        "stop_id": stop.id,
+                        "nombre_parada": stop.nombre,
+                        "horario_paso": stop.horario,
+                        "colonia_referencia": stop.colonia_referencia,
+                        "distancia_km": d_km,
+                        "caminando_min": walking_min,
+                        "ruta_id": stop.route.id,
+                        "nombre_ruta": stop.route.nombre,
+                        "turno": stop.route.turno,
+                        "color_hex": stop.route.color_hex,
+                        "hora_llegada_planta": stop.route.hora_llegada_planta,
+                        "empresa_id": stop.route.company_id,
+                        "empresa_nombre": stop.route.company.nombre if stop.route.company else "Planta Industrial"
+                    })
+            nearby_routes.sort(key=lambda x: x["distancia_km"])
+            nearby_routes = nearby_routes[:4]
+        except Exception as e:
+            print(f"Error consultando rutas de transporte: {e}")
+
+        # Guardar en base de datos si tenemos al menos nombre o puesto/municipio/coordenadas
+        if data.get("nombre") or data.get("municipio") or data.get("puesto_deseado") or is_location_event:
             user_rec = None
             if data.get("user_id"):
                 user_rec = db.query(User).filter(User.id == data["user_id"]).first()
@@ -158,8 +217,8 @@ async def process_chat_message(
                     municipio=data.get("municipio", "Apodaca"),
                     nivel_educativo="Secundaria",
                     tag_inea=False,
-                    latitud=coords[0],
-                    longitud=coords[1],
+                    latitud=c_lat,
+                    longitud=c_lon,
                     sueldo_deseado=2800.0,
                     activo=True
                 )
@@ -171,6 +230,8 @@ async def process_chat_message(
                     user_rec.municipio = data["municipio"]
                 if data.get("nombre"):
                     user_rec.nombre = data["nombre"]
+                user_rec.latitud = c_lat
+                user_rec.longitud = c_lon
                 db.commit()
                 db.refresh(user_rec)
 
@@ -179,6 +240,8 @@ async def process_chat_message(
                 "id": user_rec.id,
                 "nombre": user_rec.nombre,
                 "municipio": user_rec.municipio,
+                "latitud": c_lat,
+                "longitud": c_lon,
                 "puesto_deseado": data.get("puesto_deseado", "Operario General")
             }
 
@@ -192,6 +255,7 @@ async def process_chat_message(
         "bot_messages": bot_messages,
         "options": options,
         "matched_jobs": matched_jobs,
+        "nearby_routes": nearby_routes,
         "completed": bool(candidate_profile and matched_jobs),
         "candidate_profile": candidate_profile,
         "should_ask_login": should_ask_login and not data.get("google_logged_in")

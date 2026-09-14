@@ -458,6 +458,62 @@ def test_transport_routes_management_and_nearby_stops():
     final_list = client.get(f"/api/v1/companies/{comp_id}/routes").json()
     assert not any(r["id"] == route_id for r in final_list)
 
+def test_chat_candidate_location_and_nearby_routes():
+    # 1. Crear empresa y ruta con parada
+    comp_res = client.post("/api/v1/companies", json={
+        "nombre": "LG Electronics Ramos / Apodaca",
+        "rfc": "LGE950201NL1",
+        "municipio": "Apodaca",
+        "industria": "Manufactura",
+        "creator_email": "rh@lge.com"
+    })
+    assert comp_res.status_code == 200
+    comp_id = comp_res.json()["company"]["id"]
+
+    route_res = client.post(f"/api/v1/companies/{comp_id}/routes", json={
+        "nombre": "Ruta 5 Directa Huinalá",
+        "turno": "Matutino",
+        "hora_llegada_planta": "06:30 AM",
+        "color_hex": "#10b981",
+        "activa": True,
+        "stops": [
+            {
+                "orden": 1,
+                "nombre": "Oxxo Huinalá Centro",
+                "horario": "05:40 AM",
+                "latitud": 25.7540,
+                "longitud": -100.1740,
+                "colonia_referencia": "Huinalá"
+            }
+        ]
+    })
+    assert route_res.status_code == 200
+
+    # 2. Iniciar sesión de chat
+    start_res = client.get("/api/v1/chat/start")
+    assert start_res.status_code == 200
+    session_id = start_res.json()["session_id"]
+
+    # 3. Enviar mensaje de ubicación compartida (Huinalá: 25.7535, -100.1742)
+    loc_msg = client.post("/api/v1/chat/message", json={
+        "session_id": session_id,
+        "message": "📍 Compartí mi ubicación en Huinalá, Apodaca",
+        "candidate_lat": 25.7535,
+        "candidate_lon": -100.1742,
+        "candidate_colonia": "Huinalá",
+        "candidate_municipio": "Apodaca"
+    })
+    assert loc_msg.status_code == 200
+    res_data = loc_msg.json()
+    assert len(res_data["bot_messages"]) > 0
+    assert any("Huinalá" in m or "ubicación" in m.lower() for m in res_data["bot_messages"])
+    assert "nearby_routes" in res_data
+    assert len(res_data["nearby_routes"]) >= 1
+    closest = res_data["nearby_routes"][0]
+    assert closest["nombre_parada"] == "Oxxo Huinalá Centro"
+    assert closest["distancia_km"] < 1.0
+    assert closest["caminando_min"] >= 1
+
 if __name__ == "__main__":
     test_health()
     test_predict_retention_endpoint()
@@ -472,5 +528,7 @@ if __name__ == "__main__":
     test_tripartite_group_chat_and_bot_fallback()
     test_company_management_and_team_invitations()
     test_transport_routes_management_and_nearby_stops()
+    test_chat_candidate_location_and_nearby_routes()
     print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE <<<")
+
 

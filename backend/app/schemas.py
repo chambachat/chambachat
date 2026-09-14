@@ -32,6 +32,10 @@ class ChatMessageRequest(BaseModel):
     user_name: Optional[str] = None
     user_phone: Optional[str] = None
     user_email: Optional[str] = None
+    candidate_lat: Optional[float] = None
+    candidate_lon: Optional[float] = None
+    candidate_colonia: Optional[str] = None
+    candidate_municipio: Optional[str] = None
 
 class ChatOption(BaseModel):
     label: str
@@ -43,6 +47,7 @@ class ChatMessageResponse(BaseModel):
     bot_messages: List[str]
     options: List[ChatOption] = []
     matched_jobs: List[Dict[str, Any]] = []
+    nearby_routes: Optional[List[Dict[str, Any]]] = []
     completed: bool = False
     candidate_profile: Optional[Dict[str, Any]] = None
     should_ask_login: Optional[bool] = False
