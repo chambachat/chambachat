@@ -342,6 +342,122 @@ def test_company_management_and_team_invitations():
     del_res = client.delete(f"/api/v1/companies/{comp_id}/members/{second_member_id}")
     assert del_res.status_code == 200
 
+def test_transport_routes_management_and_nearby_stops():
+    # 1. Crear empresa base para la prueba de rutas
+    comp_res = client.post("/api/v1/companies", json={
+        "nombre": "Kia Motors Planta Pesquería",
+        "municipio": "Pesquería",
+        "industria": "Automotriz",
+        "creator_email": "logistica@kia.com"
+    })
+    assert comp_res.status_code == 200
+    comp_id = comp_res.json()["company"]["id"]
+
+    # 2. Registrar ruta de transporte con 3 paradas GPS y horarios
+    route_payload = {
+        "nombre": "Ruta 1 - Huinalá / Pueblo Nuevo",
+        "turno": "Turno 1 (Matutino)",
+        "color_hex": "#059669",
+        "descripcion": "Recorrido por Apodaca hacia nave industrial Pesquería",
+        "hora_inicio": "05:30 AM",
+        "hora_llegada_planta": "06:40 AM",
+        "stops": [
+            {
+                "orden": 1,
+                "nombre": "Soriana Huinalá",
+                "horario": "05:30 AM",
+                "latitud": 25.7480,
+                "longitud": -100.1900,
+                "colonia_referencia": "Huinalá, Apodaca"
+            },
+            {
+                "orden": 2,
+                "nombre": "Entrada Pueblo Nuevo",
+                "horario": "05:50 AM",
+                "latitud": 25.7600,
+                "longitud": -100.1500,
+                "colonia_referencia": "Pueblo Nuevo, Apodaca"
+            },
+            {
+                "orden": 3,
+                "nombre": "Cruce Carretera Miguel Alemán",
+                "horario": "06:15 AM",
+                "latitud": 25.7750,
+                "longitud": -100.1000,
+                "colonia_referencia": "Pesquería"
+            }
+        ]
+    }
+    create_res = client.post(f"/api/v1/companies/{comp_id}/routes", json=route_payload)
+    assert create_res.status_code == 200
+    route_data = create_res.json()["route"]
+    route_id = route_data["id"]
+    assert route_data["nombre"] == "Ruta 1 - Huinalá / Pueblo Nuevo"
+    assert route_data["total_stops"] == 3
+    assert len(route_data["stops"]) == 3
+    assert route_data["stops"][0]["nombre"] == "Soriana Huinalá"
+
+    # 3. Listar rutas de la empresa
+    list_res = client.get(f"/api/v1/companies/{comp_id}/routes")
+    assert list_res.status_code == 200
+    routes_list = list_res.json()
+    assert len(routes_list) >= 1
+    assert any(r["id"] == route_id for r in routes_list)
+
+    # 4. Obtener detalle de ruta específica
+    get_res = client.get(f"/api/v1/companies/{comp_id}/routes/{route_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["id"] == route_id
+
+    # 5. Actualizar ruta: cambiar nombre y modificar paradas
+    update_payload = {
+        "nombre": "Ruta 1 Express - Huinalá",
+        "color_hex": "#2563eb",
+        "stops": [
+            {
+                "orden": 1,
+                "nombre": "Soriana Huinalá VIP",
+                "horario": "05:25 AM",
+                "latitud": 25.7482,
+                "longitud": -100.1902,
+                "colonia_referencia": "Huinalá"
+            },
+            {
+                "orden": 2,
+                "nombre": "Nave Industrial Pesquería",
+                "horario": "06:20 AM",
+                "latitud": 25.7869,
+                "longitud": -100.0506,
+                "colonia_referencia": "Pesquería"
+            }
+        ]
+    }
+    update_res = client.put(f"/api/v1/companies/{comp_id}/routes/{route_id}", json=update_payload)
+    assert update_res.status_code == 200
+    updated_route = update_res.json()["route"]
+    assert updated_route["nombre"] == "Ruta 1 Express - Huinalá"
+    assert updated_route["total_stops"] == 2
+    assert updated_route["stops"][0]["nombre"] == "Soriana Huinalá VIP"
+
+    # 6. Búsqueda de paradas cercanas por geolocalización
+    # Coordenadas muy cerca de Soriana Huinalá (lat: 25.7480, lon: -100.1900)
+    nearby_res = client.get("/api/v1/routes/nearby?lat=25.7485&lon=-100.1905&max_distance_km=3.0")
+    assert nearby_res.status_code == 200
+    nearby_data = nearby_res.json()
+    assert nearby_data["total_encontradas"] >= 1
+    nearest = nearby_data["stops_cercanas"][0]
+    assert nearest["nombre_parada"] == "Soriana Huinalá VIP"
+    assert nearest["distancia_km"] < 1.0
+    assert nearest["caminando_min"] >= 1
+
+    # 7. Eliminar ruta de transporte
+    del_route_res = client.delete(f"/api/v1/companies/{comp_id}/routes/{route_id}")
+    assert del_route_res.status_code == 200
+
+    # 8. Verificar que la lista de rutas quede vacía
+    final_list = client.get(f"/api/v1/companies/{comp_id}/routes").json()
+    assert not any(r["id"] == route_id for r in final_list)
+
 if __name__ == "__main__":
     test_health()
     test_predict_retention_endpoint()
@@ -355,4 +471,6 @@ if __name__ == "__main__":
     test_jobs_filter_by_empresa()
     test_tripartite_group_chat_and_bot_fallback()
     test_company_management_and_team_invitations()
+    test_transport_routes_management_and_nearby_stops()
     print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE <<<")
+

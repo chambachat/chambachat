@@ -6,6 +6,7 @@ import CandidatesList from './components/B2B/CandidatesList';
 import AnalyticsDashboard from './components/B2B/AnalyticsDashboard';
 import CandidateApplications from './components/B2B/CandidateApplications';
 import TeamManager from './components/B2B/TeamManager';
+import TransportRoutesManager from './components/B2B/TransportRoutesManager';
 import FlowOrchestrator from './components/Admin/FlowOrchestrator';
 import UserProfileModal from './components/UserProfile/UserProfileModal';
 import AuthModal from './components/Auth/AuthModal';
@@ -24,7 +25,8 @@ import {
   X,
   ChevronRight,
   CheckCircle2,
-  ShieldCheck
+  ShieldCheck,
+  Bus
 } from 'lucide-react';
 
 import { getStoredUser, signOut } from './services/supabaseClient';
@@ -138,6 +140,7 @@ export default function App() {
   const b2bTabs = [
     { id: 'applications', label: 'Postulaciones & Chat', icon: MessageSquare, desc: 'Mensajería con candidatos' },
     { id: 'team', label: 'Mi Equipo', icon: Users2, badge: 'Team', desc: 'Plantas y reclutadores' },
+    { id: 'routes', label: 'Rutas de Transporte', icon: Bus, badge: 'GPS', desc: 'Trazado y horarios' },
     { id: 'jobs', label: 'Bolsa de Vacantes', icon: Briefcase, desc: 'Puestos vigentes' },
     { id: 'predictor', label: 'Predictor de Retención', icon: Calculator, desc: 'Predicción IA' },
     { id: 'candidates', label: 'Operarios Registrados', icon: Users, desc: 'Base de datos NL' },
@@ -369,6 +372,7 @@ export default function App() {
                   }} 
                 />
               )}
+              {empresaTab === 'routes' && <TransportRoutesManager currentUser={currentUser} />}
               {empresaTab === 'jobs' && <JobsManager />}
               {empresaTab === 'predictor' && <RetentionPredictor />}
               {empresaTab === 'candidates' && <CandidatesList />}

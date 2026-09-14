@@ -245,3 +245,58 @@ export async function removeTeamMember(companyId, memberId) {
   if (!res.ok) throw new Error('Error al remover miembro del equipo');
   return res.json();
 }
+
+// --- RUTAS DE TRANSPORTE & MAPAS (B2B) ---
+
+export async function getCompanyRoutes(companyId) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/routes`);
+  if (!res.ok) throw new Error('Error al obtener rutas de transporte');
+  return res.json();
+}
+
+export async function createCompanyRoute(companyId, routeData) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/routes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(routeData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al registrar ruta de transporte' }));
+    throw new Error(err.detail || 'Error al registrar ruta de transporte');
+  }
+  return res.json();
+}
+
+export async function updateCompanyRoute(companyId, routeId, routeData) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/routes/${routeId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(routeData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al actualizar ruta' }));
+    throw new Error(err.detail || 'Error al actualizar ruta');
+  }
+  return res.json();
+}
+
+export async function deleteCompanyRoute(companyId, routeId) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/routes/${routeId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Error al eliminar ruta de transporte');
+  return res.json();
+}
+
+export async function getNearbyRoutes(lat, lon, maxDistanceKm = 6.0, companyId = null) {
+  const params = new URLSearchParams({
+    lat: lat.toString(),
+    lon: lon.toString(),
+    max_distance_km: maxDistanceKm.toString(),
+  });
+  if (companyId) params.append('company_id', companyId.toString());
+  const res = await fetch(`${API_BASE}/routes/nearby?${params.toString()}`);
+  if (!res.ok) throw new Error('Error al consultar rutas cercanas');
+  return res.json();
+}
+

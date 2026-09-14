@@ -144,6 +144,8 @@ class Company(Base):
 
     members = relationship("CompanyMember", back_populates="company", cascade="all, delete-orphan")
     invitations = relationship("CompanyInvitation", back_populates="company", cascade="all, delete-orphan")
+    routes = relationship("TransportRoute", back_populates="company", cascade="all, delete-orphan")
+
 
 
 class CompanyMember(Base):
@@ -178,4 +180,41 @@ class CompanyInvitation(Base):
     expires_at = Column(DateTime, nullable=True)
 
     company = relationship("Company", back_populates="invitations")
+
+
+class TransportRoute(Base):
+    __tablename__ = "transport_routes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre = Column(String(255), nullable=False)
+    turno = Column(String(100), default="Turno 1 (Matutino)")
+    color_hex = Column(String(20), default="#059669")
+    descripcion = Column(Text, nullable=True)
+    activa = Column(Boolean, default=True)
+    hora_inicio = Column(String(20), nullable=True)
+    hora_llegada_planta = Column(String(20), nullable=True)
+    tiempo_estimado_min = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    company = relationship("Company", back_populates="routes")
+    stops = relationship("RouteStop", back_populates="route", cascade="all, delete-orphan", order_by="RouteStop.orden")
+
+
+class RouteStop(Base):
+    __tablename__ = "route_stops"
+
+    id = Column(Integer, primary_key=True, index=True)
+    route_id = Column(Integer, ForeignKey("transport_routes.id", ondelete="CASCADE"), nullable=False, index=True)
+    orden = Column(Integer, nullable=False, default=1)
+    nombre = Column(String(255), nullable=False)
+    horario = Column(String(20), nullable=False)  # ej. "05:45 AM"
+    latitud = Column(Float, nullable=False)
+    longitud = Column(Float, nullable=False)
+    colonia_referencia = Column(String(255), nullable=True)
+    referencia_visual = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    route = relationship("TransportRoute", back_populates="stops")
+
 

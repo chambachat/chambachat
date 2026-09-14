@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.models import BotFlowConfig
 from app.services.chatbot_engine import DEFAULT_PROMPTS
-from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies
+from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes
 
 # Crear tablas en base de datos si no existen
 Base.metadata.create_all(bind=engine)
@@ -107,6 +107,8 @@ app.include_router(analytics.router)
 app.include_router(auth.router)
 app.include_router(applications.router)
 app.include_router(companies.router)
+app.include_router(routes.router)
+
 
 @app.get("/api/health")
 def health_check():
