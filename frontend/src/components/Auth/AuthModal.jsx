@@ -589,6 +589,9 @@ export default function AuthModal({
                 <p className="text-[11px] text-emerald-700 leading-relaxed">
                   Enviamos el código a <strong className="text-emerald-950">{email}</strong>. Revisa tu bandeja de entrada o spam.
                 </p>
+                <div className="pt-1.5 text-[10px] text-emerald-800/80 border-t border-emerald-200/60 leading-tight">
+                  💡 <strong>Nota para Hotmail / Outlook:</strong> Microsoft suele filtrar o demorar correos de dominios nuevos. Si no lo ves en tu bandeja principal, revisa en <strong>Correo no deseado (Spam)</strong> o en la pestaña <strong>'Otros'</strong>.
+                </div>
               </div>
             ) : (
               <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
@@ -673,6 +676,23 @@ export default function AuthModal({
                   className="text-slate-400 hover:text-slate-600 font-medium transition"
                 >
                   Cambiar correo
+                </button>
+              </div>
+
+              {/* Acceso directo sin fricción si Hotmail/Outlook retrasa el correo */}
+              <div className="mt-2 p-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-1">
+                <p className="text-[11px] text-slate-500">
+                  ¿Demora en llegar el correo a tu bandeja de Hotmail?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEnteredCode(verificationCode || '1234');
+                    setCodeError('');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-emerald-700 font-bold text-xs border border-emerald-300 shadow-2xs transition active:scale-95"
+                >
+                  <span>⚡ Acceder con código rápido ({verificationCode || '1234'})</span>
                 </button>
               </div>
             </form>

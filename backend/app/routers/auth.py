@@ -51,12 +51,16 @@ def send_verification_code(req: VerificationCodeRequest):
     email_result = send_real_verification_email(req.email, code)
 
     if email_result.get("sent"):
+        detail_id = None
+        if isinstance(email_result.get("detail"), dict):
+            detail_id = email_result["detail"].get("id")
         return {
             "status": "sent",
             "email": req.email,
             "code": code,
             "real_email_sent": True,
             "provider": email_result.get("provider"),
+            "resend_id": detail_id,
             "message": f"Código enviado exitosamente a tu correo {req.email}"
         }
     else:
@@ -69,6 +73,23 @@ def send_verification_code(req: VerificationCodeRequest):
             "error_detail": error_msg,
             "message": "Servidor de correo SMTP aún no configurado en el servidor." if error_msg == "SMTP_NOT_CONFIGURED" else f"Error al enviar correo: {error_msg}"
         }
+
+@router.get("/check-email-delivery/{email_id}")
+def check_email_delivery(email_id: str):
+    import os
+    import requests
+    resend_key = os.getenv("RESEND_API_KEY")
+    if not resend_key:
+        return {"error": "RESEND_API_KEY not set"}
+    try:
+        res = requests.get(
+            f"https://api.resend.com/emails/{email_id}",
+            headers={"Authorization": f"Bearer {resend_key}"},
+            timeout=10
+        )
+        return res.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 @router.post("/sync-google-profile")
 def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get_db)):
