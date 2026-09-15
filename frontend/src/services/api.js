@@ -328,3 +328,56 @@ export async function updateCompanyLocation(companyId, locationData) {
   return res.json();
 }
 
+// --- GESTIÓN DE TURNOS LABORALES DE PLANTA (B2B) ---
+
+export async function getCompanyShifts(companyId) {
+  if (!companyId) throw new Error('Se requiere el ID de la empresa');
+  const res = await fetch(`${API_BASE}/companies/${companyId}/shifts`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al consultar turnos laborales' }));
+    throw new Error(err.detail || 'Error al consultar turnos laborales');
+  }
+  return res.json();
+}
+
+export async function createCompanyShift(companyId, shiftData) {
+  if (!companyId) throw new Error('Se requiere el ID de la empresa');
+  const res = await fetch(`${API_BASE}/companies/${companyId}/shifts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(shiftData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al registrar turno' }));
+    throw new Error(err.detail || 'Error al registrar turno');
+  }
+  return res.json();
+}
+
+export async function updateCompanyShift(companyId, shiftId, shiftData) {
+  if (!companyId || !shiftId) throw new Error('Se requiere el ID de la empresa y del turno');
+  const res = await fetch(`${API_BASE}/companies/${companyId}/shifts/${shiftId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(shiftData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al actualizar turno' }));
+    throw new Error(err.detail || 'Error al actualizar turno');
+  }
+  return res.json();
+}
+
+export async function deleteCompanyShift(companyId, shiftId) {
+  if (!companyId || !shiftId) throw new Error('Se requiere el ID de la empresa y del turno');
+  const res = await fetch(`${API_BASE}/companies/${companyId}/shifts/${shiftId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al eliminar turno' }));
+    throw new Error(err.detail || 'Error al eliminar turno');
+  }
+  return res.json();
+}
+
+

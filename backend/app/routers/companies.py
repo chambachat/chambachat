@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Company, CompanyMember, CompanyInvitation, User
+from app.models import Company, CompanyMember, CompanyInvitation, User, CompanyShift
 from app.services.email_service import send_team_invitation_email
 from app.services.sat_service import process_csf_document
 
@@ -86,6 +86,23 @@ class CompanyLocationUpdate(BaseModel):
     longitud: float
     direccion: Optional[str] = None
     municipio: Optional[str] = None
+
+class CompanyShiftCreate(BaseModel):
+    nombre: str
+    hora_entrada: str
+    hora_salida: str
+    dias: Optional[str] = "Lunes a Sábado"
+    tipo: Optional[str] = "Fijo"
+    descripcion: Optional[str] = None
+
+class CompanyShiftUpdate(BaseModel):
+    nombre: Optional[str] = None
+    hora_entrada: Optional[str] = None
+    hora_salida: Optional[str] = None
+    dias: Optional[str] = None
+    tipo: Optional[str] = None
+    descripcion: Optional[str] = None
+    activo: Optional[bool] = None
 
 
 class InviteMemberRequest(BaseModel):
@@ -620,3 +637,181 @@ def remove_team_member(company_id: int, member_id: int, db: Session = Depends(ge
         return {"status": "success", "message": "Invitación revocada"}
 
     raise HTTPException(status_code=404, detail="Miembro o invitación no encontrada")
+
+
+# --- GESTIÓN DE TURNOS LABORALES DE PLANTA ---
+
+DEFAULT_INDUSTRIAL_SHIFTS = [
+    {
+        "nombre": "Turno 1 (Matutino)",
+        "hora_entrada": "06:00",
+        "hora_salida": "14:00",
+        "dias": "Lunes a Sábado",
+        "tipo": "Fijo",
+        "descripcion": "Turno matutino estándar para manufactura y ensamble"
+    },
+    {
+        "nombre": "Turno 2 (Vespertino)",
+        "hora_entrada": "14:00",
+        "hora_salida": "21:30",
+        "dias": "Lunes a Sábado",
+        "tipo": "Fijo",
+        "descripcion": "Turno vespertino industrial"
+    },
+    {
+        "nombre": "Turno 3 (Nocturno)",
+        "hora_entrada": "21:30",
+        "hora_salida": "06:00",
+        "dias": "Lunes a Viernes",
+        "tipo": "Fijo",
+        "descripcion": "Turno nocturno con transporte a planta"
+    },
+    {
+        "nombre": "Turno Mixto / Rolado",
+        "hora_entrada": "07:00",
+        "hora_salida": "19:00",
+        "dias": "4x3 (Jornada 12 Horas)",
+        "tipo": "Rolado",
+        "descripcion": "4 días de trabajo por 3 de descanso"
+    },
+    {
+        "nombre": "Turno Administrativo",
+        "hora_entrada": "08:00",
+        "hora_salida": "17:30",
+        "dias": "Lunes a Viernes",
+        "tipo": "Administrativo",
+        "descripcion": "Horario de oficinas, almacén central y soporte"
+    }
+]
+
+def serialize_shift(s: CompanyShift) -> dict:
+    return {
+        "id": s.id,
+        "company_id": s.company_id,
+        "nombre": s.nombre,
+        "hora_entrada": s.hora_entrada,
+        "hora_salida": s.hora_salida,
+        "dias": s.dias or "Lunes a Sábado",
+        "tipo": s.tipo or "Fijo",
+        "descripcion": s.descripcion,
+        "activo": s.activo,
+        "created_at": s.created_at.isoformat() if s.created_at else None
+    }
+
+@router.get("/{company_id}/shifts")
+def get_company_shifts(company_id: int, db: Session = Depends(get_db)):
+    """
+    Obtiene los turnos laborales dados de alta para esta empresa.
+    Si la empresa aún no tiene turnos registrados, inicializa los turnos base industriales de NL.
+    """
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    shifts = db.query(CompanyShift).filter(
+        CompanyShift.company_id == company_id,
+        CompanyShift.activo == True
+    ).order_by(CompanyShift.id).all()
+
+    if not shifts:
+        for ds in DEFAULT_INDUSTRIAL_SHIFTS:
+            new_s = CompanyShift(
+                company_id=company_id,
+                nombre=ds["nombre"],
+                hora_entrada=ds["hora_entrada"],
+                hora_salida=ds["hora_salida"],
+                dias=ds["dias"],
+                tipo=ds["tipo"],
+                descripcion=ds["descripcion"],
+                activo=True
+            )
+            db.add(new_s)
+        db.commit()
+        shifts = db.query(CompanyShift).filter(
+            CompanyShift.company_id == company_id,
+            CompanyShift.activo == True
+        ).order_by(CompanyShift.id).all()
+
+    return [serialize_shift(s) for s in shifts]
+
+@router.post("/{company_id}/shifts")
+def create_company_shift(company_id: int, payload: CompanyShiftCreate, db: Session = Depends(get_db)):
+    """
+    Registra un nuevo turno laboral para la empresa.
+    """
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    shift = CompanyShift(
+        company_id=company_id,
+        nombre=payload.nombre.strip(),
+        hora_entrada=payload.hora_entrada.strip(),
+        hora_salida=payload.hora_salida.strip(),
+        dias=payload.dias.strip() if payload.dias else "Lunes a Sábado",
+        tipo=payload.tipo.strip() if payload.tipo else "Fijo",
+        descripcion=payload.descripcion.strip() if payload.descripcion else None,
+        activo=True
+    )
+    db.add(shift)
+    db.commit()
+    db.refresh(shift)
+    return {
+        "status": "success",
+        "message": f"Turno '{shift.nombre}' registrado correctamente",
+        "shift": serialize_shift(shift)
+    }
+
+@router.put("/{company_id}/shifts/{shift_id}")
+def update_company_shift(company_id: int, shift_id: int, payload: CompanyShiftUpdate, db: Session = Depends(get_db)):
+    """
+    Actualiza la configuración y horarios de un turno laboral existente.
+    """
+    shift = db.query(CompanyShift).filter(
+        CompanyShift.id == shift_id,
+        CompanyShift.company_id == company_id
+    ).first()
+    if not shift:
+        raise HTTPException(status_code=404, detail="Turno no encontrado")
+
+    if payload.nombre is not None:
+        shift.nombre = payload.nombre.strip()
+    if payload.hora_entrada is not None:
+        shift.hora_entrada = payload.hora_entrada.strip()
+    if payload.hora_salida is not None:
+        shift.hora_salida = payload.hora_salida.strip()
+    if payload.dias is not None:
+        shift.dias = payload.dias.strip()
+    if payload.tipo is not None:
+        shift.tipo = payload.tipo.strip()
+    if payload.descripcion is not None:
+        shift.descripcion = payload.descripcion.strip()
+    if payload.activo is not None:
+        shift.activo = payload.activo
+
+    db.commit()
+    db.refresh(shift)
+    return {
+        "status": "success",
+        "message": "Turno actualizado correctamente",
+        "shift": serialize_shift(shift)
+    }
+
+@router.delete("/{company_id}/shifts/{shift_id}")
+def delete_company_shift(company_id: int, shift_id: int, db: Session = Depends(get_db)):
+    """
+    Elimina un turno laboral de la empresa.
+    """
+    shift = db.query(CompanyShift).filter(
+        CompanyShift.id == shift_id,
+        CompanyShift.company_id == company_id
+    ).first()
+    if not shift:
+        raise HTTPException(status_code=404, detail="Turno no encontrado")
+
+    db.delete(shift)
+    db.commit()
+    return {
+        "status": "success",
+        "message": f"Turno '{shift.nombre}' eliminado correctamente"
+    }

@@ -28,7 +28,9 @@ import {
   Loader2,
   QrCode,
   Sparkles,
-  Info
+  Info,
+  Calendar,
+  Briefcase
 } from 'lucide-react';
 import { 
   getUserCompanies, 
@@ -37,7 +39,11 @@ import {
   getCompanyTeam, 
   inviteTeamMember, 
   removeTeamMember,
-  uploadConstanciaFiscal 
+  uploadConstanciaFiscal,
+  getCompanyShifts,
+  createCompanyShift,
+  updateCompanyShift,
+  deleteCompanyShift
 } from '../../services/api';
 import CompanyLocationModal from './CompanyLocationModal';
 
@@ -119,6 +125,20 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
   const fileInputRef = useRef(null);
   const modalFileInputRef = useRef(null);
 
+  // Turnos Laborales de Planta
+  const [shifts, setShifts] = useState([]);
+  const [loadingShifts, setLoadingShifts] = useState(false);
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [editingShift, setEditingShift] = useState(null);
+  const [shiftNombre, setShiftNombre] = useState('');
+  const [shiftHoraEntrada, setShiftHoraEntrada] = useState('06:00');
+  const [shiftHoraSalida, setShiftHoraSalida] = useState('14:00');
+  const [shiftDias, setShiftDias] = useState('Lunes a Sábado');
+  const [shiftTipo, setShiftTipo] = useState('Fijo');
+  const [shiftDescripcion, setShiftDescripcion] = useState('');
+  const [savingShift, setSavingShift] = useState(false);
+  const [shiftError, setShiftError] = useState('');
+
   // Cargar empresas
   const loadCompanies = async () => {
     try {
@@ -131,10 +151,12 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
         const current = selectedCompany ? (data.find(c => c.id === selectedCompany.id) || data[0]) : data[0];
         setSelectedCompany(current);
         await loadTeam(current.id);
+        await loadShifts(current.id);
         if (onCompanyChanged) onCompanyChanged(current);
       } else {
         setSelectedCompany(null);
         setTeamData({ active_members: [], pending_invitations: [] });
+        setShifts([]);
       }
     } catch (err) {
       console.error('Error cargando empresas:', err);
@@ -153,6 +175,92 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
     }
   };
 
+  const loadShifts = async (companyId) => {
+    if (!companyId) return;
+    try {
+      setLoadingShifts(true);
+      const data = await getCompanyShifts(companyId);
+      setShifts(data || []);
+    } catch (err) {
+      console.error('Error cargando turnos de la empresa:', err);
+    } finally {
+      setLoadingShifts(false);
+    }
+  };
+
+  const handleOpenCreateShift = () => {
+    setEditingShift(null);
+    setShiftNombre('');
+    setShiftHoraEntrada('06:00');
+    setShiftHoraSalida('14:00');
+    setShiftDias('Lunes a Sábado');
+    setShiftTipo('Fijo');
+    setShiftDescripcion('');
+    setShiftError('');
+    setIsShiftModalOpen(true);
+  };
+
+  const handleOpenEditShift = (s) => {
+    setEditingShift(s);
+    setShiftNombre(s.nombre || '');
+    setShiftHoraEntrada(s.hora_entrada || '06:00');
+    setShiftHoraSalida(s.hora_salida || '14:00');
+    setShiftDias(s.dias || 'Lunes a Sábado');
+    setShiftTipo(s.tipo || 'Fijo');
+    setShiftDescripcion(s.descripcion || '');
+    setShiftError('');
+    setIsShiftModalOpen(true);
+  };
+
+  const handleSaveShift = async (e) => {
+    e.preventDefault();
+    if (!selectedCompany) return;
+    if (!shiftNombre.trim()) {
+      setShiftError('El nombre del turno es obligatorio.');
+      return;
+    }
+    if (!shiftHoraEntrada.trim() || !shiftHoraSalida.trim()) {
+      setShiftError('Los horarios de entrada y salida son obligatorios.');
+      return;
+    }
+
+    setSavingShift(true);
+    setShiftError('');
+    try {
+      const payload = {
+        nombre: shiftNombre.trim(),
+        hora_entrada: shiftHoraEntrada.trim(),
+        hora_salida: shiftHoraSalida.trim(),
+        dias: shiftDias.trim(),
+        tipo: shiftTipo.trim(),
+        descripcion: shiftDescripcion.trim() || undefined
+      };
+
+      if (editingShift?.id) {
+        await updateCompanyShift(selectedCompany.id, editingShift.id, payload);
+      } else {
+        await createCompanyShift(selectedCompany.id, payload);
+      }
+      setIsShiftModalOpen(false);
+      await loadShifts(selectedCompany.id);
+    } catch (err) {
+      setShiftError(err.message || 'Error al guardar turno laboral');
+    } finally {
+      setSavingShift(false);
+    }
+  };
+
+  const handleDeleteShift = async (shiftId, shiftName) => {
+    if (!selectedCompany) return;
+    if (!window.confirm(`¿Seguro que deseas eliminar el turno "${shiftName}"?`)) return;
+    try {
+      await deleteCompanyShift(selectedCompany.id, shiftId);
+      await loadShifts(selectedCompany.id);
+    } catch (err) {
+      alert(err.message || 'Error al eliminar turno');
+    }
+  };
+
   useEffect(() => {
     loadCompanies();
   }, [currentUser?.email]);
@@ -160,6 +268,7 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
   const handleSelectCompany = async (comp) => {
     setSelectedCompany(comp);
     await loadTeam(comp.id);
+    await loadShifts(comp.id);
     if (onCompanyChanged) onCompanyChanged(comp);
   };
 
@@ -1261,6 +1370,113 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
         </div>
       )}
 
+      {/* SECCIÓN DE GESTIÓN DE TURNOS LABORALES DE PLANTA */}
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-emerald-600" />
+              <h2 className="text-base font-black text-slate-900">Turnos Laborales de la Planta</h2>
+            </div>
+            <p className="text-xs text-slate-500">
+              Configura los horarios de producción y cuadrillas para esta planta. Se sincronizan automáticamente con las Rutas de Transporte.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleOpenCreateShift}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Agregar Turno</span>
+          </button>
+        </div>
+
+        {loadingShifts ? (
+          <div className="p-8 flex flex-col items-center justify-center space-y-2 text-slate-400">
+            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+            <span className="text-xs font-medium">Cargando turnos de la planta...</span>
+          </div>
+        ) : shifts.length === 0 ? (
+          <div className="p-8 text-center space-y-3">
+            <div className="p-3 bg-slate-100 text-slate-400 rounded-2xl inline-flex">
+              <Clock className="w-6 h-6" />
+            </div>
+            <h4 className="text-xs font-black text-slate-800">No hay turnos registrados</h4>
+            <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+              Registra los turnos de trabajo de tu planta (ej. Matutino 06:00 a 14:00, Vespertino, etc.) para vincularlos a las rutas de transporte de personal.
+            </p>
+            <button
+              type="button"
+              onClick={handleOpenCreateShift}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition"
+            >
+              Crear Primer Turno
+            </button>
+          </div>
+        ) : (
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {shifts.map((shift) => (
+              <div
+                key={shift.id}
+                className="bg-slate-50/80 hover:bg-white border border-slate-200 hover:border-emerald-300 rounded-2xl p-4 transition shadow-2xs space-y-3 relative group"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1 min-w-0">
+                    <span className="text-xs font-black text-slate-900 block truncate">
+                      {shift.nombre}
+                    </span>
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100/70 text-emerald-800 border border-emerald-200">
+                      {shift.tipo || 'Fijo'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditShift(shift)}
+                      className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                      title="Editar turno"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteShift(shift.id, shift.nombre)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                      title="Eliminar turno"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/60 space-y-1.5 text-xs text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="font-bold text-slate-800">
+                      {shift.hora_entrada} &mdash; {shift.hora_salida}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{shift.dias || 'Lunes a Sábado'}</span>
+                  </div>
+
+                  {shift.descripcion && (
+                    <p className="text-[11px] text-slate-500 italic pt-1 leading-snug">
+                      "{shift.descripcion}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* MODAL 1: INVITAR RECLUTADOR */}
       {isInviteModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1733,6 +1949,159 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                   className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
                 >
                   {savingCompany ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: AGREGAR O EDITAR TURNO LABORAL */}
+      {isShiftModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 relative animate-fadeIn">
+            <button
+              onClick={() => setIsShiftModalOpen(false)}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-200">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  {editingShift ? 'Editar Turno Laboral' : 'Nuevo Turno de Planta'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Planta: <strong>{selectedCompany?.nombre}</strong>
+                </p>
+              </div>
+            </div>
+
+            {shiftError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{shiftError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveShift} className="space-y-3.5 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nombre del Turno *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ej. Turno 1 (Matutino) o Turno 12h Cuadrilla A"
+                  value={shiftNombre}
+                  onChange={(e) => setShiftNombre(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Hora de Entrada *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={shiftHoraEntrada}
+                    onChange={(e) => setShiftHoraEntrada(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 focus:outline-none focus:border-emerald-500 text-xs font-bold font-mono text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Hora de Salida *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={shiftHoraSalida}
+                    onChange={(e) => setShiftHoraSalida(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 focus:outline-none focus:border-emerald-500 text-xs font-bold font-mono text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Días Laborales
+                  </label>
+                  <select
+                    value={shiftDias}
+                    onChange={(e) => setShiftDias(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
+                  >
+                    <option value="Lunes a Sábado">Lunes a Sábado</option>
+                    <option value="Lunes a Viernes">Lunes a Viernes</option>
+                    <option value="4x3 (Jornada 12 Horas)">4x3 (Jornada 12 Horas)</option>
+                    <option value="3x4 (Jornada 12 Horas)">3x4 (Jornada 12 Horas)</option>
+                    <option value="Fines de Semana">Fines de Semana</option>
+                    <option value="Rotativo según rol">Rotativo según rol</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Tipo de Turno
+                  </label>
+                  <select
+                    value={shiftTipo}
+                    onChange={(e) => setShiftTipo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
+                  >
+                    <option value="Fijo">Fijo</option>
+                    <option value="Rolado">Rolado</option>
+                    <option value="Administrativo">Administrativo</option>
+                    <option value="Nocturno">Nocturno</option>
+                    <option value="Especial">Especial</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Descripción o Notas (Opcional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="ej. Incluye bono de puntualidad y transporte a puerta de planta"
+                  value={shiftDescripcion}
+                  onChange={(e) => setShiftDescripcion(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
+                />
+              </div>
+
+              <div className="pt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsShiftModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingShift || !shiftNombre.trim()}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  {savingShift ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <span>{editingShift ? 'Actualizar Turno' : 'Guardar Turno'}</span>
+                  )}
                 </button>
               </div>
             </form>

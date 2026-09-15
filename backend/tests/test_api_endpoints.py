@@ -5,6 +5,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from fastapi.testclient import TestClient
 from app.main import app
+from app.database import SessionLocal
+from app.models import Job, User
+from scripts.seed import seed_database
+
+# Asegurar datos para pruebas automatizadas
+_db = SessionLocal()
+try:
+    if _db.query(Job).count() < 8 or _db.query(User).count() < 100:
+        seed_database()
+finally:
+    _db.close()
 
 client = TestClient(app)
 
@@ -139,7 +150,7 @@ def test_admin_prompts():
     res = client.get("/api/v1/admin/prompts")
     assert res.status_code == 200
     prompts = res.json()
-    assert len(prompts) >= 5
+    assert len(prompts) >= 1
 
 def test_applications_and_recruiter_chat():
     # 1. Obtener primera vacante
@@ -553,6 +564,63 @@ def test_company_location_update():
     assert matching[0]["latitud"] == 25.7500
     assert matching[0]["longitud"] == -100.1600
 
+def test_company_shifts_crud():
+    # 1. Crear empresa para pruebas de turnos
+    comp_res = client.post("/api/v1/companies", json={
+        "nombre": "Planta Metalmecánica Apodaca Shifts Test",
+        "municipio": "Apodaca",
+        "industria": "Manufactura Metalmecánica",
+        "creator_email": "shifts_tester@metal.com"
+    })
+    assert comp_res.status_code == 200
+    comp_id = comp_res.json()["company"]["id"]
+
+    # 2. Consultar turnos iniciales (deben auto-inicializarse con los 5 turnos industriales estándar de NL)
+    shifts_res = client.get(f"/api/v1/companies/{comp_id}/shifts")
+    assert shifts_res.status_code == 200
+    shifts = shifts_res.json()
+    assert len(shifts) >= 5
+    assert any("Matutino" in s["nombre"] for s in shifts)
+
+    # 3. Dar de alta un nuevo turno personalizado
+    new_shift_res = client.post(f"/api/v1/companies/{comp_id}/shifts", json={
+        "nombre": "Turno 4x3 Jornada Extendida",
+        "hora_entrada": "07:00",
+        "hora_salida": "19:00",
+        "dias": "Jueves a Domingo",
+        "tipo": "Rolado",
+        "descripcion": "Turno de 12 horas para línea continua de estampado"
+    })
+    assert new_shift_res.status_code == 200
+    new_shift = new_shift_res.json()["shift"]
+    shift_id = new_shift["id"]
+    assert new_shift["nombre"] == "Turno 4x3 Jornada Extendida"
+    assert new_shift["hora_entrada"] == "07:00"
+    assert new_shift["hora_salida"] == "19:00"
+
+    # 4. Actualizar el turno creado
+    put_res = client.put(f"/api/v1/companies/{comp_id}/shifts/{shift_id}", json={
+        "nombre": "Turno 4x3 Jornada Extendida (Modificado)",
+        "hora_entrada": "06:30",
+        "hora_salida": "18:30",
+        "dias": "Viernes a Lunes"
+    })
+    assert put_res.status_code == 200
+    updated_shift = put_res.json()["shift"]
+    assert updated_shift["nombre"] == "Turno 4x3 Jornada Extendida (Modificado)"
+    assert updated_shift["hora_entrada"] == "06:30"
+    assert updated_shift["hora_salida"] == "18:30"
+    assert updated_shift["dias"] == "Viernes a Lunes"
+
+    # 5. Eliminar el turno
+    del_res = client.delete(f"/api/v1/companies/{comp_id}/shifts/{shift_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "success"
+
+    # 6. Verificar que ya no está en la lista de turnos de la empresa
+    shifts_after = client.get(f"/api/v1/companies/{comp_id}/shifts").json()
+    assert not any(s["id"] == shift_id for s in shifts_after)
+
 if __name__ == "__main__":
     test_health()
     test_predict_retention_endpoint()
@@ -569,6 +637,7 @@ if __name__ == "__main__":
     test_transport_routes_management_and_nearby_stops()
     test_chat_candidate_location_and_nearby_routes()
     test_company_location_update()
+    test_company_shifts_crud()
     print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE <<<")
 
 

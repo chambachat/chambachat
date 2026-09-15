@@ -167,6 +167,7 @@ class Company(Base):
     members = relationship("CompanyMember", back_populates="company", cascade="all, delete-orphan")
     invitations = relationship("CompanyInvitation", back_populates="company", cascade="all, delete-orphan")
     routes = relationship("TransportRoute", back_populates="company", cascade="all, delete-orphan")
+    shifts = relationship("CompanyShift", back_populates="company", cascade="all, delete-orphan", order_by="CompanyShift.id")
 
 
 
@@ -235,8 +236,23 @@ class RouteStop(Base):
     longitud = Column(Float, nullable=False)
     colonia_referencia = Column(String(255), nullable=True)
     referencia_visual = Column(String(255), nullable=True)
+    route = relationship("TransportRoute", back_populates="stops")
+
+
+class CompanyShift(Base):
+    __tablename__ = "company_shifts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre = Column(String(100), nullable=False)  # ej. "Turno 1 - Matutino"
+    hora_entrada = Column(String(20), nullable=False)  # ej. "06:00" o "06:00 AM"
+    hora_salida = Column(String(20), nullable=False)   # ej. "14:00" o "02:00 PM"
+    dias = Column(String(100), nullable=True, default="Lunes a Sábado")  # ej. "Lunes a Sábado", "Lunes a Viernes", "4x3"
+    tipo = Column(String(50), nullable=True, default="Fijo")  # "Fijo", "Rolado", "Administrativo", "Especial"
+    descripcion = Column(String(255), nullable=True)
+    activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    route = relationship("TransportRoute", back_populates="stops")
+    company = relationship("Company", back_populates="shifts")
 
 

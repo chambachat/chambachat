@@ -26,7 +26,9 @@ import {
   getCompanyRoutes, 
   createCompanyRoute, 
   updateCompanyRoute, 
-  deleteCompanyRoute 
+  deleteCompanyRoute,
+  getCompanyShifts,
+  createCompanyShift
 } from '../../services/api';
 import CompanyLocationModal from './CompanyLocationModal';
 
@@ -37,14 +39,6 @@ const ROUTE_COLORS = [
   { name: 'Ámbar / Naranja', hex: '#d97706' },
   { name: 'Rojo / Coral', hex: '#e11d48' },
   { name: 'Teal / Turquesa', hex: '#0d9488' }
-];
-
-const TURNOS = [
-  'Turno 1 (Matutino: 06:00 - 14:00)',
-  'Turno 2 (Vespertino: 14:00 - 21:30)',
-  'Turno 3 (Nocturno: 21:30 - 06:00)',
-  'Turno Mixto / Rolado',
-  'Turno Administrativo (08:00 - 17:30)'
 ];
 
 const MUNICIPIOS_COORDS = {
@@ -84,11 +78,36 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
   const [isEditing, setIsEditing] = useState(false);
   const [editingRouteId, setEditingRouteId] = useState(null);
   const [formNombre, setFormNombre] = useState('');
-  const [formTurno, setFormTurno] = useState(TURNOS[0]);
+  const [formTurno, setFormTurno] = useState('');
   const [formColor, setFormColor] = useState(ROUTE_COLORS[0].hex);
   const [formDescripcion, setFormDescripcion] = useState('');
   const [formStops, setFormStops] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  // Turnos laborales dinámicos de la empresa
+  const [shifts, setShifts] = useState([]);
+  const [loadingShifts, setLoadingShifts] = useState(false);
+  const [isQuickShiftModalOpen, setIsQuickShiftModalOpen] = useState(false);
+  const [quickShiftNombre, setQuickShiftNombre] = useState('');
+  const [quickShiftEntrada, setQuickShiftEntrada] = useState('06:00');
+  const [quickShiftSalida, setQuickShiftSalida] = useState('14:00');
+  const [quickShiftDias, setQuickShiftDias] = useState('Lunes a Sábado');
+  const [quickShiftTipo, setQuickShiftTipo] = useState('Fijo');
+  const [savingQuickShift, setSavingQuickShift] = useState(false);
+
+  // Referencias para evitar stale closures en listeners de Leaflet
+  const isEditingRef = useRef(isEditing);
+  useEffect(() => {
+    isEditingRef.current = isEditing;
+    if (mapInstanceRef.current && mapInstanceRef.current.getContainer()) {
+      mapInstanceRef.current.getContainer().style.cursor = isEditing ? 'crosshair' : '';
+    }
+  }, [isEditing]);
+
+  const selectedCompanyRef = useRef(selectedCompany);
+  useEffect(() => {
+    selectedCompanyRef.current = selectedCompany;
+  }, [selectedCompany]);
 
   // Referencias al mapa
   const mapContainerRef = useRef(null);
@@ -120,7 +139,24 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
     fetchCompanies();
   }, [currentUser?.email]);
 
-  // 2. Cargar rutas de la empresa activa
+  // 2. Cargar turnos y rutas de la empresa activa
+  const loadShifts = async (compId) => {
+    if (!compId) return;
+    try {
+      setLoadingShifts(true);
+      const data = await getCompanyShifts(compId);
+      setShifts(data || []);
+      if (data && data.length > 0) {
+        const defaultT = `${data[0].nombre} (${data[0].hora_entrada} - ${data[0].hora_salida})`;
+        setFormTurno(prev => prev || defaultT);
+      }
+    } catch (err) {
+      console.error('Error cargando turnos de empresa:', err);
+    } finally {
+      setLoadingShifts(false);
+    }
+  };
+
   const loadRoutes = async (comp) => {
     if (!comp?.id) return;
     try {
@@ -142,6 +178,7 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
   useEffect(() => {
     if (selectedCompany?.id) {
       loadRoutes(selectedCompany);
+      loadShifts(selectedCompany.id);
     }
   }, [selectedCompany?.id]);
 
@@ -195,11 +232,16 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
           polylineLayerRef.current = window.L.layerGroup().addTo(map);
 
           // Evento de clic en el mapa para agregar parada
-          map.on('click', (e) => {
+          map.on('click', async (e) => {
+            // Evaluar siempre el valor actualizado de isEditing mediante ref
+            if (!isEditingRef.current) return;
             const { lat, lng } = e.latlng;
-            // Solo agrega si estamos en modo de edición o creación
+            const latFixed = Number(lat.toFixed(5));
+            const lngFixed = Number(lng.toFixed(5));
+            const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`;
+
+            // Añadir de inmediato a la lista de paradas
             setFormStops(prev => {
-              if (!isEditing) return prev;
               const nextOrder = prev.length + 1;
               const baseHour = 5;
               const totalMin = 30 + (prev.length * 12);
@@ -208,20 +250,50 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
               const formattedTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} AM`;
 
               const newStop = {
-                id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                id: tempId,
                 orden: nextOrder,
                 nombre: `Parada ${nextOrder}`,
                 horario: formattedTime,
-                latitud: Number(lat.toFixed(5)),
-                longitud: Number(lng.toFixed(5)),
-                colonia_referencia: selectedCompany?.municipio || 'Zona Metropolitana',
+                latitud: latFixed,
+                longitud: lngFixed,
+                colonia_referencia: selectedCompanyRef.current?.municipio || 'Zona Metropolitana',
                 referencia_visual: 'Punto fijado en mapa'
               };
               return [...prev, newStop];
             });
+
+            // Enriquecer en segundo plano con geocodificación inversa
+            try {
+              const res = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latFixed}&lon=${lngFixed}&accept-language=es`
+              );
+              if (res.ok) {
+                const data = await res.json();
+                const addr = data.address || {};
+                const road = addr.road || addr.pedestrian || addr.neighbourhood || addr.suburb || '';
+                const area = addr.suburb || addr.neighbourhood || addr.city_district || addr.city || addr.town || '';
+
+                setFormStops(prev => prev.map(s => {
+                  if (s.id === tempId) {
+                    return {
+                      ...s,
+                      nombre: road ? `Parada ${road}` : s.nombre,
+                      colonia_referencia: area || s.colonia_referencia,
+                      referencia_visual: road && area ? `${road}, ${area}` : s.referencia_visual
+                    };
+                  }
+                  return s;
+                }));
+              }
+            } catch (err) {
+              // Si falla la geocodificación externa, la parada ya está fijada correctamente
+            }
           });
 
           mapInstanceRef.current = map;
+          if (isEditingRef.current && map.getContainer()) {
+            map.getContainer().style.cursor = 'crosshair';
+          }
           setMapReady(true);
 
           // Forzar invalidateSize para garantizar que los tiles carguen de inmediato
@@ -365,7 +437,10 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
     setIsEditing(true);
     setEditingRouteId(null);
     setFormNombre(`Ruta ${routes.length + 1} - `);
-    setFormTurno(TURNOS[0]);
+    const initialTurno = shifts.length > 0
+      ? `${shifts[0].nombre} (${shifts[0].hora_entrada} - ${shifts[0].hora_salida})`
+      : 'Turno 1 (06:00 - 14:00)';
+    setFormTurno(initialTurno);
     setFormColor(ROUTE_COLORS[routes.length % ROUTE_COLORS.length].hex);
     setFormDescripcion('');
     setFormStops([]);
@@ -376,11 +451,39 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
     setIsEditing(true);
     setEditingRouteId(route.id);
     setFormNombre(route.nombre);
-    setFormTurno(route.turno || TURNOS[0]);
+    const defaultTurno = shifts.length > 0
+      ? `${shifts[0].nombre} (${shifts[0].hora_entrada} - ${shifts[0].hora_salida})`
+      : 'Turno 1 (06:00 - 14:00)';
+    setFormTurno(route.turno || defaultTurno);
     setFormColor(route.color_hex || ROUTE_COLORS[0].hex);
     setFormDescripcion(route.descripcion || '');
     setFormStops(route.stops ? [...route.stops] : []);
     setActiveRoute(route);
+  };
+
+  // Guardar turno rápido desde el creador de rutas
+  const handleSaveQuickShift = async (e) => {
+    e.preventDefault();
+    if (!selectedCompany?.id || !quickShiftNombre.trim()) return;
+    setSavingQuickShift(true);
+    try {
+      await createCompanyShift(selectedCompany.id, {
+        nombre: quickShiftNombre.trim(),
+        hora_entrada: quickShiftEntrada.trim(),
+        hora_salida: quickShiftSalida.trim(),
+        dias: quickShiftDias.trim(),
+        tipo: quickShiftTipo.trim()
+      });
+      await loadShifts(selectedCompany.id);
+      const newLabel = `${quickShiftNombre.trim()} (${quickShiftEntrada.trim()} - ${quickShiftSalida.trim()})`;
+      setFormTurno(newLabel);
+      setIsQuickShiftModalOpen(false);
+      setQuickShiftNombre('');
+    } catch (err) {
+      alert(err.message || 'Error al registrar turno laboral');
+    } finally {
+      setSavingQuickShift(false);
+    }
   };
 
   // Guardar ruta (Crear o Actualizar)
@@ -760,17 +863,36 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Turno Asociado
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Turno Asociado *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickShiftModalOpen(true)}
+                    className="text-[10px] text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-0.5"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Nuevo Turno</span>
+                  </button>
+                </div>
                 <select
                   value={formTurno}
                   onChange={(e) => setFormTurno(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
                 >
-                  {TURNOS.map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                  {shifts.length > 0 ? (
+                    shifts.map(s => {
+                      const val = `${s.nombre} (${s.hora_entrada} - ${s.hora_salida})`;
+                      return (
+                        <option key={s.id} value={val}>
+                          {s.nombre} &bull; {s.hora_entrada} a {s.hora_salida} ({s.dias || 'Lunes a Sábado'})
+                        </option>
+                      );
+                    })
+                  ) : (
+                    <option value="Turno 1 (06:00 - 14:00)">Turno 1 (06:00 - 14:00)</option>
+                  )}
                 </select>
               </div>
 
@@ -996,6 +1118,134 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
           </div>
         </div>
       </div>
+
+      {/* MODAL RÁPIDO PARA CREAR TURNO */}
+      {isQuickShiftModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 relative animate-fadeIn">
+            <button
+              onClick={() => setIsQuickShiftModalOpen(false)}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-200">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Crear Turno para esta Planta</h3>
+                <p className="text-xs text-slate-500">
+                  {selectedCompany?.nombre}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveQuickShift} className="space-y-3 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nombre del Turno *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ej. Turno 1 (Matutino) o Turno Especial"
+                  value={quickShiftNombre}
+                  onChange={(e) => setQuickShiftNombre(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Entrada *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={quickShiftEntrada}
+                    onChange={(e) => setQuickShiftEntrada(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Salida *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={quickShiftSalida}
+                    onChange={(e) => setQuickShiftSalida(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Días
+                  </label>
+                  <select
+                    value={quickShiftDias}
+                    onChange={(e) => setQuickShiftDias(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Lunes a Sábado">Lunes a Sábado</option>
+                    <option value="Lunes a Viernes">Lunes a Viernes</option>
+                    <option value="4x3 (Jornada 12h)">4x3 (Jornada 12h)</option>
+                    <option value="Fines de Semana">Fines de Semana</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Tipo
+                  </label>
+                  <select
+                    value={quickShiftTipo}
+                    onChange={(e) => setQuickShiftTipo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Fijo">Fijo</option>
+                    <option value="Rolado">Rolado</option>
+                    <option value="Administrativo">Administrativo</option>
+                    <option value="Nocturno">Nocturno</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickShiftModalOpen(false)}
+                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingQuickShift || !quickShiftNombre.trim()}
+                  className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  {savingQuickShift ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <span>Guardar Turno</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL PARA REUBICAR PLANTA */}
       <CompanyLocationModal
