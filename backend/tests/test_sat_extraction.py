@@ -5,6 +5,7 @@ import json
 import qrcode
 from PIL import Image
 import pypdf
+import pytest
 
 # Ensure backend path is in sys.path
 backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -83,6 +84,10 @@ def test_sat_qr_url_opinion_32d():
     assert parsed["sentido_opinion"] == "POSITIVO"
 
 
+@pytest.mark.skipif(
+    not os.path.exists(r"C:\Users\RogelioValdez\Downloads\Constancia Situacion fiscal.pdf"),
+    reason="Local PDF fixtures not available on this machine"
+)
 def test_extract_real_documents_if_available():
     f1 = r"C:\Users\RogelioValdez\Downloads\Constancia Situacion fiscal.pdf"
     f2 = r"C:\Users\RogelioValdez\Downloads\reporteOpinion32DContribuyente080623 (2).pdf"

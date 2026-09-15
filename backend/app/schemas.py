@@ -110,6 +110,7 @@ class ApplicationResponse(BaseModel):
 # ==========================================
 class JobBase(BaseModel):
     empresa_nombre: str = "Manufactura Monterrey"
+    company_id: Optional[int] = None
     titulo: str
     descripcion: Optional[str] = None
     sueldo_semanal_libre: float
@@ -125,6 +126,7 @@ class JobCreate(JobBase):
 
 class JobResponse(JobBase):
     id: int
+    empresa_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
     class Config:

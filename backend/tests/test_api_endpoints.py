@@ -668,6 +668,39 @@ def test_company_shifts_crud():
     shifts_after = client.get(f"/api/v1/companies/{comp_id}/shifts").json()
     assert not any(s["id"] == shift_id for s in shifts_after)
 
+def test_protected_endpoint_returns_401_without_token():
+    res = client.get("/api/v1/candidates")
+    assert res.status_code == 401
+
+def test_cross_company_access_returns_403():
+    comp_res = client.post("/api/v1/companies", json={
+        "nombre": "Empresa A",
+        "municipio": "Monterrey",
+        "industria": "Tecnología",
+        "creator_email": "test@chambachat.com"
+    }, headers=AUTH_HEADERS)
+    assert comp_res.status_code == 200
+    comp_id = comp_res.json()["company"]["id"]
+
+    other_user_headers = _get_test_auth_header(role="recruiter", email="company_b_user@test.com")
+    
+    update_res = client.put(f"/api/v1/companies/{comp_id}", json={"telefono_contacto": "81-1234-5678"}, headers=other_user_headers)
+    assert update_res.status_code == 403
+
+def test_verify_code_wrong_code_returns_400():
+    email = "wrong_code_test@correo.com"
+    send_res = client.post("/api/v1/auth/send-verification-code", json={"email": email})
+    assert send_res.status_code == 200
+
+    verify_res = client.post("/api/v1/auth/verify-code", json={"email": email, "code": "999999"})
+    assert verify_res.status_code in [400, 401]
+
+def test_send_code_does_not_leak_code():
+    email = "leak_code_test@correo.com"
+    send_res = client.post("/api/v1/auth/send-verification-code", json={"email": email})
+    assert send_res.status_code == 200
+    assert "code" not in send_res.json()
+
 if __name__ == "__main__":
     test_health()
     test_predict_retention_endpoint()

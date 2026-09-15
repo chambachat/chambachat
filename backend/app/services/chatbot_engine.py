@@ -207,12 +207,13 @@ async def process_chat_message(
             user_rec = None
             if data.get("user_id"):
                 user_rec = db.query(User).filter(User.id == data["user_id"]).first()
-            if not user_rec and data.get("nombre"):
-                user_rec = db.query(User).filter(User.nombre == data["nombre"]).first()
+            if not user_rec and data.get("email"):
+                user_rec = db.query(User).filter(User.email == data["email"]).first()
 
             if not user_rec:
                 user_rec = User(
                     nombre=data.get("nombre", "Operario Registrado"),
+                    email=data.get("email"),
                     telefono=data.get("telefono", None),
                     municipio=data.get("municipio", "Apodaca"),
                     nivel_educativo="Secundaria",

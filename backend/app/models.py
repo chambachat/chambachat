@@ -31,7 +31,7 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, default=1)
+    empresa_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     empresa_nombre = Column(String(255), default="Manufactura Monterrey")
     titulo = Column(String(255), nullable=False)
     descripcion = Column(Text, nullable=True)
@@ -44,6 +44,7 @@ class Job(Base):
     longitud = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    company = relationship("Company", backref="jobs", foreign_keys=[empresa_id])
     hiring_records = relationship("HiringHistory", back_populates="job", cascade="all, delete-orphan")
     applications = relationship("JobApplication", back_populates="job", cascade="all, delete-orphan")
 
