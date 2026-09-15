@@ -28,6 +28,7 @@ import {
   updateCompanyRoute, 
   deleteCompanyRoute 
 } from '../../services/api';
+import CompanyLocationModal from './CompanyLocationModal';
 
 const ROUTE_COLORS = [
   { name: 'Esmeralda', hex: '#059669' },
@@ -63,12 +64,20 @@ const MUNICIPIOS_COORDS = {
   'juarez': [25.6481, -100.0933]
 };
 
-export default function TransportRoutesManager({ currentUser, selectedCompany: propCompany }) {
+export default function TransportRoutesManager({ currentUser, selectedCompany: propCompany, onCompanyChanged }) {
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(propCompany || null);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeRoute, setActiveRoute] = useState(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
+  // Sincronizar propCompany si cambia desde el exterior
+  useEffect(() => {
+    if (propCompany) {
+      setSelectedCompany(propCompany);
+    }
+  }, [propCompany]);
 
   // Modo edición / creación
   const [isEditing, setIsEditing] = useState(false);
@@ -135,8 +144,11 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
     }
   }, [selectedCompany?.id]);
 
-  // Obtener centro geográfico del municipio de la empresa
+  // Obtener centro geográfico de la planta (prioriza latitud y longitud fijadas por el usuario)
   const getCompanyCenter = () => {
+    if (selectedCompany?.latitud && selectedCompany?.longitud) {
+      return [Number(selectedCompany.latitud), Number(selectedCompany.longitud)];
+    }
     if (!selectedCompany?.municipio) return [25.7816, -100.1887];
     const m = selectedCompany.municipio.trim().toLowerCase();
     return MUNICIPIOS_COORDS[m] || [25.7816, -100.1887];
@@ -149,9 +161,10 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
 
     if (!mapInstanceRef.current) {
       const center = getCompanyCenter();
+      const zoom = (selectedCompany?.latitud && selectedCompany?.longitud) ? 14 : 12;
       const map = window.L.map(mapContainerRef.current, {
         center: center,
-        zoom: 12,
+        zoom: zoom,
         zoomControl: true,
       });
 
@@ -203,13 +216,14 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
     };
   }, []);
 
-  // Recentrar mapa si cambia la empresa
+  // Recentrar mapa si cambia la empresa o su ubicación exacta
   useEffect(() => {
     if (mapInstanceRef.current && selectedCompany) {
       const center = getCompanyCenter();
-      mapInstanceRef.current.setView(center, 12);
+      const zoom = (selectedCompany?.latitud && selectedCompany?.longitud) ? 14 : 12;
+      mapInstanceRef.current.setView(center, zoom);
     }
-  }, [selectedCompany?.municipio]);
+  }, [selectedCompany?.id, selectedCompany?.latitud, selectedCompany?.longitud, selectedCompany?.municipio]);
 
   // 4. Renderizar marcadores y polilínea en el mapa según el estado
   useEffect(() => {
@@ -221,21 +235,38 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
     polylineLayerRef.current.clearLayers();
 
     const plantCenter = getCompanyCenter();
+    const hasExactCoords = Boolean(selectedCompany?.latitud && selectedCompany?.longitud);
 
     // Marcador de la Planta / Destino
     const plantIcon = window.L.divIcon({
       className: 'custom-plant-pin',
       html: `
-        <div style="background-color: #0f172a; color: white; border: 2px solid white; border-radius: 9999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);">
-          🏭
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+          <div style="background-color: #059669; color: white; border: 2.5px solid white; border-radius: 9999px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.35);">
+            🏭
+          </div>
+          <div style="background-color: #064e3b; color: #a7f3d0; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 6px; margin-top: 2px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+            ${hasExactCoords ? 'Planta (GPS)' : 'Planta'}
+          </div>
         </div>
       `,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
+      iconSize: [60, 56],
+      iconAnchor: [30, 20],
     });
 
     const plantMarker = window.L.marker(plantCenter, { icon: plantIcon })
-      .bindPopup(`<b>🏭 Planta ${selectedCompany?.nombre || 'Industrial'}</b><br/><span style="font-size: 11px; color: #64748b;">Destino final del transporte</span>`)
+      .bindPopup(`
+        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
+          <b style="color: #0f172a;">🏭 Planta ${selectedCompany?.nombre || 'Industrial'}</b>
+          <div style="color: #059669; font-size: 11px; font-weight: 700; margin-top: 2px;">
+            ${hasExactCoords ? '📍 Ubicación GPS Exacta' : '📍 Centro del Municipio'}
+          </div>
+          <div style="color: #64748b; font-size: 10px; margin-top: 2px;">
+            ${selectedCompany?.direccion || selectedCompany?.municipio || 'Destino final del transporte'}
+          </div>
+          ${hasExactCoords ? `<div style="font-family: monospace; font-size: 10px; color: #059669; margin-top: 3px;">GPS: ${Number(selectedCompany.latitud).toFixed(5)}, ${Number(selectedCompany.longitud).toFixed(5)}</div>` : ''}
+        </div>
+      `)
       .addTo(markersLayerRef.current);
 
     // Decidir qué paradas mostrar:
@@ -464,7 +495,7 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
 
         {/* SELECTOR DE PLANTA Y RESUMEN */}
         <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-500 shrink-0">Planta / Empresa:</span>
             <div className="relative min-w-[220px]">
               <select
@@ -482,6 +513,29 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
                 ))}
               </select>
             </div>
+
+            {/* BOTÓN PARA REUBICAR PLANTA */}
+            <button
+              type="button"
+              onClick={() => setIsLocationModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 text-xs font-bold text-slate-700 transition shadow-2xs"
+              title="Ajustar o mover la ubicación exacta de la planta en el mapa"
+            >
+              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{selectedCompany?.latitud ? '📍 Reubicar Planta' : '📍 Ubicar Planta'}</span>
+            </button>
+
+            {selectedCompany?.latitud ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span>GPS Listo ({Number(selectedCompany.latitud).toFixed(3)}, {Number(selectedCompany.longitud).toFixed(3)})</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                <AlertCircle className="w-3 h-3 text-amber-600" />
+                <span>Ubicación aproximada</span>
+              </span>
+            )}
           </div>
 
           <div className="text-[11px] text-slate-400 flex items-center gap-2">
@@ -901,6 +955,18 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
           </div>
         </div>
       </div>
+
+      {/* MODAL PARA REUBICAR PLANTA */}
+      <CompanyLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        company={selectedCompany}
+        onSaved={(updatedComp) => {
+          setSelectedCompany(prev => ({ ...prev, ...updatedComp }));
+          setCompanies(prev => prev.map(c => c.id === updatedComp.id ? { ...c, ...updatedComp } : c));
+          if (onCompanyChanged) onCompanyChanged(updatedComp);
+        }}
+      />
     </div>
   );
 }

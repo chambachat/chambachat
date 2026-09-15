@@ -39,6 +39,7 @@ export default function App() {
   const [empresaSidebarOpen, setEmpresaSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(getStoredUser());
+  const [activeCompany, setActiveCompany] = useState(null);
   
   // Modal de autenticación protegido para Empresa o acciones restringidas
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -358,6 +359,7 @@ export default function App() {
                 <TeamManager 
                   currentUser={currentUser} 
                   onCompanyChanged={(comp) => {
+                    setActiveCompany(comp);
                     if (currentUser && comp?.nombre) {
                       const updated = { 
                         ...currentUser, 
@@ -372,7 +374,13 @@ export default function App() {
                   }} 
                 />
               )}
-              {empresaTab === 'routes' && <TransportRoutesManager currentUser={currentUser} />}
+              {empresaTab === 'routes' && (
+                <TransportRoutesManager 
+                  currentUser={currentUser} 
+                  selectedCompany={activeCompany}
+                  onCompanyChanged={(comp) => setActiveCompany(comp)}
+                />
+              )}
               {empresaTab === 'jobs' && <JobsManager />}
               {empresaTab === 'predictor' && <RetentionPredictor />}
               {empresaTab === 'candidates' && <CandidatesList />}
