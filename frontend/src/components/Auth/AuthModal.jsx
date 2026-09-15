@@ -161,9 +161,9 @@ export default function AuthModal({
       return;
     }
 
-    // Aceptamos el código si coincide con el generado, con 1234, o cualquier código numérico de 4 dígitos recibido por correo
-    if (cleanEntered !== cleanTarget && cleanEntered !== '1234' && !/^\d{4}$/.test(cleanEntered)) {
-      setCodeError('El código ingresado debe ser de 4 dígitos. Revisa el código que te enviamos.');
+    // Validación estricta: debe coincidir exactamente con el código enviado al correo
+    if (cleanEntered !== cleanTarget) {
+      setCodeError('El código ingresado no coincide con el enviado a tu correo.');
       return;
     }
 
@@ -679,23 +679,6 @@ export default function AuthModal({
                   className="text-slate-400 hover:text-slate-600 font-medium transition"
                 >
                   Cambiar correo
-                </button>
-              </div>
-
-              {/* Acceso directo sin fricción si Hotmail/Outlook retrasa el correo */}
-              <div className="mt-2 p-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-1">
-                <p className="text-[11px] text-slate-500">
-                  ¿Demora en llegar el correo a tu bandeja de Hotmail?
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEnteredCode(verificationCode || '1234');
-                    setCodeError('');
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-emerald-700 font-bold text-xs border border-emerald-300 shadow-2xs transition active:scale-95"
-                >
-                  <span>⚡ Acceder con código rápido ({verificationCode || '1234'})</span>
                 </button>
               </div>
             </form>
