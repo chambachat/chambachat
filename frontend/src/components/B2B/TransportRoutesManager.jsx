@@ -71,6 +71,7 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
   const [loading, setLoading] = useState(true);
   const [activeRoute, setActiveRoute] = useState(null);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   // Sincronizar propCompany si cambia desde el exterior
   useEffect(() => {
@@ -146,72 +147,107 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
 
   // Obtener centro geográfico de la planta (prioriza latitud y longitud fijadas por el usuario)
   const getCompanyCenter = () => {
-    if (selectedCompany?.latitud && selectedCompany?.longitud) {
-      return [Number(selectedCompany.latitud), Number(selectedCompany.longitud)];
+    const lat = selectedCompany?.latitud ? parseFloat(selectedCompany.latitud) : null;
+    const lon = selectedCompany?.longitud ? parseFloat(selectedCompany.longitud) : null;
+    if (lat && lon && !isNaN(lat) && !isNaN(lon)) {
+      return [lat, lon];
     }
     if (!selectedCompany?.municipio) return [25.7816, -100.1887];
-    const m = selectedCompany.municipio.trim().toLowerCase();
+    const m = (selectedCompany.municipio || '').trim().toLowerCase();
     return MUNICIPIOS_COORDS[m] || [25.7816, -100.1887];
   };
 
   // 3. Inicializar Leaflet Map
   useEffect(() => {
-    if (!mapContainerRef.current) return;
-    if (typeof window === 'undefined' || !window.L) return;
+    let timer = null;
+    let isMounted = true;
 
-    if (!mapInstanceRef.current) {
-      const center = getCompanyCenter();
-      const zoom = (selectedCompany?.latitud && selectedCompany?.longitud) ? 14 : 12;
-      const map = window.L.map(mapContainerRef.current, {
-        center: center,
-        zoom: zoom,
-        zoomControl: true,
-      });
+    const initMap = () => {
+      if (!mapContainerRef.current || !isMounted) return;
+      if (typeof window === 'undefined' || !window.L) {
+        timer = setTimeout(initMap, 100);
+        return;
+      }
 
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
-      }).addTo(map);
+      // Si el elemento ya tenía un _leaflet_id huérfano, limpiarlo para evitar error fatal
+      if (mapContainerRef.current._leaflet_id && !mapInstanceRef.current) {
+        delete mapContainerRef.current._leaflet_id;
+      }
 
-      markersLayerRef.current = window.L.layerGroup().addTo(map);
-      polylineLayerRef.current = window.L.layerGroup().addTo(map);
+      if (!mapInstanceRef.current) {
+        const center = getCompanyCenter();
+        const hasCoords = Boolean(selectedCompany?.latitud && selectedCompany?.longitud);
+        const zoom = hasCoords ? 14 : 12;
 
-      // Evento de clic en el mapa para agregar parada
-      map.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        // Solo agrega si estamos en modo de edición o creación
-        setFormStops(prev => {
-          if (!isEditing) return prev;
-          const nextOrder = prev.length + 1;
-          // Calcular horario sugerido (ej. 05:30 AM + 12 min por parada)
-          const baseHour = 5;
-          const totalMin = 30 + (prev.length * 12);
-          const h = baseHour + Math.floor(totalMin / 60);
-          const m = totalMin % 60;
-          const formattedTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} AM`;
+        try {
+          const map = window.L.map(mapContainerRef.current, {
+            center: center,
+            zoom: zoom,
+            zoomControl: true,
+          });
 
-          const newStop = {
-            id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
-            orden: nextOrder,
-            nombre: `Parada ${nextOrder}`,
-            horario: formattedTime,
-            latitud: Number(lat.toFixed(5)),
-            longitud: Number(lng.toFixed(5)),
-            colonia_referencia: selectedCompany?.municipio || 'Zona Metropolitana',
-            referencia_visual: 'Punto fijado en mapa'
-          };
-          return [...prev, newStop];
-        });
-      });
+          window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+          }).addTo(map);
 
-      mapInstanceRef.current = map;
-    }
+          markersLayerRef.current = window.L.layerGroup().addTo(map);
+          polylineLayerRef.current = window.L.layerGroup().addTo(map);
+
+          // Evento de clic en el mapa para agregar parada
+          map.on('click', (e) => {
+            const { lat, lng } = e.latlng;
+            // Solo agrega si estamos en modo de edición o creación
+            setFormStops(prev => {
+              if (!isEditing) return prev;
+              const nextOrder = prev.length + 1;
+              const baseHour = 5;
+              const totalMin = 30 + (prev.length * 12);
+              const h = baseHour + Math.floor(totalMin / 60);
+              const m = totalMin % 60;
+              const formattedTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} AM`;
+
+              const newStop = {
+                id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                orden: nextOrder,
+                nombre: `Parada ${nextOrder}`,
+                horario: formattedTime,
+                latitud: Number(lat.toFixed(5)),
+                longitud: Number(lng.toFixed(5)),
+                colonia_referencia: selectedCompany?.municipio || 'Zona Metropolitana',
+                referencia_visual: 'Punto fijado en mapa'
+              };
+              return [...prev, newStop];
+            });
+          });
+
+          mapInstanceRef.current = map;
+          setMapReady(true);
+
+          // Forzar invalidateSize para garantizar que los tiles carguen de inmediato
+          setTimeout(() => {
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.invalidateSize();
+            }
+          }, 200);
+
+        } catch (err) {
+          console.error('Error inicializando mapa Leaflet:', err);
+        }
+      } else {
+        mapInstanceRef.current.invalidateSize();
+      }
+    };
+
+    timer = setTimeout(initMap, 60);
 
     return () => {
-      // Cleanup al desmontar
+      isMounted = false;
+      if (timer) clearTimeout(timer);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        setMapReady(false);
       }
     };
   }, []);
@@ -220,10 +256,12 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
   useEffect(() => {
     if (mapInstanceRef.current && selectedCompany) {
       const center = getCompanyCenter();
-      const zoom = (selectedCompany?.latitud && selectedCompany?.longitud) ? 14 : 12;
+      const hasCoords = Boolean(selectedCompany?.latitud && selectedCompany?.longitud);
+      const zoom = hasCoords ? 14 : 12;
       mapInstanceRef.current.setView(center, zoom);
+      mapInstanceRef.current.invalidateSize();
     }
-  }, [selectedCompany?.id, selectedCompany?.latitud, selectedCompany?.longitud, selectedCompany?.municipio]);
+  }, [mapReady, selectedCompany?.id, selectedCompany?.latitud, selectedCompany?.longitud, selectedCompany?.municipio]);
 
   // 4. Renderizar marcadores y polilínea en el mapa según el estado
   useEffect(() => {
@@ -320,7 +358,7 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
         mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40] });
       }
     }
-  }, [isEditing, formStops, formColor, activeRoute, selectedCompany]);
+  }, [mapReady, isEditing, formStops, formColor, activeRoute, selectedCompany]);
 
   // Iniciar creación de nueva ruta
   const handleStartCreate = () => {
@@ -919,7 +957,10 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
                 type="button"
                 onClick={() => {
                   if (mapInstanceRef.current) {
-                    mapInstanceRef.current.setView(getCompanyCenter(), 13);
+                    mapInstanceRef.current.invalidateSize();
+                    const center = getCompanyCenter();
+                    const hasCoords = Boolean(selectedCompany?.latitud && selectedCompany?.longitud);
+                    mapInstanceRef.current.setView(center, hasCoords ? 15 : 13);
                   }
                 }}
                 className="absolute bottom-4 right-4 z-10 bg-white/95 backdrop-blur hover:bg-white text-slate-800 text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-md border border-slate-200 flex items-center gap-1.5 transition"
