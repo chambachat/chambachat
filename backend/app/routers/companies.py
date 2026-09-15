@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Company, CompanyMember, CompanyInvitation, User, CompanyShift
+from app.dependencies import get_current_user, get_current_user_optional, require_company_member
 from app.services.email_service import send_team_invitation_email
 from app.services.sat_service import process_csf_document
 
@@ -122,7 +123,7 @@ class AcceptInvitationRequest(BaseModel):
 # --- ENDPOINTS ---
 
 @router.post("/upload-csf")
-def upload_constancia_fiscal(file: UploadFile = File(...)):
+def upload_constancia_fiscal(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
     """
     Recibe y procesa la Constancia de Situación Fiscal (CSF) emitida por el SAT (PDF o Imagen).
     Extrae y decodifica el código QR para validar con el portal del SAT (siat.sat.gob.mx),
@@ -237,7 +238,7 @@ def list_user_companies(
 
 
 @router.post("")
-def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
+def create_company(payload: CompanyCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Crea una nueva empresa o planta industrial y registra al creador como Administrador.
     """
@@ -306,10 +307,10 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{company_id}")
-def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depends(get_db)):
-    """
-    Actualiza la configuración de una empresa/planta existente.
-    """
+def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Actualiza la configuración de una empresa/planta existente."""
+    require_company_member(company_id, current_user, db)
+
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
@@ -383,10 +384,9 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
 
 
 @router.patch("/{company_id}/location")
-def update_company_location(company_id: int, payload: CompanyLocationUpdate, db: Session = Depends(get_db)):
-    """
-    Actualiza las coordenadas GPS (latitud, longitud) y opcionalmente dirección y municipio de la planta.
-    """
+def update_company_location(company_id: int, payload: CompanyLocationUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Actualiza las coordenadas GPS (latitud, longitud) y opcionalmente dirección y municipio de la planta."""
+    require_company_member(company_id, current_user, db)
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
@@ -410,7 +410,7 @@ def update_company_location(company_id: int, payload: CompanyLocationUpdate, db:
 
 
 @router.get("/{company_id}/members")
-def get_company_team(company_id: int, db: Session = Depends(get_db)):
+def get_company_team(company_id: int, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user_optional)):
     """
     Retorna la lista de miembros activos e invitaciones pendientes de una empresa.
     """
@@ -533,7 +533,7 @@ def invite_team_member(company_id: int, payload: InviteMemberRequest, db: Sessio
 
 
 @router.post("/accept-invitation")
-def accept_team_invitation(payload: AcceptInvitationRequest, db: Session = Depends(get_db)):
+def accept_team_invitation(payload: AcceptInvitationRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Acepta una invitación mediante su token y asocia al usuario a la empresa.
     """
@@ -611,10 +611,9 @@ def accept_team_invitation(payload: AcceptInvitationRequest, db: Session = Depen
 
 
 @router.delete("/{company_id}/members/{member_id}")
-def remove_team_member(company_id: int, member_id: int, db: Session = Depends(get_db)):
-    """
-    Elimina a un miembro del equipo o cancela una invitación.
-    """
+def remove_team_member(company_id: int, member_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Elimina a un miembro del equipo o cancela una invitación."""
+    require_company_member(company_id, current_user, db)
     # Buscar si es un miembro
     member = db.query(CompanyMember).filter(
         CompanyMember.id == member_id,
@@ -699,7 +698,7 @@ def serialize_shift(s: CompanyShift) -> dict:
     }
 
 @router.get("/{company_id}/shifts")
-def get_company_shifts(company_id: int, db: Session = Depends(get_db)):
+def get_company_shifts(company_id: int, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user_optional)):
     """
     Obtiene los turnos laborales dados de alta para esta empresa.
     Si la empresa aún no tiene turnos registrados, inicializa los turnos base industriales de NL.
@@ -735,10 +734,9 @@ def get_company_shifts(company_id: int, db: Session = Depends(get_db)):
     return [serialize_shift(s) for s in shifts]
 
 @router.post("/{company_id}/shifts")
-def create_company_shift(company_id: int, payload: CompanyShiftCreate, db: Session = Depends(get_db)):
-    """
-    Registra un nuevo turno laboral para la empresa.
-    """
+def create_company_shift(company_id: int, payload: CompanyShiftCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Registra un nuevo turno laboral para la empresa."""
+    require_company_member(company_id, current_user, db)
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
@@ -763,10 +761,9 @@ def create_company_shift(company_id: int, payload: CompanyShiftCreate, db: Sessi
     }
 
 @router.put("/{company_id}/shifts/{shift_id}")
-def update_company_shift(company_id: int, shift_id: int, payload: CompanyShiftUpdate, db: Session = Depends(get_db)):
-    """
-    Actualiza la configuración y horarios de un turno laboral existente.
-    """
+def update_company_shift(company_id: int, shift_id: int, payload: CompanyShiftUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Actualiza la configuración y horarios de un turno laboral existente."""
+    require_company_member(company_id, current_user, db)
     shift = db.query(CompanyShift).filter(
         CompanyShift.id == shift_id,
         CompanyShift.company_id == company_id
@@ -798,10 +795,9 @@ def update_company_shift(company_id: int, shift_id: int, payload: CompanyShiftUp
     }
 
 @router.delete("/{company_id}/shifts/{shift_id}")
-def delete_company_shift(company_id: int, shift_id: int, db: Session = Depends(get_db)):
-    """
-    Elimina un turno laboral de la empresa.
-    """
+def delete_company_shift(company_id: int, shift_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Elimina un turno laboral de la empresa."""
+    require_company_member(company_id, current_user, db)
     shift = db.query(CompanyShift).filter(
         CompanyShift.id == shift_id,
         CompanyShift.company_id == company_id
@@ -815,3 +811,4 @@ def delete_company_shift(company_id: int, shift_id: int, db: Session = Depends(g
         "status": "success",
         "message": f"Turno '{shift.nombre}' eliminado correctamente"
     }
+

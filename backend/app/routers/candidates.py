@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
+from app.dependencies import get_current_user
 from app.schemas import CandidateResponse
 
 router = APIRouter(prefix="/api/v1/candidates", tags=["Candidates"])
@@ -13,7 +14,8 @@ def get_candidates(
     municipio: Optional[str] = None,
     nivel_educativo: Optional[str] = None,
     limit: int = Query(100, le=200),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Retorna la lista de operarios y candidatos perfilados, con filtro de estatus INEA y municipio.
@@ -34,3 +36,5 @@ def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
     if not cand:
         raise HTTPException(status_code=404, detail="Candidato no encontrado")
     return cand
+
+

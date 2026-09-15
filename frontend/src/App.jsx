@@ -29,7 +29,7 @@ import {
   Bus
 } from 'lucide-react';
 
-import { getStoredUser, signOut } from './services/supabaseClient';
+import { getStoredUser, signOut } from './services/authService';
 import { acceptCompanyInvitation } from './services/api';
 
 export default function App() {

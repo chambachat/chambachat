@@ -3,7 +3,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import JobApplication, ApplicationMessage, Job
+from app.models import JobApplication, ApplicationMessage, Job, CompanyMember, User
+from app.dependencies import get_current_user, get_current_user_optional
 from app.schemas import (
     ApplicationCreateRequest, 
     ApplicationResponse, 
@@ -126,11 +127,10 @@ def apply_to_job(payload: ApplicationCreateRequest, db: Session = Depends(get_db
     return build_app_response(application)
 
 @router.get("", response_model=List[ApplicationResponse])
-def get_all_applications(db: Session = Depends(get_db)):
-    """
-    Retorna la lista de todas las postulaciones recibidas para el Portal Empresa.
-    """
-    applications = db.query(JobApplication).order_by(JobApplication.created_at.desc()).all()
+def get_all_applications(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Retorna la lista de todas las postulaciones recibidas para el Portal Empresa."""
+    member_company_ids = [m.company_id for m in db.query(CompanyMember).filter(CompanyMember.email == current_user.email, CompanyMember.status == "active").all()]
+    applications = db.query(JobApplication).join(Job).filter(Job.empresa_id.in_(member_company_ids)).order_by(JobApplication.created_at.desc()).all()
     return [build_app_response(app) for app in applications]
 
 @router.get("/by-session/{session_id}", response_model=List[ApplicationResponse])
@@ -152,7 +152,7 @@ def get_application_by_id(application_id: int, db: Session = Depends(get_db)):
     return build_app_response(app)
 
 @router.post("/{application_id}/messages", response_model=MessageResponse)
-def send_message_to_application(application_id: int, payload: MessageCreateRequest, db: Session = Depends(get_db)):
+def send_message_to_application(application_id: int, payload: MessageCreateRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Envía un mensaje en el chat grupal:
     - Si el reclutador responde ('recruiter'): Chambot se silencia en automático (bot_silenced = True).
@@ -193,7 +193,7 @@ def send_message_to_application(application_id: int, payload: MessageCreateReque
     )
 
 @router.post("/{application_id}/toggle-bot")
-def toggle_bot_state(application_id: int, payload: ToggleBotRequest, db: Session = Depends(get_db)):
+def toggle_bot_state(application_id: int, payload: ToggleBotRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Permite al reclutador reactivar o silenciar manualmente a Chambot en el chat grupal.
     """
@@ -221,7 +221,7 @@ def toggle_bot_state(application_id: int, payload: ToggleBotRequest, db: Session
     }
 
 @router.post("/{application_id}/check-bot-fallback")
-def check_bot_fallback(application_id: int, force: bool = False, db: Session = Depends(get_db)):
+def check_bot_fallback(application_id: int, force: bool = False, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Evalúa la regla de 2 minutos:
     Si el candidato envió un mensaje y el reclutador no ha respondido en 120 segundos,
@@ -295,3 +295,4 @@ def check_bot_fallback(application_id: int, force: bool = False, db: Session = D
             "created_at": bot_msg.created_at
         }
     }
+

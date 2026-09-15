@@ -5,7 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Company, TransportRoute, RouteStop
+from app.models import Company, TransportRoute, RouteStop, User
+from app.dependencies import get_current_user, require_company_member
 from app.services.matchmaking import haversine_distance_km
 
 router = APIRouter(prefix="/api/v1", tags=["Transport Routes"])
@@ -107,10 +108,9 @@ def list_company_routes(company_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/companies/{company_id}/routes")
-def create_company_route(company_id: int, payload: TransportRouteCreate, db: Session = Depends(get_db)):
-    """
-    Crea una nueva ruta de transporte con sus paradas GPS y horarios.
-    """
+def create_company_route(company_id: int, payload: TransportRouteCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Crea una nueva ruta de transporte con sus paradas GPS y horarios."""
+    require_company_member(company_id, current_user, db)
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
@@ -173,11 +173,11 @@ def update_company_route(
     company_id: int,
     route_id: int,
     payload: TransportRouteUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """
-    Actualiza la información general de la ruta y sincroniza sus paradas y horarios.
-    """
+    """Actualiza la información general de la ruta y sincroniza sus paradas y horarios."""
+    require_company_member(company_id, current_user, db)
     route = db.query(TransportRoute).filter(
         TransportRoute.id == route_id,
         TransportRoute.company_id == company_id
@@ -230,10 +230,9 @@ def update_company_route(
 
 
 @router.delete("/companies/{company_id}/routes/{route_id}")
-def delete_company_route(company_id: int, route_id: int, db: Session = Depends(get_db)):
-    """
-    Elimina una ruta de transporte y sus paradas en cascada.
-    """
+def delete_company_route(company_id: int, route_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Elimina una ruta de transporte y sus paradas en cascada."""
+    require_company_member(company_id, current_user, db)
     route = db.query(TransportRoute).filter(
         TransportRoute.id == route_id,
         TransportRoute.company_id == company_id
@@ -299,3 +298,4 @@ def find_nearby_stops(
         "total_encontradas": len(results),
         "stops_cercanas": results[:10]
     }
+

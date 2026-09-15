@@ -14,8 +14,38 @@ if backend_dir not in sys.path:
 from fastapi.testclient import TestClient
 from app.main import app
 from app.services.sat_service import process_csf_document, parse_sat_qr_url, decode_qr_image_bytes
+from app.database import SessionLocal
+from app.models import User
 
 client = TestClient(app)
+
+
+def _get_sat_test_auth_header():
+    """Genera JWT de prueba para el test de SAT."""
+    import jwt as pyjwt
+    from datetime import datetime, timedelta
+    from app.config import settings
+
+    db = SessionLocal()
+    try:
+        email = "sat_test@chambachat.com"
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            user = User(nombre="SAT Tester", email=email, role="admin", municipio="Monterrey", activo=True)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        token = pyjwt.encode(
+            {"user_id": user.id, "email": user.email, "role": "admin", "nombre": user.nombre,
+             "iat": datetime.utcnow(), "exp": datetime.utcnow() + timedelta(hours=1)},
+            settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM,
+        )
+        return {"Authorization": f"Bearer {token}"}
+    finally:
+        db.close()
+
+
+SAT_AUTH = _get_sat_test_auth_header()
 
 def create_sample_sat_csf_pdf():
     """
@@ -112,7 +142,7 @@ def test_api_upload_csf_and_create_company():
     files = {
         "file": ("constancia_fiscal_test.pdf", io.BytesIO(pdf_bytes), "application/pdf")
     }
-    response = client.post("/api/v1/companies/upload-csf", files=files)
+    response = client.post("/api/v1/companies/upload-csf", files=files, headers=SAT_AUTH)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -137,11 +167,11 @@ def test_api_upload_csf_and_create_company():
         "constancia_fiscal_url": data["file_url"],
         "sat_url_validacion": data["sat_data"]["sat_url"],
         "sat_validado": True,
-        "creator_email": "admin.carrier@empresa.com",
-        "creator_name": "Admin Carrier"
+        "creator_email": "sat_test@chambachat.com",
+        "creator_name": "SAT Tester"
     }
 
-    create_res = client.post("/api/v1/companies", json=comp_payload)
+    create_res = client.post("/api/v1/companies", json=comp_payload, headers=SAT_AUTH)
     assert create_res.status_code == 200
     comp_data = create_res.json()["company"]
     assert comp_data["rfc"] == "CME830831LJ2"
@@ -150,7 +180,7 @@ def test_api_upload_csf_and_create_company():
     assert comp_data["estado_verificacion"] == "verificada"
 
     # 4. Consultar empresas registradas
-    list_res = client.get(f"/api/v1/companies?user_email={comp_payload['creator_email']}")
+    list_res = client.get("/api/v1/companies?user_email=sat_test@chambachat.com", headers=SAT_AUTH)
     assert list_res.status_code == 200
     companies = list_res.json()
     assert len(companies) >= 1

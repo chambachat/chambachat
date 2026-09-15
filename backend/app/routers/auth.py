@@ -1,20 +1,83 @@
+"""
+Router de autenticación para ChambaChat V2.
+
+Flujo de autenticación por correo:
+1. POST /send-verification-code → genera código, lo hashea y guarda en DB, envía por email
+2. POST /verify-code → valida código contra DB, emite JWT
+3. Todas las demás llamadas usan el JWT en header Authorization: Bearer <token>
+
+Flujo Google OAuth (futuro):
+- Se integrará con Supabase Auth cuando esté configurado.
+"""
+import hashlib
+import logging
+import secrets
+from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.database import get_db
-from app.models import User, ChatSession
+from app.dependencies import get_current_user
+from app.models import User, ChatSession, EmailVerificationCode
+from app.services.email_service import send_real_verification_email
 from app.services.matchmaking import MUNICIPIOS_NL_COORDS
-import json
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
-class GoogleProfileSyncRequest(BaseModel):
+# ─── Constantes de seguridad ─────────────────────────────────────────
+_CODE_EXPIRATION_MINUTES = 15
+_MAX_VERIFICATION_ATTEMPTS = 5
+_CODE_LENGTH = 6  # Código de 6 dígitos para mayor seguridad
+
+
+# ─── Schemas ─────────────────────────────────────────────────────────
+
+class VerificationCodeRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not v or "@" not in v:
+            raise ValueError("Correo electrónico inválido.")
+        return v
+
+
+class VerifyCodeRequest(BaseModel):
+    email: str
+    code: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not v or "@" not in v:
+            raise ValueError("Correo electrónico inválido.")
+        return v
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, v: str) -> str:
+        v = v.strip()
+        if not v or not v.isdigit() or len(v) != _CODE_LENGTH:
+            raise ValueError(f"El código debe ser de {_CODE_LENGTH} dígitos.")
+        return v
+
+
+class ProfileSyncRequest(BaseModel):
     email: str
     nombre: str
     avatar_url: Optional[str] = None
     google_id: Optional[str] = None
-    role: Optional[str] = "candidate"  # "candidate" | "recruiter" | "admin"
+    role: Optional[str] = "candidate"
     empresa_nombre: Optional[str] = None
     session_id: Optional[str] = None
     municipio: Optional[str] = "Monterrey"
@@ -22,138 +85,261 @@ class GoogleProfileSyncRequest(BaseModel):
     tag_inea: Optional[bool] = False
     telefono: Optional[str] = None
 
-from app.services.email_service import send_real_verification_email
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower() if v else ""
 
-class VerificationCodeRequest(BaseModel):
-    email: str
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> str:
+        allowed = {"candidate", "recruiter", "admin"}
+        if v and v not in allowed:
+            raise ValueError(f"Rol inválido. Permitidos: {', '.join(allowed)}")
+        return v or "candidate"
 
-@router.get("/email-status")
-def get_email_status():
-    import os
-    resend_key = os.getenv("RESEND_API_KEY")
-    resend_from = os.getenv("RESEND_FROM")
-    smtp_user = os.getenv("SMTP_USER")
-    return {
-        "resend_key_set": bool(resend_key),
-        "resend_key_prefix": (resend_key[:6] + "...") if resend_key and len(resend_key) > 6 else None,
-        "resend_from": resend_from or "Chambachat <onboarding@resend.dev>",
-        "smtp_configured": bool(smtp_user and os.getenv("SMTP_PASSWORD"))
+
+# ─── Funciones auxiliares ─────────────────────────────────────────────
+
+def _hash_code(code: str) -> str:
+    """Hashea un código de verificación con SHA-256."""
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def _generate_verification_code() -> str:
+    """Genera un código numérico seguro de N dígitos."""
+    return "".join([str(secrets.randbelow(10)) for _ in range(_CODE_LENGTH)])
+
+
+def _create_jwt(user: User) -> str:
+    """Genera un JWT con los datos del usuario."""
+    now = datetime.utcnow()
+    payload = {
+        "user_id": user.id,
+        "email": user.email,
+        "role": user.role or "candidate",
+        "nombre": user.nombre,
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.JWT_EXPIRATION_MINUTES),
     }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def _cleanup_expired_codes(db: Session, email: str) -> None:
+    """Elimina códigos expirados para un email dado."""
+    db.query(EmailVerificationCode).filter(
+        EmailVerificationCode.email == email,
+        EmailVerificationCode.expires_at < datetime.utcnow(),
+    ).delete(synchronize_session=False)
+
+
+# ─── Endpoints ────────────────────────────────────────────────────────
 
 @router.post("/send-verification-code")
-def send_verification_code(req: VerificationCodeRequest):
+def send_verification_code(req: VerificationCodeRequest, db: Session = Depends(get_db)):
     """
-    Envía el código de confirmación de 4 dígitos al correo personal del usuario.
-    Si SMTP o Resend están configurados, despacha el correo real a su bandeja.
+    Genera un código de verificación de 6 dígitos, lo hashea y lo guarda en la DB.
+    Envía el código al correo del usuario vía SMTP/Resend.
+    NUNCA devuelve el código en la respuesta JSON.
     """
-    import random
-    code = f"{random.randint(1000, 9999)}"
-    email_result = send_real_verification_email(req.email, code)
+    email = req.email
 
-    if email_result.get("sent"):
-        detail_id = None
-        if isinstance(email_result.get("detail"), dict):
-            detail_id = email_result["detail"].get("id")
-        return {
-            "status": "sent",
-            "email": req.email,
-            "code": code,
-            "real_email_sent": True,
-            "provider": email_result.get("provider"),
-            "resend_id": detail_id,
-            "message": f"Código enviado exitosamente a tu correo {req.email}"
-        }
+    # Rate limiting: verificar cuántos códigos activos tiene este email
+    _cleanup_expired_codes(db, email)
+    active_codes_count = db.query(EmailVerificationCode).filter(
+        EmailVerificationCode.email == email,
+        EmailVerificationCode.expires_at >= datetime.utcnow(),
+        EmailVerificationCode.verified == False,
+    ).count()
+
+    if active_codes_count >= 3:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados códigos solicitados. Espera unos minutos antes de intentar de nuevo.",
+        )
+
+    # Generar código y guardar hash en DB
+    code = _generate_verification_code()
+    code_hash = _hash_code(code)
+    expires_at = datetime.utcnow() + timedelta(minutes=_CODE_EXPIRATION_MINUTES)
+
+    verification = EmailVerificationCode(
+        email=email,
+        code_hash=code_hash,
+        attempts=0,
+        max_attempts=_MAX_VERIFICATION_ATTEMPTS,
+        verified=False,
+        expires_at=expires_at,
+    )
+    db.add(verification)
+    db.commit()
+
+    # Enviar el código por correo real
+    email_result = send_real_verification_email(email, code)
+    real_sent = bool(email_result.get("sent"))
+
+    logger.info(
+        "Código de verificación generado para %s (enviado: %s, provider: %s)",
+        email, real_sent, email_result.get("provider", "ninguno")
+    )
+
+    # NUNCA devolver el código en la respuesta
+    response = {
+        "status": "sent" if real_sent else "warning",
+        "email": email,
+        "real_email_sent": real_sent,
+        "expires_in_minutes": _CODE_EXPIRATION_MINUTES,
+        "code_length": _CODE_LENGTH,
+    }
+
+    if real_sent:
+        response["message"] = f"Código de {_CODE_LENGTH} dígitos enviado a {email}. Revisa tu bandeja de entrada."
+        response["provider"] = email_result.get("provider")
     else:
         error_msg = email_result.get("error", "SMTP_NOT_CONFIGURED")
-        return {
-            "status": "warning" if error_msg == "SMTP_NOT_CONFIGURED" else "error",
-            "email": req.email,
-            "code": code,
-            "real_email_sent": False,
-            "error_detail": error_msg,
-            "message": "Servidor de correo SMTP aún no configurado en el servidor." if error_msg == "SMTP_NOT_CONFIGURED" else f"Error al enviar correo: {error_msg}"
-        }
-
-@router.get("/check-email-delivery/{email_id}")
-def check_email_delivery(email_id: str):
-    import os
-    import requests
-    resend_key = os.getenv("RESEND_API_KEY")
-    if not resend_key:
-        return {"error": "RESEND_API_KEY not set"}
-    try:
-        res = requests.get(
-            f"https://api.resend.com/emails/{email_id}",
-            headers={"Authorization": f"Bearer {resend_key}"},
-            timeout=10
+        response["message"] = (
+            "El servidor de correo SMTP aún no está configurado. "
+            "Contacta al administrador para habilitar el envío de correos."
+            if error_msg == "SMTP_NOT_CONFIGURED"
+            else f"Error al enviar correo: {error_msg}"
         )
-        return res.json()
-    except Exception as e:
-        return {"error": str(e)}
+        response["error_detail"] = error_msg
 
-@router.post("/sync-google-profile")
-def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get_db)):
+    return response
+
+
+@router.post("/verify-code")
+def verify_code(req: VerifyCodeRequest, db: Session = Depends(get_db)):
     """
-    Sincroniza o crea el perfil de usuario (Candidato o Reclutador de Empresa)
-    en Supabase/PostgreSQL de forma multiusuario independiente.
+    Valida el código de verificación contra la DB.
+    Si es correcto: crea/actualiza usuario y emite JWT.
+    Rate limiting: máximo 5 intentos por código.
     """
-    coords = MUNICIPIOS_NL_COORDS.get((req.municipio or "monterrey").lower(), (25.6866, -100.3161))
-    clean_email = req.email.strip().lower() if req.email else ""
+    email = req.email
+    entered_hash = _hash_code(req.code)
 
-    user = None
-    if clean_email:
-        user = db.query(User).filter(User.email == clean_email).first()
-    if not user and req.nombre:
-        user = db.query(User).filter(User.nombre == req.nombre.strip()).first()
+    # Buscar el código más reciente no expirado y no verificado para este email
+    verification = db.query(EmailVerificationCode).filter(
+        EmailVerificationCode.email == email,
+        EmailVerificationCode.expires_at >= datetime.utcnow(),
+        EmailVerificationCode.verified == False,
+    ).order_by(EmailVerificationCode.created_at.desc()).first()
 
+    if not verification:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No hay un código de verificación activo para este correo. Solicita uno nuevo.",
+        )
+
+    # Verificar límite de intentos
+    if verification.attempts >= verification.max_attempts:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos fallidos. Solicita un nuevo código.",
+        )
+
+    # Incrementar intentos
+    verification.attempts += 1
+
+    # Comparar hash del código
+    if verification.code_hash != entered_hash:
+        db.commit()
+        remaining = verification.max_attempts - verification.attempts
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Código incorrecto. Te quedan {remaining} intento(s).",
+        )
+
+    # Código correcto — marcar como verificado
+    verification.verified = True
+    db.commit()
+
+    # Buscar o crear usuario
+    user = db.query(User).filter(User.email == email).first()
     if not user:
+        # Crear usuario nuevo con datos básicos
+        name_from_email = email.split("@")[0].replace(".", " ").replace("_", " ").title()
         user = User(
-            nombre=req.nombre.strip(),
-            email=clean_email or None,
-            role=req.role or "candidate",
-            empresa_nombre=req.empresa_nombre,
-            telefono=req.telefono,
-            municipio=req.municipio or "Monterrey",
-            nivel_educativo=req.nivel_educativo or "Secundaria",
-            tag_inea=bool(req.tag_inea),
-            latitud=coords[0],
-            longitud=coords[1],
-            sueldo_deseado=2400.0,
-            avatar_url=req.avatar_url,
-            google_id=req.google_id,
-            activo=True
+            nombre=name_from_email,
+            email=email,
+            role="candidate",
+            municipio="Monterrey",
+            nivel_educativo="Secundaria",
+            activo=True,
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-    else:
-        user.nombre = req.nombre.strip() or user.nombre
-        if clean_email:
-            user.email = clean_email
-        if req.role:
-            user.role = req.role
-        if req.empresa_nombre:
-            user.empresa_nombre = req.empresa_nombre
-        if req.avatar_url:
-            user.avatar_url = req.avatar_url
-        if req.google_id:
-            user.google_id = req.google_id
-        if req.tag_inea is not None:
-            user.tag_inea = bool(req.tag_inea)
-        if req.municipio:
-            user.municipio = req.municipio
-        if req.telefono:
-            user.telefono = req.telefono
-        db.commit()
-        db.refresh(user)
+        logger.info("Nuevo usuario creado via verificación de correo: %s (id=%d)", email, user.id)
+
+    # Generar JWT
+    token = _create_jwt(user)
+
+    logger.info("Usuario autenticado exitosamente: %s (id=%d)", email, user.id)
+
+    return {
+        "status": "verified",
+        "token": token,
+        "user": {
+            "id": user.id,
+            "nombre": user.nombre,
+            "email": user.email,
+            "role": user.role or "candidate",
+            "empresa_nombre": user.empresa_nombre,
+            "telefono": user.telefono,
+            "municipio": user.municipio,
+            "nivel_educativo": user.nivel_educativo,
+            "avatar_url": user.avatar_url,
+            "tag_inea": user.tag_inea,
+        },
+    }
+
+
+@router.post("/sync-google-profile")
+def sync_google_profile(
+    req: ProfileSyncRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Sincroniza o actualiza el perfil del usuario autenticado.
+    Requiere JWT válido — ya no permite acceso anónimo.
+    """
+    coords = MUNICIPIOS_NL_COORDS.get(
+        (req.municipio or "monterrey").lower(), (25.6866, -100.3161)
+    )
+
+    # Usar el usuario del token, no buscar por nombre
+    user = current_user
+
+    # Actualizar campos que vengan en el request
+    for field, value in req.model_dump(exclude_unset=True, exclude={"email", "session_id"}).items():
+        if value is not None:
+            if field == "tag_inea":
+                setattr(user, field, bool(value))
+            elif field == "nombre":
+                setattr(user, field, value.strip() or user.nombre)
+            else:
+                setattr(user, field, value)
+
+    # Actualizar coordenadas si cambió municipio
+    if req.municipio:
+        user.latitud = coords[0]
+        user.longitud = coords[1]
+
+    db.commit()
+    db.refresh(user)
 
     # Si hay una sesión de chat activa, enlazarla
     if req.session_id:
-        chat_sess = db.query(ChatSession).filter(ChatSession.session_id == req.session_id).first()
+        import json
+        chat_sess = db.query(ChatSession).filter(
+            ChatSession.session_id == req.session_id
+        ).first()
         if chat_sess:
             data = json.loads(chat_sess.collected_data or "{}")
             data["user_id"] = user.id
-            data["email"] = clean_email
+            data["email"] = user.email
             if req.telefono:
                 data["telefono"] = req.telefono
             data["logged_in"] = True
@@ -164,12 +350,45 @@ def sync_google_profile(req: GoogleProfileSyncRequest, db: Session = Depends(get
         "status": "success",
         "user_id": user.id,
         "nombre": user.nombre,
-        "email": user.email or clean_email,
+        "email": user.email,
         "role": user.role or "candidate",
         "empresa_nombre": user.empresa_nombre,
         "telefono": user.telefono,
         "municipio": user.municipio,
         "nivel_educativo": user.nivel_educativo,
         "tag_inea": user.tag_inea,
-        "avatar_url": user.avatar_url or req.avatar_url
+        "avatar_url": user.avatar_url,
+    }
+
+
+@router.post("/refresh-token")
+def refresh_token(current_user: User = Depends(get_current_user)):
+    """Emite un nuevo JWT para el usuario autenticado (extensión de sesión)."""
+    new_token = _create_jwt(current_user)
+    return {
+        "status": "success",
+        "token": new_token,
+        "user": {
+            "id": current_user.id,
+            "nombre": current_user.nombre,
+            "email": current_user.email,
+            "role": current_user.role or "candidate",
+        },
+    }
+
+
+@router.get("/me")
+def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """Devuelve la información del usuario autenticado."""
+    return {
+        "id": current_user.id,
+        "nombre": current_user.nombre,
+        "email": current_user.email,
+        "role": current_user.role or "candidate",
+        "empresa_nombre": current_user.empresa_nombre,
+        "telefono": current_user.telefono,
+        "municipio": current_user.municipio,
+        "nivel_educativo": current_user.nivel_educativo,
+        "tag_inea": current_user.tag_inea,
+        "avatar_url": current_user.avatar_url,
     }

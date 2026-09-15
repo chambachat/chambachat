@@ -13,7 +13,7 @@ import {
   KeyRound, 
   RefreshCw 
 } from 'lucide-react';
-import { authenticateUser, sendVerificationCode } from '../../services/supabaseClient';
+import { verifyCode, sendVerificationCode } from '../../services/authService';
 
 export default function AuthModal({ 
   isOpen, 
@@ -82,16 +82,12 @@ export default function AuthModal({
     setLoading(true);
     setCodeError('');
     try {
-      const user = await authenticateUser({
-        name: finalName,
-        email: cleanEmail,
-        phone: phone.trim(),
-        role: role,
-        company_name: null,
-        provider: 'google'
-      });
-      onAuthenticated(user);
-      onClose();
+      const res = await sendVerificationCode(cleanEmail);
+      const code = res?.code || `${Math.floor(1000 + Math.random() * 9000)}`;
+      setVerificationCode(code);
+      setIsRealEmailSent(Boolean(res?.real_email_sent));
+      setStep('verify');
+      setCodeSuccessMsg(res?.message || `Código generado para ${cleanEmail}`);
     } catch (err) {
       console.error('Error logging in with Google:', err);
       setCodeError('No se pudo autenticar con Google. Verifica tus datos.');
@@ -170,14 +166,14 @@ export default function AuthModal({
     setLoading(true);
     try {
       const derivedName = name.trim() || email.trim().split('@')[0].replace('.', ' ');
-      const user = await authenticateUser({
-        name: derivedName,
-        email: email.trim().toLowerCase(),
-        phone: phone.trim(),
-        role: role,
-        company_name: null,
+      const data = await verifyCode(email.trim().toLowerCase(), cleanEntered);
+      const user = {
+        ...data.user,
+        name: derivedName || data.user?.name,
+        phone: phone.trim() || data.user?.phone,
+        role: role || data.user?.role,
         provider: 'email'
-      });
+      };
       onAuthenticated(user);
       onClose();
     } catch (err) {
@@ -198,17 +194,13 @@ export default function AuthModal({
     }
     setLoading(true);
     try {
-      const derivedName = name.trim() || cleanEmail.split('@')[0].replace('.', ' ');
-      const user = await authenticateUser({
-        name: derivedName,
-        email: cleanEmail,
-        phone: phone.trim(),
-        role: role,
-        company_name: null,
-        provider: 'email'
-      });
-      onAuthenticated(user);
-      onClose();
+      // En el nuevo flujo, el login por email también requiere código de verificación.
+      const res = await sendVerificationCode(cleanEmail);
+      const code = res?.code || `${Math.floor(1000 + Math.random() * 9000)}`;
+      setVerificationCode(code);
+      setIsRealEmailSent(Boolean(res?.real_email_sent));
+      setStep('verify');
+      setCodeSuccessMsg(res?.message || `Código generado para ${cleanEmail}`);
     } catch (err) {
       console.error('Error logging in:', err);
       setCodeError('Error al iniciar sesión.');

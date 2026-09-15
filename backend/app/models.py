@@ -256,3 +256,18 @@ class CompanyShift(Base):
     company = relationship("Company", back_populates="shifts")
 
 
+class EmailVerificationCode(Base):
+    """
+    Almacena códigos de verificación por correo con expiración y límite de intentos.
+    Máximo 5 intentos por email cada 15 minutos.
+    """
+    __tablename__ = "email_verification_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    code_hash = Column(String(255), nullable=False)  # SHA-256 del código, nunca plaintext
+    attempts = Column(Integer, default=0)
+    max_attempts = Column(Integer, default=5)
+    verified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)

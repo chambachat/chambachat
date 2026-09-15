@@ -1,0 +1,401 @@
+PLAN DE CORRECCIONES - CHAMBACHAT V2
+Fecha: 15 de septiembre de 2026
+Origen: revision tecnica completa de backend, frontend, tests e historial de git.
+
+Las tareas estan en orden de prioridad. Las de la seccion 1 se hacen antes
+de cualquier despliegue publico. Cada tarea indica archivo, problema y que
+hay que hacer.
+
+=====================================================================
+1. SEGURIDAD (BLOQUEANTE - HACER HOY)
+=====================================================================
+
+1.1 Rotar la API key de DeepSeek y eliminar el fallback del codigo
+    Archivo: backend/app/config.py, linea 9
+    Problema: la llave real esta en el repositorio codificada en base64
+              como "_FALLBACK_KEY". Base64 no es cifrado. Esta en git
+              desde el commit aec2da9.
+    Hacer:
+      - Generar una llave nueva en el panel de DeepSeek y revocar la actual.
+      - Borrar _FALLBACK_KEY y el import de base64.
+      - DEEPSEEK_API_KEY debe leerse solo de la variable de entorno.
+        Si no existe, la app debe usar el motor heuristico (ya existe en
+        deepseek_engine.py) y registrar un warning en el log.
+      - Poner la llave nueva en Render y en el .env local. Nunca en codigo.
+
+1.2 Validar el codigo de verificacion por correo en el servidor
+    Archivos: backend/app/routers/auth.py (send_verification_code)
+              frontend/src/components/Auth/AuthModal.jsx
+    Problema: el endpoint devuelve el codigo en el JSON de respuesta y el
+              frontend lo compara localmente. Se lee en la pestana Network.
+    Hacer:
+      - El endpoint NO debe devolver el campo "code".
+      - Guardar el codigo en servidor con expiracion de 15 min (tabla
+        email_verification_codes o cache en memoria para empezar).
+      - Crear endpoint POST /api/v1/auth/verify-code que reciba email y
+        codigo, valide y devuelva un token de sesion.
+      - Limitar intentos: maximo 5 por correo cada 15 minutos.
+      - Eliminar el fallback del frontend que genera un codigo local
+        aleatorio cuando falla la peticion (supabaseClient.js linea 89 y
+        AuthModal.jsx lineas 120, 129, 141).
+
+1.3 Implementar autenticacion real
+    Archivos: frontend/src/components/Auth/AuthModal.jsx
+              frontend/src/services/supabaseClient.js
+              backend/app/routers/auth.py
+    Problema: el boton "Google" solo pide escribir un correo. No hay OAuth.
+              Cualquiera entra como cualquier reclutador tecleando su email.
+    Hacer:
+      - Opcion recomendada: Supabase Auth (ya tenemos proyecto Supabase y
+        @supabase/supabase-js esta instalado sin usarse). Habilitar Google
+        como proveedor y magic link / OTP por correo.
+      - El frontend obtiene el JWT de Supabase y lo manda en el header
+        Authorization: Bearer <token> en todas las llamadas de api.js.
+      - Backend: crear app/dependencies.py con get_current_user que valide
+        el JWT (JWKS de Supabase) y devuelva el User de nuestra tabla.
+      - Eliminar authenticateUser() que fabrica usuarios con id
+        'user_' + Date.now().
+
+1.4 Proteger todos los endpoints de escritura y los datos privados
+    Archivos: todos los routers en backend/app/routers/
+    Problema: ningun endpoint tiene Depends de autenticacion. Con curl se
+              pueden borrar rutas, turnos, miembros y editar empresas ajenas.
+    Hacer:
+      - Agregar Depends(get_current_user) a todo POST, PUT, PATCH y DELETE.
+      - En companies.py y routes.py verificar que el usuario sea miembro
+        activo de la empresa (CompanyMember) antes de tocar sus datos.
+        Crear helper require_company_member(company_id, user, db).
+      - GET /api/v1/applications debe filtrar por las empresas del usuario,
+        no devolver todas las postulaciones de la plataforma.
+      - GET /api/v1/candidates solo para reclutadores autenticados.
+      - GET /api/v1/companies sin user_email hoy devuelve todas las
+        empresas. Quitar ese modo.
+      - admin.py (prompts): solo usuarios con role == "admin".
+      - Eliminar GET /api/v1/auth/email-status y
+        GET /api/v1/auth/check-email-delivery, exponen configuracion interna.
+
+1.5 Ocultar el panel Admin a usuarios sin rol admin
+    Archivo: frontend/src/components/Chat/GeminiChatLayout.jsx, linea 728
+    Problema: el boton "Admin Flujos" aparece para cualquier visitante.
+    Hacer: renderizar solo si currentUser?.role === 'admin'. La proteccion
+           real es la del punto 1.4, esto es solo UI.
+
+1.6 Corregir CORS
+    Archivo: backend/app/main.py, lineas 130-136 y config.py linea 15
+    Problema: allow_origins=["*"] con allow_credentials=True es una
+              combinacion invalida por especificacion.
+    Hacer: CORS_ORIGINS desde variable de entorno con la lista exacta de
+           dominios (https://chambachat.onrender.com, http://localhost:5173).
+
+=====================================================================
+2. BASE DE DATOS E INFRAESTRUCTURA
+=====================================================================
+
+2.1 Quitar el fallback silencioso a SQLite
+    Archivo: backend/app/database.py, lineas 18-28
+    Problema: si Supabase no responde en 2 segundos, la app arranca con una
+              SQLite vacia sin fallar. En Render un parpadeo de red pierde
+              datos en silencio.
+    Hacer:
+      - Si DATABASE_URL es Postgres y no conecta, la app debe fallar al
+        arrancar con un error claro.
+      - SQLite solo cuando DATABASE_URL apunta explicitamente a sqlite.
+      - Subir connect_timeout a 10 y agregar pool_pre_ping=True.
+
+2.2 Ruta absoluta para SQLite en desarrollo
+    Archivo: backend/app/config.py, linea 14
+    Problema: "sqlite:///./chambachat.db" es relativa al directorio desde
+              donde se ejecuta. Por eso existen tres .db distintos (raiz,
+              backend/, test.db) con datos diferentes.
+    Hacer: construir la ruta con os.path.dirname(__file__) para que siempre
+           apunte a backend/chambachat.db. Borrar chambachat.db y test.db
+           de la raiz del proyecto.
+
+2.3 Adoptar Alembic para migraciones
+    Archivo: backend/app/main.py, lineas 16-100 (auto_upgrade_schema)
+    Problema: dos listas de 30 ALTER TABLE identicas (Postgres y SQLite)
+              que corren en cada arranque con except: pass.
+    Hacer:
+      - pip install alembic, alembic init backend/alembic.
+      - Generar la migracion inicial desde los modelos actuales.
+      - Borrar auto_upgrade_schema() y Base.metadata.create_all() de main.py.
+      - En build.sh agregar: alembic upgrade head.
+      - Cada cambio de modelo a futuro = una migracion nueva.
+
+2.4 Actualizar o eliminar postgres_schema.sql
+    Archivo: backend/scripts/postgres_schema.sql
+    Problema: tiene 5 tablas; los modelos tienen 12. Nadie puede usarlo.
+    Hacer: eliminarlo una vez que Alembic sea la fuente de verdad, y
+           actualizar el README para que apunte a Alembic.
+
+2.5 Relacion real entre Job y Company
+    Archivo: backend/app/models.py, clase Job
+    Problema: empresa_id es un entero con default 1 sin ForeignKey. Toda la
+              asociacion empresa-vacante es por el string empresa_nombre.
+    Hacer:
+      - empresa_id = ForeignKey("companies.id"), nullable=True mientras
+        se migran datos.
+      - relationship Job.company y Company.jobs.
+      - POST /api/v1/jobs debe recibir company_id y validar membresia.
+      - Filtros de jobs.py y Smart Link (?empresa=) deben usar company_id
+        o un slug de empresa, no coincidencia de texto.
+
+2.6 Identificar usuarios por email o id, nunca por nombre
+    Archivos: backend/app/routers/auth.py linea 107
+              backend/app/services/chatbot_engine.py linea 211
+    Problema: se busca User por nombre. Dos "Juan Garza" se fusionan.
+    Hacer: quitar las busquedas por User.nombre. Usar user_id de la sesion
+           de chat o email. Si no hay ninguno, crear usuario nuevo.
+
+=====================================================================
+3. REFACTOR DEL FRONTEND (CODIGO ESPAGUETI)
+=====================================================================
+
+3.1 Partir TeamManager.jsx (2,125 lineas, 41 useState)
+    Archivo: frontend/src/components/B2B/TeamManager.jsx
+    Hacer: crear carpeta frontend/src/components/B2B/Team/ con:
+      - TeamManager.jsx          contenedor, solo orquesta (< 200 lineas)
+      - CompanySelector.jsx      lista de empresas y seleccion
+      - CompanyOnboarding.jsx    pantalla cuando no hay empresa
+      - NewCompanyModal.jsx      formulario de alta con CSF
+      - EditCompanyModal.jsx
+      - CsfUploader.jsx          subida + tarjeta de datos SAT (renderSatCard)
+      - MembersList.jsx          miembros activos e invitaciones
+      - InviteMemberModal.jsx
+      - ShiftsPanel.jsx          lista de turnos
+      - ShiftFormModal.jsx
+    Estado: cada formulario con un solo useState de objeto o useReducer,
+            no 8 useState sueltos por formulario.
+    Hooks: mover loadCompanies/loadTeam/loadShifts a hooks
+           useCompanies(userEmail), useCompanyTeam(companyId),
+           useCompanyShifts(companyId) en frontend/src/hooks/.
+
+3.2 Partir TransportRoutesManager.jsx (1,263 lineas, 24 useState)
+    Archivo: frontend/src/components/B2B/TransportRoutesManager.jsx
+    Hacer:
+      - RouteMap.jsx: todo lo de Leaflet (init, marcadores, polilinea,
+        click para agregar parada). Recibe stops, color, center, onMapClick.
+      - RouteList.jsx: lista de rutas con seleccionar/editar/borrar.
+      - RouteForm.jsx: nombre, turno, color, descripcion, lista de paradas.
+      - StopEditor.jsx: fila editable de una parada.
+      - Reusar ShiftFormModal.jsx del punto 3.1 y useCompanyShifts. Borrar
+        el "quick shift modal" duplicado (quickShift* useState).
+
+3.3 Partir GeminiChatLayout.jsx (1,231 lineas)
+    Archivo: frontend/src/components/Chat/GeminiChatLayout.jsx
+    Hacer:
+      - ChatSidebar.jsx (historial de sesiones)
+      - MessageList.jsx + MessageBubble.jsx
+      - ChatInput.jsx + OptionChips.jsx
+      - VacanciesCarousel.jsx y NearbyRoutesCard.jsx
+      - Hook useChatSession(): startChat, sendMessage, handleLocation,
+        persistencia en chatStorage.
+      - Hook useApplicationPolling(backendSessionId): el setInterval de la
+        linea 213.
+    handleSendMessage y handleLocationConfirmed comparten el 80% del codigo:
+    unificar en una sola funcion sendToBot(payload).
+
+3.4 Partir AuthModal.jsx (694 lineas, 14 useState)
+    Archivo: frontend/src/components/Auth/AuthModal.jsx
+    Hacer: RoleSelector, GoogleAuthPanel, EmailRegisterForm,
+           EmailLoginForm, VerifyCodeStep. Se simplifica mucho al hacer 1.3
+           porque desaparecen los flujos falsos.
+
+3.5 Eliminar codigo muerto y dependencias sin uso
+    Hacer:
+      - Borrar frontend/src/components/B2C/ChatSimulator.jsx y
+        frontend/src/components/Navbar.jsx (no se importan en ningun lado).
+      - npm uninstall clsx tailwind-merge (no se usan). Conservar
+        @supabase/supabase-js solo si se hace 1.3 con Supabase Auth.
+      - Renombrar supabaseClient.js a authService.js; hoy no usa Supabase.
+
+3.6 Bugs concretos a corregir
+    a) GeminiChatLayout.jsx linea 204: borra la clave 'chambachat_sessions_v2'
+       pero chatStorage.js usa 'chambachat_chat_sessions'. "Borrar historial"
+       no borra nada. Exportar una funcion clearAllSessions() en
+       chatStorage.js y usarla.
+    b) GeminiChatLayout.jsx lineas 428, 434, 507: se muta
+       activeSession.backendSessionId directamente sobre el estado de React.
+       Usar setActiveSession con copia.
+    c) Polling (linea 213): deduplica mensajes por texto. Si el reclutador
+       escribe "ok" dos veces el segundo nunca aparece. Deduplicar por
+       id de mensaje del backend (appmsg_<id>).
+    d) Quitar los correos inventados como fallback:
+       'candidato@correo.com' (GeminiChatLayout 283),
+       'reclutador@empresa.com' (TeamManager 401),
+       'admin@empresa.com' (TeamManager 365). Con auth real el usuario
+       siempre tiene email; si no lo tiene, bloquear la accion.
+    e) CandidateApplications.jsx lineas 37 y 50-60: lista hardcodeada de
+       empresas demo ('Kia Mobis Logistics', etc.). La empresa debe venir
+       de las membresias reales del usuario (getUserCompanies).
+    f) Reemplazar los alert() y window.confirm() (13 en total) por un
+       componente de toast/confirm propio.
+
+=====================================================================
+4. REFACTOR DEL BACKEND
+=====================================================================
+
+4.1 Unificar duplicados
+    a) Paradas cercanas: la misma logica esta en routes.py linea 254
+       (find_nearby_stops) y chatbot_engine.py linea 178. Crear
+       services/routes_service.py con find_nearby_stops(db, lat, lon,
+       max_km, company_id=None) y usarla en ambos.
+    b) Coordenadas de municipios: existen en matchmaking.py (backend),
+       TransportRoutesManager.jsx y CompanyLocationModal.jsx (frontend).
+       Backend: un solo dict en services/geo.py. Frontend: un solo archivo
+       frontend/src/constants/municipios.js.
+    c) Mensajes de bienvenida al postularse: se crean en applications.py
+       linea 105 (backend) y otra vez en GeminiChatLayout.jsx linea 295
+       (frontend). Dejar solo los del backend y que el frontend los muestre
+       desde la respuesta de /apply.
+    d) Turnos por defecto: DEFAULT_INDUSTRIAL_SHIFTS vive en companies.py.
+       Moverlo a services/shifts_service.py junto con la logica de
+       inicializacion que hoy esta dentro del GET.
+
+4.2 Mover schemas Pydantic a schemas.py
+    Archivos: backend/app/routers/companies.py lineas 20-121
+              backend/app/routers/routes.py lineas 16-48
+              backend/app/routers/auth.py lineas 12-28
+    Hacer: todo a app/schemas.py (o partir en app/schemas/companies.py,
+           app/schemas/routes.py, etc.). Los routers no definen modelos.
+
+4.3 Usar response_model en todos los endpoints
+    Archivos: companies.py, routes.py, auth.py, applications.py
+              (toggle-bot y check-bot-fallback)
+    Problema: devuelven dicts armados a mano (serialize_company,
+              format_route_response, serialize_shift) mientras jobs.py y
+              candidates.py usan Pydantic. Dos estilos.
+    Hacer: CompanyResponse, RouteResponse, ShiftResponse con
+           from_attributes=True y computed fields para los derivados
+           (members_count, total_stops). Borrar los serialize_*.
+
+4.4 Simplificar los PUT de actualizacion parcial
+    Archivos: companies.py update_company (30 ifs), update_company_shift,
+              routes.py update_company_route, admin.py update_prompt
+    Hacer: reemplazar la cadena de "if payload.x is not None" por:
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(obj, field, value)
+    Con campos que requieren strip(), usar un validator en el schema.
+
+4.5 Logging en lugar de print
+    Archivos: deepseek_engine.py, chatbot_engine.py, email_service.py
+    Hacer: logger = logging.getLogger(__name__) y logger.warning/error.
+           Configurar logging basico en main.py con nivel por variable
+           de entorno.
+
+4.6 Refactor de email_service.py
+    Problema: send_real_verification_email y send_team_invitation_email
+              repiten 100 lineas de logica Resend + SMTP.
+    Hacer: una funcion privada _dispatch_email(to, subject, html) con la
+           logica de proveedores. Las dos funciones publicas solo arman
+           el HTML. Plantillas HTML a archivos .html en app/templates/
+           con string.Template o Jinja2.
+
+4.7 Analytics: no inventar datos
+    Archivo: backend/app/routers/analytics.py lineas 42-53
+    Problema: si no hay historico devuelve metricas fijas (4.2, 7.1, etc.)
+              como si fueran reales.
+    Hacer: devolver ceros y un campo "has_data": false. El frontend muestra
+           un estado vacio ("Aun no hay historico suficiente").
+    Ademas: las metricas se calculan trayendo toda la tabla a Python.
+            Usar func.avg y group_by de SQLAlchemy.
+
+4.8 Match score: declararlo como estimacion
+    Archivo: backend/app/routers/applications.py linea 17
+    Problema: compute_match_score suma puntos por si el telefono tiene 7
+              digitos y garantiza minimo 72%. La UI lo muestra como
+              "Compatibilidad IA".
+    Hacer: por ahora renombrar en la UI a "Afinidad estimada" y documentar
+           la formula en el docstring. Cuando exista evaluacion real con
+           el LLM, reemplazarlo.
+
+4.9 Chatbot: guardar sesion aunque falle el LLM
+    Archivo: backend/app/services/chatbot_engine.py
+    Problema: process_chat_message hace 3 commits distintos y consulta
+              db.query(Job).all() en cada mensaje.
+    Hacer: un solo commit al final. Cachear la lista de jobs activos o
+           filtrar por municipio en la query.
+
+=====================================================================
+5. TESTS
+=====================================================================
+
+5.1 Agregar dependencias de test
+    Archivo: backend/requirements.txt (o crear requirements-dev.txt)
+    Faltan: pytest, pytest-asyncio, qrcode, pillow. Hoy pytest ni siquiera
+            esta instalado en el venv.
+
+5.2 Aislar test_api_endpoints.py
+    Archivo: backend/tests/test_api_endpoints.py
+    Problema: al importarse reseedea la base de datos real, y los tests
+              pegan a DeepSeek y al portal del SAT en vivo.
+    Hacer:
+      - Crear backend/tests/conftest.py con fixture de engine SQLite en
+        memoria y override de get_db.
+      - Fixture que sembre 8 jobs y 100 users en la base de prueba.
+      - monkeypatch de query_deepseek_chat para que devuelva el heuristico.
+      - monkeypatch de fetch_sat_portal_data para que no haga red.
+      - Quitar el bloque de seed en el nivel de modulo (lineas 13-19).
+
+5.3 Quitar rutas personales de test_sat_extraction.py
+    Archivo: backend/tests/test_sat_extraction.py lineas 56-77
+    Problema: test_extract_real_documents_if_available apunta a PDFs en
+              C:\Users\RogelioValdez\Downloads. Solo pasa en una maquina.
+    Hacer: borrar ese test o mover PDFs anonimizados a tests/fixtures/ y
+           usar rutas relativas.
+
+5.4 Tests nuevos minimos despues de la seccion 1
+    - Endpoint protegido sin token devuelve 401.
+    - Usuario de empresa A no puede editar rutas de empresa B (403).
+    - verify-code con codigo incorrecto devuelve 400 y no crea sesion.
+    - verify-code no devuelve el codigo en la respuesta de envio.
+
+5.5 Correr los tests en CI
+    Hacer: GitHub Actions con pytest en cada push. Bloquear merge si falla.
+
+=====================================================================
+6. DOCUMENTACION Y LIMPIEZA DEL REPO
+=====================================================================
+
+6.1 README.md desactualizado
+    Problema: describe la version inicial. No menciona empresas, rutas,
+              SAT, turnos ni invitaciones. Lista ChatSimulator.jsx y
+              Navbar.jsx que ya no se usan.
+    Hacer: reescribir la seccion de arquitectura y la estructura de
+           carpetas. Documentar todas las variables de entorno:
+           DATABASE_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_API_URL,
+           RESEND_API_KEY, RESEND_FROM, SMTP_HOST, SMTP_PORT, SMTP_USER,
+           SMTP_PASSWORD, SMTP_FROM_EMAIL, CORS_ORIGINS.
+
+6.2 .env.example completo
+    Hoy solo tiene DATABASE_URL. Agregar todas las variables del punto 6.1
+    con valores de ejemplo vacios.
+
+6.3 frontend/dist fuera de git
+    Problema: el build compilado esta versionado. Render lo genera en
+              build.sh, no hace falta.
+    Hacer: agregar frontend/dist/ a .gitignore y git rm -r --cached.
+
+6.4 Recursos pesados
+    Carpeta recursos/ tiene 4 MB de PNG originales que ya estan
+    optimizados en frontend/public. Moverlos fuera del repo o a Git LFS.
+
+6.5 Archivo chambachat.md
+    Describe un producto distinto al PRD (n8n, Vercel, Smart Link). Aclarar
+    en el README cual documento es la referencia vigente o fusionarlos.
+
+=====================================================================
+ORDEN DE EJECUCION SUGERIDO
+=====================================================================
+
+Sprint 1 (esta semana): toda la seccion 1, puntos 2.1 y 2.2, punto 6.3.
+Sprint 2: 2.3, 2.4, 2.5, 2.6, seccion 5 completa.
+Sprint 3: 3.1, 3.2, 3.5, 3.6.
+Sprint 4: 3.3, 3.4, seccion 4 completa, seccion 6.
+
+Regla para todo el equipo a partir de ahora:
+  - Ningun componente React mayor a 300 lineas.
+  - Ningun secreto en codigo, ni codificado.
+  - Todo endpoint nuevo lleva Depends(get_current_user) y response_model.
+  - Todo cambio de modelo lleva su migracion de Alembic.
+  - PR sin tests verdes no se mergea.

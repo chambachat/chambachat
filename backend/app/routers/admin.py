@@ -2,7 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import BotFlowConfig
+from app.models import BotFlowConfig, User
+from app.dependencies import require_role
 from app.schemas import PromptResponse, PromptUpdate
 from app.services.chatbot_engine import DEFAULT_PROMPTS
 import json
@@ -10,7 +11,7 @@ import json
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin Workflow"])
 
 @router.get("/prompts", response_model=List[PromptResponse])
-def list_prompts(db: Session = Depends(get_db)):
+def list_prompts(db: Session = Depends(get_db), current_user: User = Depends(require_role('admin'))):
     """
     Lista todos los pasos conversacionales configurables por el administrador.
     """
@@ -32,7 +33,7 @@ def list_prompts(db: Session = Depends(get_db)):
     return prompts
 
 @router.put("/prompts/{step_key}", response_model=PromptResponse)
-def update_prompt(step_key: str, update_in: PromptUpdate, db: Session = Depends(get_db)):
+def update_prompt(step_key: str, update_in: PromptUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_role('admin'))):
     """
     Modifica el prompt o reglas de un paso del bot sin tocar código fuente.
     """
