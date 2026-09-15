@@ -315,3 +315,16 @@ export async function getNearbyRoutes(lat, lon, maxDistanceKm = 6.0, companyId =
   return res.json();
 }
 
+export async function updateCompanyLocation(companyId, locationData) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/location`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(locationData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al actualizar ubicación de la empresa' }));
+    throw new Error(err.detail || 'Error al actualizar ubicación de la empresa');
+  }
+  return res.json();
+}
+

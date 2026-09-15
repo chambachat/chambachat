@@ -514,6 +514,45 @@ def test_chat_candidate_location_and_nearby_routes():
     assert closest["distancia_km"] < 1.0
     assert closest["caminando_min"] >= 1
 
+def test_company_location_update():
+    # 1. Crear empresa
+    comp_res = client.post("/api/v1/companies", json={
+        "nombre": "Nave Industrial Huinalá Tech",
+        "municipio": "Apodaca",
+        "industria": "Aeroespacial",
+        "creator_email": "plant_manager@tech.com",
+        "latitud": 25.7485,
+        "longitud": -100.1650,
+        "direccion": "Parque Industrial Huinalá Nave 4"
+    })
+    assert comp_res.status_code == 200
+    comp = comp_res.json()["company"]
+    company_id = comp["id"]
+    assert comp["latitud"] == 25.7485
+    assert comp["longitud"] == -100.1650
+
+    # 2. Actualizar ubicación vía PATCH /location
+    patch_res = client.patch(f"/api/v1/companies/{company_id}/location", json={
+        "latitud": 25.7500,
+        "longitud": -100.1600,
+        "direccion": "Av. Parque Industrial Huinalá #500",
+        "municipio": "Apodaca"
+    })
+    assert patch_res.status_code == 200
+    patch_data = patch_res.json()
+    assert patch_data["status"] == "success"
+    assert patch_data["company"]["latitud"] == 25.7500
+    assert patch_data["company"]["longitud"] == -100.1600
+    assert patch_data["company"]["direccion"] == "Av. Parque Industrial Huinalá #500"
+
+    # 3. Verificar vía GET /companies
+    get_res = client.get("/api/v1/companies?user_email=plant_manager@tech.com")
+    assert get_res.status_code == 200
+    matching = [c for c in get_res.json() if c["id"] == company_id]
+    assert len(matching) == 1
+    assert matching[0]["latitud"] == 25.7500
+    assert matching[0]["longitud"] == -100.1600
+
 if __name__ == "__main__":
     test_health()
     test_predict_retention_endpoint()
@@ -529,6 +568,7 @@ if __name__ == "__main__":
     test_company_management_and_team_invitations()
     test_transport_routes_management_and_nearby_stops()
     test_chat_candidate_location_and_nearby_routes()
+    test_company_location_update()
     print(">>> TODOS LOS TESTS DE INTEGRACION DE LA API PASARON EXITOSAMENTE <<<")
 
 

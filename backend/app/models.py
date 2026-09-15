@@ -134,6 +134,8 @@ class Company(Base):
     industria = Column(String(100), default="Manufactura y Logística")
     municipio = Column(String(100), default="Apodaca")
     direccion = Column(Text, nullable=True)
+    latitud = Column(Float, nullable=True)
+    longitud = Column(Float, nullable=True)
     telefono_contacto = Column(String(50), nullable=True)
     logo_url = Column(String(500), nullable=True)
     constancia_fiscal_url = Column(String(500), nullable=True)

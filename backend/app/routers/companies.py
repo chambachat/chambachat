@@ -23,6 +23,8 @@ class CompanyCreate(BaseModel):
     industria: Optional[str] = "Manufactura y Logística"
     rfc: Optional[str] = None
     direccion: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
     telefono_contacto: Optional[str] = None
     constancia_fiscal_url: Optional[str] = None
     regimen_fiscal: Optional[str] = None
@@ -54,6 +56,8 @@ class CompanyUpdate(BaseModel):
     industria: Optional[str] = None
     rfc: Optional[str] = None
     direccion: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
     telefono_contacto: Optional[str] = None
     constancia_fiscal_url: Optional[str] = None
     regimen_fiscal: Optional[str] = None
@@ -76,6 +80,13 @@ class CompanyUpdate(BaseModel):
     sat_url_validacion: Optional[str] = None
     sat_validado: Optional[bool] = None
     sat_raw_data: Optional[str] = None
+
+class CompanyLocationUpdate(BaseModel):
+    latitud: float
+    longitud: float
+    direccion: Optional[str] = None
+    municipio: Optional[str] = None
+
 
 class InviteMemberRequest(BaseModel):
     email: str
@@ -134,6 +145,8 @@ def serialize_company(c: Company, members_count: int = 1) -> dict:
         "industria": c.industria,
         "rfc": c.rfc,
         "direccion": c.direccion,
+        "latitud": c.latitud,
+        "longitud": c.longitud,
         "telefono_contacto": c.telefono_contacto,
         "constancia_fiscal_url": c.constancia_fiscal_url,
         "estado_verificacion": c.estado_verificacion or "verificada",
@@ -220,6 +233,8 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
         industria=payload.industria or "Manufactura y Logística",
         rfc=payload.rfc,
         direccion=payload.direccion,
+        latitud=payload.latitud,
+        longitud=payload.longitud,
         telefono_contacto=payload.telefono_contacto,
         constancia_fiscal_url=payload.constancia_fiscal_url,
         regimen_fiscal=payload.regimen_fiscal,
@@ -292,6 +307,10 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
         company.rfc = payload.rfc.strip()
     if payload.direccion is not None:
         company.direccion = payload.direccion.strip()
+    if payload.latitud is not None:
+        company.latitud = payload.latitud
+    if payload.longitud is not None:
+        company.longitud = payload.longitud
     if payload.telefono_contacto is not None:
         company.telefono_contacto = payload.telefono_contacto.strip()
     if payload.constancia_fiscal_url is not None:
@@ -344,6 +363,33 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
         "message": "Empresa actualizada correctamente",
         "company": serialize_company(company)
     }
+
+
+@router.patch("/{company_id}/location")
+def update_company_location(company_id: int, payload: CompanyLocationUpdate, db: Session = Depends(get_db)):
+    """
+    Actualiza las coordenadas GPS (latitud, longitud) y opcionalmente dirección y municipio de la planta.
+    """
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    company.latitud = payload.latitud
+    company.longitud = payload.longitud
+    if payload.direccion is not None:
+        company.direccion = payload.direccion.strip()
+    if payload.municipio is not None:
+        company.municipio = payload.municipio.strip()
+
+    db.commit()
+    db.refresh(company)
+
+    return {
+        "status": "success",
+        "message": "Ubicación de planta actualizada exitosamente",
+        "company": serialize_company(company)
+    }
+
 
 
 @router.get("/{company_id}/members")

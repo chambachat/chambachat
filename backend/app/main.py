@@ -47,7 +47,9 @@ def auto_upgrade_schema():
             "ALTER TABLE companies ADD COLUMN IF NOT EXISTS numero_interior VARCHAR(50) NULL",
             "ALTER TABLE companies ADD COLUMN IF NOT EXISTS sat_url_validacion VARCHAR(500) NULL",
             "ALTER TABLE companies ADD COLUMN IF NOT EXISTS sat_validado BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE companies ADD COLUMN IF NOT EXISTS sat_raw_data TEXT NULL"
+            "ALTER TABLE companies ADD COLUMN IF NOT EXISTS sat_raw_data TEXT NULL",
+            "ALTER TABLE companies ADD COLUMN IF NOT EXISTS latitud FLOAT NULL",
+            "ALTER TABLE companies ADD COLUMN IF NOT EXISTS longitud FLOAT NULL"
         ]
         for q in postgres_queries:
             try:
@@ -84,7 +86,9 @@ def auto_upgrade_schema():
             "ALTER TABLE companies ADD COLUMN numero_interior VARCHAR(50) NULL",
             "ALTER TABLE companies ADD COLUMN sat_url_validacion VARCHAR(500) NULL",
             "ALTER TABLE companies ADD COLUMN sat_validado BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE companies ADD COLUMN sat_raw_data TEXT NULL"
+            "ALTER TABLE companies ADD COLUMN sat_raw_data TEXT NULL",
+            "ALTER TABLE companies ADD COLUMN latitud FLOAT NULL",
+            "ALTER TABLE companies ADD COLUMN longitud FLOAT NULL"
         ]
         for q in sqlite_queries:
             try:

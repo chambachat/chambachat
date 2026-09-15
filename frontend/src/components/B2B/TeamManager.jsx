@@ -39,6 +39,7 @@ import {
   removeTeamMember,
   uploadConstanciaFiscal 
 } from '../../services/api';
+import CompanyLocationModal from './CompanyLocationModal';
 
 const MUNICIPIOS_NL = [
   'Apodaca',
@@ -87,6 +88,7 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isNewCompanyModalOpen, setIsNewCompanyModalOpen] = useState(false);
   const [isEditCompanyModalOpen, setIsEditCompanyModalOpen] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
   // Formulario Invitar
   const [inviteEmail, setInviteEmail] = useState('');
@@ -964,17 +966,40 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Ubicación de Planta</span>
-            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-              <MapPin className="w-4 h-4" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500">Ubicación de Planta</span>
+              <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+                <MapPin className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <span className="text-sm font-black text-slate-900 block truncate">{selectedCompany?.municipio || 'Apodaca'}</span>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-[10px] text-slate-400">Nuevo León, México</span>
+                {selectedCompany?.latitud && selectedCompany?.longitud ? (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>GPS Listo</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                    <span>Sin GPS</span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="mt-2">
-            <span className="text-sm font-black text-slate-900 block truncate">{selectedCompany?.municipio || 'Apodaca'}</span>
-            <span className="text-[10px] text-slate-400">Nuevo León, México</span>
-          </div>
+          
+          <button
+            type="button"
+            onClick={() => setIsLocationModalOpen(true)}
+            className="mt-3 w-full py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs"
+          >
+            <MapPin className="w-3 h-3 text-blue-600" />
+            <span>{selectedCompany?.latitud ? 'Ajustar en Mapa' : 'Ubicar en Mapa'}</span>
+          </button>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
@@ -1039,6 +1064,15 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsLocationModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/40 px-3.5 py-1.5 rounded-xl shadow-xs transition"
+                  title="Ubicar la planta en el mapa y ajustar coordenadas GPS"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>{selectedCompany.latitud ? '📍 Ajustar Mapa' : '📍 Ubicar en Mapa'}</span>
+                </button>
                 {selectedCompany.sat_url_validacion && (
                   <a
                     href={selectedCompany.sat_url_validacion}
@@ -1067,14 +1101,21 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
               </div>
             </div>
 
-            {(selectedCompany.direccion || selectedCompany.regimen_fiscal) && (
+            {(selectedCompany.direccion || selectedCompany.regimen_fiscal || selectedCompany.latitud) && (
               <div className="pt-2.5 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
                 {selectedCompany.direccion && (
                   <div className="flex items-start gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Domicilio Fiscal Registrado</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Domicilio de la Planta</span>
                       <span className="text-slate-200 text-[11px] leading-snug">{selectedCompany.direccion}</span>
+                      {selectedCompany.latitud && selectedCompany.longitud && (
+                        <div className="mt-1 flex items-center gap-1.5 text-[10px] font-mono text-emerald-300">
+                          <span>GPS: {Number(selectedCompany.latitud).toFixed(4)}, {Number(selectedCompany.longitud).toFixed(4)}</span>
+                          <span className="text-emerald-500">&bull;</span>
+                          <span className="text-emerald-400 font-sans font-semibold">Ubicación registrada</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1657,6 +1698,27 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                 />
               </div>
 
+              {/* UBICACIÓN EN MAPA GPS */}
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-slate-800 block">Ubicación en Mapa & GPS</span>
+                    <span className="text-[10px] text-slate-500 truncate block">
+                      {selectedCompany.latitud ? `Lat: ${Number(selectedCompany.latitud).toFixed(4)}, Lon: ${Number(selectedCompany.longitud).toFixed(4)}` : 'Sin coordenadas GPS fijadas'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLocationModalOpen(true)}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition flex items-center gap-1 shrink-0 shadow-2xs"
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span>{selectedCompany.latitud ? 'Ajustar Pin' : 'Fijar en Mapa'}</span>
+                </button>
+              </div>
+
               <div className="pt-3 flex gap-2">
                 <button
                   type="button"
@@ -1677,6 +1739,18 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
           </div>
         </div>
       )}
+
+      {/* MODAL: UBICACIÓN EXACTA DE PLANTA EN MAPA (LEAFLET) */}
+      <CompanyLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        company={selectedCompany}
+        onSaved={(updatedComp) => {
+          setSelectedCompany(prev => ({ ...prev, ...updatedComp }));
+          setCompanies(prev => prev.map(c => c.id === updatedComp.id ? { ...c, ...updatedComp } : c));
+          if (onCompanyChanged) onCompanyChanged(updatedComp);
+        }}
+      />
     </div>
   );
 }
