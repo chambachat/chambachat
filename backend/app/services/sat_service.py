@@ -10,7 +10,11 @@ from urllib.parse import urlparse, parse_qs
 import warnings
 import requests
 from requests.adapters import HTTPAdapter
-import cv2
+try:
+    import cv2
+except Exception as _cv_err:
+    cv2 = None
+
 import numpy as np
 import pypdf
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
@@ -36,6 +40,8 @@ def decode_qr_image_bytes(img_bytes: bytes) -> Optional[str]:
     Decodifica un código QR a partir de bytes de imagen usando OpenCV con múltiples transformaciones
     (grises, umbral Otsu, inversión y reescalado).
     """
+    if cv2 is None:
+        return None
     try:
         nparr = np.frombuffer(img_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
