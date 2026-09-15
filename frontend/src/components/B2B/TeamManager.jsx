@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useToast } from '../ui/Toast';
 import { 
   Users, 
   UserPlus, 
@@ -85,6 +86,7 @@ const REGIMENES_SAT = [
 ];
 
 export default function TeamManager({ currentUser, onCompanyChanged }) {
+  const toast = useToast();
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [teamData, setTeamData] = useState({ active_members: [], pending_invitations: [] });
@@ -252,12 +254,13 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
 
   const handleDeleteShift = async (shiftId, shiftName) => {
     if (!selectedCompany) return;
-    if (!window.confirm(`¿Seguro que deseas eliminar el turno "${shiftName}"?`)) return;
+    const confirmed = await toast.confirm(`¿Seguro que deseas eliminar el turno "${shiftName}"?`);
+    if (!confirmed) return;
     try {
       await deleteCompanyShift(selectedCompany.id, shiftId);
       await loadShifts(selectedCompany.id);
     } catch (err) {
-      alert(err.message || 'Error al eliminar turno');
+      toast.error(err.message || 'Error al eliminar turno');
     }
   };
 
@@ -356,19 +359,20 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
     setInviting(true);
     setInviteResult(null);
     try {
+      if (!currentUser?.email) throw new Error('El usuario no tiene un correo válido');
       const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://chambachat.onrender.com';
       const res = await inviteTeamMember(selectedCompany.id, {
         email: inviteEmail.trim(),
         nombre: inviteName.trim() || undefined,
         role: inviteRole,
         inviter_name: currentUser?.name || 'Reclutador Líder',
-        inviter_email: currentUser?.email || 'admin@empresa.com',
+        inviter_email: currentUser.email,
         origin_url: originUrl
       });
       setInviteResult(res);
       await loadTeam(selectedCompany.id);
     } catch (err) {
-      alert(err.message || 'Error al enviar invitación');
+      toast.error(err.message || 'Error al enviar invitación');
     } finally {
       setInviting(false);
     }
@@ -378,7 +382,7 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
   const handleCreateCompany = async (e) => {
     e.preventDefault();
     if (!newCompName.trim()) {
-      alert('Por favor ingresa el nombre de la empresa o razón social.');
+      toast.warning('Por favor ingresa el nombre de la empresa o razón social.');
       return;
     }
 
@@ -398,7 +402,7 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
         constancia_fiscal_url: csfUploadedUrl,
         direccion: newCompDireccion.trim() || undefined,
         telefono_contacto: newCompTel.trim() || undefined,
-        creator_email: currentUser?.email || 'reclutador@empresa.com',
+        creator_email: currentUser?.email,
         creator_name: currentUser?.name,
         // Campos oficiales del SAT extraídos del QR / CSF
         idcif: satData?.idcif,
@@ -439,7 +443,7 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
         if (onCompanyChanged) onCompanyChanged(res.company);
       }
     } catch (err) {
-      alert(err.message || 'Error al registrar empresa');
+      toast.error(err.message || 'Error al registrar empresa');
     } finally {
       setSavingCompany(false);
     }
@@ -471,7 +475,7 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
       setCsfFileName('');
       await loadCompanies();
     } catch (err) {
-      alert(err.message || 'Error al actualizar empresa');
+      toast.error(err.message || 'Error al actualizar empresa');
     } finally {
       setSavingCompany(false);
     }
@@ -480,13 +484,14 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
   // Eliminar miembro
   const handleRemoveMember = async (memberId, name) => {
     if (!selectedCompany) return;
-    if (!window.confirm(`¿Seguro que deseas remover a "${name}" del equipo?`)) return;
+    const confirmed = await toast.confirm(`¿Seguro que deseas remover a "${name}" del equipo?`);
+    if (!confirmed) return;
 
     try {
       await removeTeamMember(selectedCompany.id, memberId);
       await loadTeam(selectedCompany.id);
     } catch (err) {
-      alert(err.message || 'Error al remover miembro');
+      toast.error(err.message || 'Error al remover miembro');
     }
   };
 

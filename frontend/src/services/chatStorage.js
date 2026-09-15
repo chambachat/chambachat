@@ -94,3 +94,10 @@ export function updateSession(id, updates) {
   });
   saveAllSessions(sessions);
 }
+
+export function clearAllSessions() {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(ACTIVE_SESSION_KEY);
+  setCookie('chamba_recent_chats', '', -1);
+  setCookie('chamba_active_session', '', -1);
+}

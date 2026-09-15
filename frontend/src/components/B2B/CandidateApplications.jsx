@@ -19,7 +19,8 @@ import {
   getApplications, 
   sendRecruiterMessage, 
   toggleBotState, 
-  checkBotFallback 
+  checkBotFallback,
+  getUserCompanies
 } from '../../services/api';
 
 export default function CandidateApplications({ currentUser }) {
@@ -34,7 +35,7 @@ export default function CandidateApplications({ currentUser }) {
     currentUser?.name ? (currentUser.role === 'recruiter' ? currentUser.name : `Reclutador ${currentUser.name}`) : 'Reclutador Industrial'
   );
   const [selectedCompany, setSelectedCompany] = useState(
-    currentUser?.empresa_nombre || currentUser?.company_name || 'Kia Mobis Logistics'
+    currentUser?.empresa_nombre || currentUser?.company_name || ''
   );
   const [copied, setCopied] = useState(false);
 
@@ -47,22 +48,25 @@ export default function CandidateApplications({ currentUser }) {
     }
   }, [currentUser]);
 
-  const defaultCompanies = [
-    'Kia Mobis Logistics',
-    'Ternium Guerrero',
-    'Whirlpool Planta Supsa',
-    'Carrier México',
-    'Nemak Aluminios',
-    'DHL Supply Chain',
-    'Frisa Forjados',
-    'Danfoss San Nicolás',
-    'Metalsa Estructuras'
-  ];
+  const [companiesList, setCompaniesList] = useState([]);
 
-  const userCompany = currentUser?.empresa_nombre || currentUser?.company_name;
-  const companiesList = userCompany && !defaultCompanies.includes(userCompany)
-    ? [userCompany, ...defaultCompanies]
-    : defaultCompanies;
+  useEffect(() => {
+    if (currentUser?.email) {
+      getUserCompanies(currentUser.email)
+        .then(data => {
+          if (data && data.companies) {
+            const names = data.companies.map(c => c.nombre);
+            if (names.length > 0) {
+              setCompaniesList(names);
+              // Only override selectedCompany if it hasn't been set by currentUser props
+              // or if it's not in the loaded list
+              setSelectedCompany(prev => (prev && names.includes(prev)) ? prev : names[0]);
+            }
+          }
+        })
+        .catch(err => console.error("Error fetching companies:", err));
+    }
+  }, [currentUser?.email]);
 
   const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://chambachat.onrender.com';
   const smartLinkUrl = `${originUrl}/?empresa=${encodeURIComponent(selectedCompany)}`;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../ui/Toast';
 import { 
   Settings2, 
   Save, 
@@ -12,6 +13,7 @@ import {
 import { getPrompts, updatePrompt } from '../../services/api';
 
 export default function FlowOrchestrator({ onTestChat }) {
+  const toast = useToast();
   const [prompts, setPrompts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState(null);
@@ -59,7 +61,7 @@ export default function FlowOrchestrator({ onTestChat }) {
         setSavedSuccessKey(null);
       }, 3000);
     } catch (err) {
-      alert('Error al guardar prompt: ' + err.message);
+      toast.error('Error al guardar prompt: ' + err.message);
     } finally {
       setSavingKey(null);
     }

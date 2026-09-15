@@ -31,6 +31,7 @@ import {
 
 import { getStoredUser, signOut } from './services/authService';
 import { acceptCompanyInvitation } from './services/api';
+import { ToastProvider } from './components/ui/Toast';
 
 export default function App() {
   // 'chat' es la pantalla principal por defecto (minimalista, tonos claros)
@@ -149,6 +150,7 @@ export default function App() {
   ];
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-[#fcfdfd] text-slate-800 font-sans">
       {/* VISTA 1: CHAT PRINCIPAL MINIMALISTA (ChatGPT / Gemini Style) */}
       {currentView === 'chat' && (
@@ -464,5 +466,6 @@ export default function App() {
         }}
       />
     </div>
+    </ToastProvider>
   );
 }

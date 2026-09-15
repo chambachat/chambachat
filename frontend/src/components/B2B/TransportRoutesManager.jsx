@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useToast } from '../ui/Toast';
 import { 
   Bus, 
   MapPin, 
@@ -59,6 +60,7 @@ const MUNICIPIOS_COORDS = {
 };
 
 export default function TransportRoutesManager({ currentUser, selectedCompany: propCompany, onCompanyChanged }) {
+  const toast = useToast();
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(propCompany || null);
   const [routes, setRoutes] = useState([]);
@@ -480,7 +482,7 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
       setIsQuickShiftModalOpen(false);
       setQuickShiftNombre('');
     } catch (err) {
-      alert(err.message || 'Error al registrar turno laboral');
+      toast.error(err.message || 'Error al registrar turno laboral');
     } finally {
       setSavingQuickShift(false);
     }
@@ -491,11 +493,11 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
     e.preventDefault();
     if (!selectedCompany) return;
     if (!formNombre.trim()) {
-      alert('Por favor asigna un nombre a la ruta de transporte.');
+      toast.warning('Por favor asigna un nombre a la ruta de transporte.');
       return;
     }
     if (formStops.length === 0) {
-      alert('Debes agregar al menos una parada haciendo clic sobre el mapa.');
+      toast.warning('Debes agregar al menos una parada haciendo clic sobre el mapa.');
       return;
     }
 
@@ -530,7 +532,7 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
       setEditingRouteId(null);
       await loadRoutes(selectedCompany);
     } catch (err) {
-      alert(err.message || 'Error al guardar ruta de transporte');
+      toast.error(err.message || 'Error al guardar ruta de transporte');
     } finally {
       setSaving(false);
     }
@@ -538,12 +540,13 @@ export default function TransportRoutesManager({ currentUser, selectedCompany: p
 
   // Eliminar ruta
   const handleDeleteRoute = async (routeId, routeName) => {
-    if (!window.confirm(`¿Seguro que deseas eliminar la ruta "${routeName}" y todas sus paradas?`)) return;
+    const confirmed = await toast.confirm(`¿Seguro que deseas eliminar la ruta "${routeName}" y todas sus paradas?`);
+    if (!confirmed) return;
     try {
       await deleteCompanyRoute(selectedCompany.id, routeId);
       await loadRoutes(selectedCompany);
     } catch (err) {
-      alert(err.message || 'Error al eliminar ruta');
+      toast.error(err.message || 'Error al eliminar ruta');
     }
   };
 

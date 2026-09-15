@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../ui/Toast';
 import { 
   Briefcase, 
   Plus, 
@@ -14,6 +15,7 @@ import {
 import { getJobs, createJob } from '../../services/api';
 
 export default function JobsManager() {
+  const toast = useToast();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterMuni, setFilterMuni] = useState('');
@@ -71,7 +73,7 @@ export default function JobsManager() {
       });
       loadJobs();
     } catch (err) {
-      alert('Error al publicar vacante: ' + err.message);
+      toast.error('Error al publicar vacante: ' + err.message);
     }
   };
 

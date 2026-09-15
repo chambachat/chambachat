@@ -27,7 +27,8 @@ import {
   setActiveSessionId, 
   createNewSession, 
   deleteSession, 
-  updateSession 
+  updateSession,
+  clearAllSessions
 } from '../../services/chatStorage';
 import { 
   startChat, 
@@ -201,7 +202,7 @@ export default function GeminiChatLayout({
   const handleClearAllSessions = (e) => {
     e.stopPropagation();
     if (window.confirm('¿Deseas eliminar todo tu historial de conversaciones?')) {
-      localStorage.removeItem('chambachat_sessions_v2');
+      clearAllSessions();
       const fresh = createNewSession();
       setSessions([fresh]);
       setActiveSession(fresh);
@@ -280,7 +281,7 @@ export default function GeminiChatLayout({
         jobId: job.id,
         sessionId: activeSession?.backendSessionId,
         candidateName: currentUser.name || 'Operario de NL',
-        candidateEmail: currentUser.email || 'candidato@correo.com',
+        candidateEmail: currentUser.email,
         candidatePhone: currentUser.phone || '',
         municipio: job.municipio
       });
@@ -427,13 +428,14 @@ export default function GeminiChatLayout({
       }
 
       let res;
-      if (!activeSession.backendSessionId && activeSession.messages.length === 0) {
+      let currentSessionId = activeSession.backendSessionId;
+      if (!currentSessionId && activeSession.messages.length === 0) {
         const startRes = await startChat();
-        activeSession.backendSessionId = startRes.session_id;
+        currentSessionId = startRes.session_id;
       }
 
       res = await sendChatMessage({
-        sessionId: activeSession.backendSessionId,
+        sessionId: currentSessionId,
         message: optionVal ? null : text,
         selectedOption: optionVal,
         userName: currentUser?.name,
@@ -446,7 +448,7 @@ export default function GeminiChatLayout({
       });
 
       if (res.session_id) {
-        activeSession.backendSessionId = res.session_id;
+        currentSessionId = res.session_id;
       }
 
       setTimeout(() => {
@@ -514,7 +516,6 @@ export default function GeminiChatLayout({
       if (!sId) {
         const startRes = await startChat();
         sId = startRes.session_id;
-        activeSession.backendSessionId = sId;
       }
 
       const res = await sendChatMessage({
