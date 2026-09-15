@@ -27,7 +27,8 @@ import {
   ArrowRight,
   Loader2,
   QrCode,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { 
   getUserCompanies, 
@@ -49,8 +50,23 @@ const MUNICIPIOS_NL = [
   'Santa Catarina',
   'García',
   'Ciénega de Flores',
-  'Salinas Victoria'
+  'Salinas Victoria',
+  'Santiago',
+  'San Pedro Garza García',
+  'Cadereyta Jiménez',
+  'Juárez',
+  'El Carmen',
+  'Montemorelos',
+  'Linares',
+  'Marín',
+  'Doctor Arroyo',
+  'Sabinas Hidalgo',
+  'Allende',
+  'Zuazua',
+  'Hidalgo',
+  'Abasolo'
 ];
+
 
 const REGIMENES_SAT = [
   '601 - General de Ley Personas Morales',
@@ -173,24 +189,42 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
 
       if (res.sat_data) {
         setSatData(res.sat_data);
-        setSatValidated(res.sat_validado || false);
+        setSatValidated(Boolean(res.sat_validado || res.sat_data.rfc));
 
-        // Auto-llenar campos si vienen del SAT
-        if (res.sat_data.razon_social_completa || res.sat_data.razon_social) {
-          setNewCompName(res.sat_data.razon_social_completa || res.sat_data.razon_social);
+        // Auto-llenar Nombre de Empresa / Razón Social
+        const razon = res.sat_data.razon_social_completa || res.sat_data.razon_social || res.sat_data.nombre_contribuyente;
+        if (razon) {
+          setNewCompName(razon);
         }
+
+        // Auto-llenar RFC
         if (res.sat_data.rfc) {
           setNewCompRfc(res.sat_data.rfc);
         }
-        if (res.sat_data.municipio && MUNICIPIOS_NL.includes(res.sat_data.municipio)) {
-          setNewCompMunicipio(res.sat_data.municipio);
+
+        // Auto-llenar Municipio en Nuevo León
+        if (res.sat_data.municipio) {
+          const cleanMun = res.sat_data.municipio.trim().toLowerCase();
+          const matchMun = MUNICIPIOS_NL.find(m => {
+            const mLower = m.toLowerCase();
+            return mLower === cleanMun || cleanMun.includes(mLower) || mLower.includes(cleanMun);
+          });
+          if (matchMun) {
+            setNewCompMunicipio(matchMun);
+          }
         }
+
+        // Auto-llenar Dirección Fiscal
         if (res.sat_data.direccion) {
           setNewCompDireccion(res.sat_data.direccion);
         }
+
+        // Auto-llenar Régimen Fiscal
         if (res.sat_data.regimen_fiscal) {
+          const regClean = res.sat_data.regimen_fiscal.toLowerCase();
           const matchReg = REGIMENES_SAT.find(r => 
-            res.sat_data.regimen_fiscal.toLowerCase().includes(r.toLowerCase().slice(0, 15))
+            regClean.includes(r.toLowerCase().slice(0, 15)) ||
+            r.toLowerCase().includes(regClean.slice(0, 15))
           );
           if (matchReg) setNewCompRegimen(matchReg);
         }
@@ -356,6 +390,8 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
   // Renderizador de tarjeta de datos oficiales verificados del SAT
   const renderSatCard = () => {
     if (!satData) return null;
+    const is32D = satData.tipo_documento === 'opinion_32d';
+
     return (
       <div className="p-4 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/50 border border-emerald-300 rounded-2xl space-y-2.5 shadow-xs animate-fadeIn mt-3">
         <div className="flex items-center justify-between">
@@ -365,7 +401,9 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-slate-900">Validado Oficialmente ante el SAT</span>
+                <span className="text-xs font-black text-slate-900">
+                  {is32D ? 'Opinión 32-D Validada ante el SAT' : 'Validado Oficialmente ante el SAT'}
+                </span>
                 {satData.qr_detectado && (
                   <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                     <QrCode className="w-2.5 h-2.5" /> QR Detectado
@@ -373,13 +411,17 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                 )}
               </div>
               <span className="text-[10px] text-emerald-700 font-medium block">
-                siat.sat.gob.mx &bull; Cédula de Identificación Fiscal
+                {is32D 
+                  ? 'siat.sat.gob.mx • Cumplimiento de Obligaciones Fiscales' 
+                  : 'siat.sat.gob.mx • Cédula de Identificación Fiscal'}
               </span>
             </div>
           </div>
 
           <span className="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-black rounded-full uppercase tracking-wider">
-            {satData.estatus_padron || 'ACTIVO'}
+            {is32D 
+              ? (satData.sentido_opinion ? `OPINIÓN ${satData.sentido_opinion}` : 'POSITIVO') 
+              : (satData.estatus_padron || 'ACTIVO')}
           </span>
         </div>
 
@@ -388,6 +430,12 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
             <span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">RFC Oficial</span>
             <span className="font-mono font-bold text-slate-900">{satData.rfc || 'No detectado'}</span>
           </div>
+          {satData.folio && (
+            <div>
+              <span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Folio Oficial SAT</span>
+              <span className="font-mono font-bold text-slate-900">{satData.folio}</span>
+            </div>
+          )}
           {satData.idcif && (
             <div>
               <span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">idCIF (Folio SAT)</span>
@@ -409,6 +457,17 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
               <span className="font-medium text-slate-700 text-[11px] leading-snug">{satData.direccion}</span>
             </div>
           )}
+          {is32D && !satData.direccion && (
+            <div className="sm:col-span-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Opinión 32-D: Domicilio requerido</span>
+              </div>
+              <p className="text-[10px] leading-relaxed text-amber-700">
+                El SAT no imprime domicilio en la Opinión 32-D. RFC y Razón Social fueron extraídos exitosamente. Por favor ingresa la dirección de tu planta o empresa abajo (o sube tu Constancia de Situación Fiscal para autocompletarla).
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="pt-2 flex flex-wrap items-center justify-between gap-1 text-[10px] border-t border-emerald-100/70">
@@ -425,12 +484,12 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
           ) : (
             <span className="text-emerald-700 font-bold flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" />
-              <span>Constancia Fiscal Certificada</span>
+              <span>{is32D ? 'Opinión 32-D SAT Certificada' : 'Constancia Fiscal Certificada'}</span>
             </span>
           )}
           <span className="text-emerald-800 font-semibold flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-emerald-600" />
-            <span>Datos autorrellenados automáticamente</span>
+            <span>Datos fiscales autorrellenados automáticamente</span>
           </span>
         </div>
       </div>

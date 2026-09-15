@@ -112,6 +112,9 @@ def upload_constancia_fiscal(file: UploadFile = File(...)):
     # Procesar documento con sat_service
     sat_data = process_csf_document(filepath, filename=file.filename)
 
+    label = sat_data.get("tipo_documento_label", "Constancia Fiscal")
+    msg = f"{label} procesada y validada con el SAT exitosamente" if sat_data.get("sat_validado") else "Documento fiscal cargado correctamente"
+
     return {
         "status": "success",
         "filename": file.filename,
@@ -119,7 +122,7 @@ def upload_constancia_fiscal(file: UploadFile = File(...)):
         "sat_validado": sat_data.get("sat_validado", False),
         "qr_detectado": sat_data.get("qr_detectado", False),
         "sat_data": sat_data,
-        "message": "Constancia de Situación Fiscal procesada y validada con el SAT exitosamente" if sat_data.get("sat_validado") else "Constancia cargada correctamente"
+        "message": msg
     }
 
 

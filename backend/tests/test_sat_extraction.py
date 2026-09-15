@@ -41,6 +41,40 @@ def test_sat_qr_url_parser():
     assert parsed["idcif"] == "18060383187"
     assert parsed["d1"] == "10"
     assert parsed["d2"] == "1"
+    assert parsed["tipo_documento"] == "constancia_fiscal"
+
+
+def test_sat_qr_url_opinion_32d():
+    url_32d = "https://siat.sat.gob.mx/app/qr/faces/pages/mobile/validadorqr.jsf?D1=1&D2=1&D3=23NB9010752_VALR8310091Y6_08-06-2023_P"
+    parsed = parse_sat_qr_url(url_32d)
+    assert parsed["rfc"] == "VALR8310091Y6"
+    assert parsed["folio"] == "23NB9010752"
+    assert parsed["tipo_documento"] == "opinion_32d"
+    assert parsed["sentido_opinion"] == "POSITIVO"
+
+
+def test_extract_real_documents_if_available():
+    f1 = r"C:\Users\RogelioValdez\Downloads\Constancia Situacion fiscal.pdf"
+    f2 = r"C:\Users\RogelioValdez\Downloads\reporteOpinion32DContribuyente080623 (2).pdf"
+
+    if os.path.exists(f1):
+        res1 = process_csf_document(f1)
+        assert res1["rfc"] == "VALR8310091Y6"
+        assert res1["razon_social"] == "ROGELIO VALDEZ LEAL"
+        assert res1["municipio"] == "SANTIAGO"
+        assert "FALCON" in (res1["direccion"] or "")
+        assert "PESCADORES" in (res1["direccion"] or "")
+        assert res1["codigo_postal"] == "67320"
+        assert res1["tipo_documento"] == "constancia_fiscal"
+
+    if os.path.exists(f2):
+        res2 = process_csf_document(f2)
+        assert res2["rfc"] == "VALR8310091Y6"
+        assert res2["razon_social"] == "ROGELIO VALDEZ LEAL"
+        assert res2["tipo_documento"] == "opinion_32d"
+        assert res2["sentido_opinion"] == "POSITIVO"
+        assert res2["requiere_direccion_manual"] is True
+
 
 
 def test_qr_image_decoding():
