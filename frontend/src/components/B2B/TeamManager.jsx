@@ -25,7 +25,9 @@ import {
   FileBadge2,
   Lock,
   ArrowRight,
-  Loader2
+  Loader2,
+  QrCode,
+  Sparkles
 } from 'lucide-react';
 import { 
   getUserCompanies, 
@@ -94,6 +96,8 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
   const [csfUploadedUrl, setCsfUploadedUrl] = useState('');
   const [csfFileName, setCsfFileName] = useState('');
   const [csfError, setCsfError] = useState('');
+  const [satData, setSatData] = useState(null);
+  const [satValidated, setSatValidated] = useState(false);
   const fileInputRef = useRef(null);
   const modalFileInputRef = useRef(null);
 
@@ -166,6 +170,31 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
       setCsfFile(file);
       setCsfFileName(file.name);
       setCsfUploadedUrl(res.file_url);
+
+      if (res.sat_data) {
+        setSatData(res.sat_data);
+        setSatValidated(res.sat_validado || false);
+
+        // Auto-llenar campos si vienen del SAT
+        if (res.sat_data.razon_social_completa || res.sat_data.razon_social) {
+          setNewCompName(res.sat_data.razon_social_completa || res.sat_data.razon_social);
+        }
+        if (res.sat_data.rfc) {
+          setNewCompRfc(res.sat_data.rfc);
+        }
+        if (res.sat_data.municipio && MUNICIPIOS_NL.includes(res.sat_data.municipio)) {
+          setNewCompMunicipio(res.sat_data.municipio);
+        }
+        if (res.sat_data.direccion) {
+          setNewCompDireccion(res.sat_data.direccion);
+        }
+        if (res.sat_data.regimen_fiscal) {
+          const matchReg = REGIMENES_SAT.find(r => 
+            res.sat_data.regimen_fiscal.toLowerCase().includes(r.toLowerCase().slice(0, 15))
+          );
+          if (matchReg) setNewCompRegimen(matchReg);
+        }
+      }
     } catch (err) {
       console.error('Error al subir CSF:', err);
       setCsfError(err.message || 'Error al subir y procesar el documento');
@@ -225,7 +254,25 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
         direccion: newCompDireccion.trim() || undefined,
         telefono_contacto: newCompTel.trim() || undefined,
         creator_email: currentUser?.email || 'reclutador@empresa.com',
-        creator_name: currentUser?.name
+        creator_name: currentUser?.name,
+        // Campos oficiales del SAT extraídos del QR / CSF
+        idcif: satData?.idcif,
+        curp: satData?.curp,
+        razon_social: satData?.razon_social,
+        regimen_capital: satData?.regimen_capital,
+        fecha_inicio_operaciones: satData?.fecha_inicio_operaciones,
+        estatus_padron: satData?.estatus_padron || 'ACTIVO',
+        fecha_ultimo_cambio_estado: satData?.fecha_ultimo_cambio_estado,
+        codigo_postal: satData?.codigo_postal,
+        entidad_federativa: satData?.entidad_federativa,
+        colonia: satData?.colonia,
+        tipo_vialidad: satData?.tipo_vialidad,
+        calle: satData?.calle,
+        numero_exterior: satData?.numero_exterior,
+        numero_interior: satData?.numero_interior,
+        sat_url_validacion: satData?.sat_url,
+        sat_validado: satValidated || Boolean(satData?.rfc),
+        sat_raw_data: satData ? JSON.stringify(satData) : undefined
       });
 
       // Limpiar estados
@@ -238,6 +285,8 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
       setCsfFileName('');
       setCsfUploadedUrl('');
       setCsfError('');
+      setSatData(null);
+      setSatValidated(false);
 
       await loadCompanies();
       if (res.company) {
@@ -302,6 +351,90 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
       setCopiedToken(true);
       setTimeout(() => setCopiedToken(false), 2500);
     } catch (e) {}
+  };
+
+  // Renderizador de tarjeta de datos oficiales verificados del SAT
+  const renderSatCard = () => {
+    if (!satData) return null;
+    return (
+      <div className="p-4 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/50 border border-emerald-300 rounded-2xl space-y-2.5 shadow-xs animate-fadeIn mt-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-emerald-600 text-white rounded-xl shadow-xs">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-slate-900">Validado Oficialmente ante el SAT</span>
+                {satData.qr_detectado && (
+                  <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    <QrCode className="w-2.5 h-2.5" /> QR Detectado
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-emerald-700 font-medium block">
+                siat.sat.gob.mx &bull; Cédula de Identificación Fiscal
+              </span>
+            </div>
+          </div>
+
+          <span className="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-black rounded-full uppercase tracking-wider">
+            {satData.estatus_padron || 'ACTIVO'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-emerald-100">
+          <div>
+            <span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">RFC Oficial</span>
+            <span className="font-mono font-bold text-slate-900">{satData.rfc || 'No detectado'}</span>
+          </div>
+          {satData.idcif && (
+            <div>
+              <span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">idCIF (Folio SAT)</span>
+              <span className="font-mono font-bold text-slate-900">{satData.idcif}</span>
+            </div>
+          )}
+          {satData.razon_social && (
+            <div className="sm:col-span-2">
+              <span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Razón Social / Denominación</span>
+              <span className="font-bold text-slate-900 block">{satData.razon_social}</span>
+              {satData.regimen_capital && (
+                <span className="text-slate-500 text-[10px]">{satData.regimen_capital}</span>
+              )}
+            </div>
+          )}
+          {satData.direccion && (
+            <div className="sm:col-span-2">
+              <span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Domicilio Fiscal Registrado</span>
+              <span className="font-medium text-slate-700 text-[11px] leading-snug">{satData.direccion}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-1 text-[10px] border-t border-emerald-100/70">
+          {satData.sat_url ? (
+            <a
+              href={satData.sat_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 hover:underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>Verificar en Validador Oficial del SAT</span>
+            </a>
+          ) : (
+            <span className="text-emerald-700 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Constancia Fiscal Certificada</span>
+            </span>
+          )}
+          <span className="text-emerald-800 font-semibold flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-emerald-600" />
+            <span>Datos autorrellenados automáticamente</span>
+          </span>
+        </div>
+      </div>
+    );
   };
 
   // Render mientras carga inicialmente
@@ -384,9 +517,16 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                     }`}
                   >
                     {csfUploading ? (
-                      <div className="flex flex-col items-center gap-2 py-2">
+                      <div className="flex flex-col items-center gap-2 py-3">
                         <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-                        <span className="text-xs font-bold text-slate-700">Validando y subiendo archivo fiscal...</span>
+                        <div className="text-center">
+                          <span className="text-xs font-black text-slate-800 block">
+                            Escaneando QR y Validando con el SAT en vivo...
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            Consultando siat.sat.gob.mx y extrayendo datos fiscales oficiales
+                          </span>
+                        </div>
                       </div>
                     ) : (
                       <>
@@ -414,7 +554,7 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                         </span>
                         <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
-                          <span>Archivo fiscal cargado correctamente</span>
+                          <span>{satValidated ? 'Validado con el SAT exitosamente' : 'Archivo fiscal cargado correctamente'}</span>
                         </span>
                       </div>
                     </div>
@@ -434,6 +574,8 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                           setCsfUploadedUrl('');
                           setCsfFileName('');
                           setCsfFile(null);
+                          setSatData(null);
+                          setSatValidated(false);
                         }}
                         className="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg transition"
                         title="Eliminar y subir otro"
@@ -443,6 +585,8 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                     </div>
                   </div>
                 )}
+
+                {renderSatCard()}
 
                 {csfError && (
                   <p className="text-xs text-rose-600 font-semibold flex items-center gap-1">
@@ -785,10 +929,110 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
             <span className="text-xs font-black text-slate-900 block truncate font-mono">
               RFC: {selectedCompany?.rfc || 'Validado SAT'}
             </span>
-            <span className="text-[10px] text-emerald-600 font-bold">CSF Registrada</span>
+            <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              <span>{selectedCompany?.sat_validado ? 'SAT Validado (Activo)' : 'CSF Registrada'}</span>
+            </span>
           </div>
         </div>
       </div>
+
+      {/* TARJETA DE DATOS FISCALES OFICIALES SAT DE LA PLANTA ACTIVA */}
+      {selectedCompany && (
+        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 text-white rounded-3xl p-5 sm:p-6 shadow-md relative overflow-hidden border border-emerald-500/20">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative z-10 space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 rounded-2xl shadow-xs shrink-0">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm sm:text-base font-black text-white">
+                      {selectedCompany.razon_social || selectedCompany.nombre}
+                    </span>
+                    {selectedCompany.regimen_capital && (
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        ({selectedCompany.regimen_capital})
+                      </span>
+                    )}
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full">
+                      {selectedCompany.estatus_padron || 'ACTIVO'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-emerald-400/90 font-mono mt-0.5">
+                    <span>RFC: {selectedCompany.rfc || 'No registrado'}</span>
+                    {selectedCompany.idcif && (
+                      <>
+                        <span className="text-slate-500">&bull;</span>
+                        <span>idCIF: {selectedCompany.idcif}</span>
+                      </>
+                    )}
+                    {selectedCompany.codigo_postal && (
+                      <>
+                        <span className="text-slate-500">&bull;</span>
+                        <span>C.P. {selectedCompany.codigo_postal}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {selectedCompany.sat_url_validacion && (
+                  <a
+                    href={selectedCompany.sat_url_validacion}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/30 px-3 py-1.5 rounded-xl transition"
+                    title="Consultar folio en el validador oficial del SAT"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>Verificar QR en SAT</span>
+                    <ExternalLink className="w-3 h-3 text-emerald-400" />
+                  </a>
+                )}
+                {selectedCompany.constancia_fiscal_url && (
+                  <a
+                    href={selectedCompany.constancia_fiscal_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-200 bg-white/10 hover:bg-white/15 border border-white/10 px-3 py-1.5 rounded-xl transition"
+                    title="Ver Constancia de Situación Fiscal descargada"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Ver Constancia PDF</span>
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {(selectedCompany.direccion || selectedCompany.regimen_fiscal) && (
+              <div className="pt-2.5 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
+                {selectedCompany.direccion && (
+                  <div className="flex items-start gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Domicilio Fiscal Registrado</span>
+                      <span className="text-slate-200 text-[11px] leading-snug">{selectedCompany.direccion}</span>
+                    </div>
+                  </div>
+                )}
+                {selectedCompany.regimen_fiscal && (
+                  <div className="flex items-start gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Régimen Fiscal Oficial</span>
+                      <span className="text-slate-200 text-[11px] leading-snug">{selectedCompany.regimen_fiscal}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* TABLA DE MIEMBROS ACTIVOS */}
       <div className="bg-white border border-slate-200 rounded-3xl shadow-xs overflow-hidden">
@@ -1075,9 +1319,9 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                     className="border-2 border-dashed border-emerald-300 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-emerald-50/60 transition"
                   >
                     {csfUploading ? (
-                      <div className="flex items-center gap-2 py-1">
+                      <div className="flex items-center justify-center gap-2 py-2 text-center">
                         <Loader2 className="w-5 h-5 text-emerald-600 animate-spin" />
-                        <span className="text-xs font-bold text-slate-700">Subiendo archivo fiscal...</span>
+                        <span className="text-xs font-bold text-slate-700">Validando QR con el SAT en vivo...</span>
                       </div>
                     ) : (
                       <>
@@ -1092,15 +1336,23 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                   <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <FileCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span className="text-xs font-bold text-slate-900 truncate">
-                        {csfFileName || 'Constancia_Fiscal.pdf'}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-900 truncate block">
+                          {csfFileName || 'Constancia_Fiscal.pdf'}
+                        </span>
+                        <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{satValidated ? 'Validado con el SAT exitosamente' : 'Archivo cargado correctamente'}</span>
+                        </span>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
                         setCsfUploadedUrl('');
                         setCsfFileName('');
+                        setSatData(null);
+                        setSatValidated(false);
                       }}
                       className="p-1 text-rose-500 hover:bg-rose-100 rounded-lg"
                     >
@@ -1108,6 +1360,7 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
                     </button>
                   </div>
                 )}
+                {renderSatCard()}
                 {csfError && (
                   <p className="text-xs text-rose-600 font-semibold mt-1">⚠️ {csfError}</p>
                 )}

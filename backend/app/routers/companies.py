@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import secrets
 from datetime import datetime, timedelta
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Company, CompanyMember, CompanyInvitation, User
 from app.services.email_service import send_team_invitation_email
+from app.services.sat_service import process_csf_document
 
 router = APIRouter(prefix="/api/v1/companies", tags=["Companies & Team"])
 
@@ -27,6 +29,25 @@ class CompanyCreate(BaseModel):
     creator_email: str
     creator_name: Optional[str] = None
 
+    # Campos oficiales SAT / CSF
+    idcif: Optional[str] = None
+    curp: Optional[str] = None
+    razon_social: Optional[str] = None
+    regimen_capital: Optional[str] = None
+    fecha_inicio_operaciones: Optional[str] = None
+    estatus_padron: Optional[str] = None
+    fecha_ultimo_cambio_estado: Optional[str] = None
+    codigo_postal: Optional[str] = None
+    entidad_federativa: Optional[str] = None
+    colonia: Optional[str] = None
+    tipo_vialidad: Optional[str] = None
+    calle: Optional[str] = None
+    numero_exterior: Optional[str] = None
+    numero_interior: Optional[str] = None
+    sat_url_validacion: Optional[str] = None
+    sat_validado: Optional[bool] = False
+    sat_raw_data: Optional[str] = None
+
 class CompanyUpdate(BaseModel):
     nombre: Optional[str] = None
     municipio: Optional[str] = None
@@ -36,6 +57,25 @@ class CompanyUpdate(BaseModel):
     telefono_contacto: Optional[str] = None
     constancia_fiscal_url: Optional[str] = None
     regimen_fiscal: Optional[str] = None
+
+    # Campos oficiales SAT / CSF
+    idcif: Optional[str] = None
+    curp: Optional[str] = None
+    razon_social: Optional[str] = None
+    regimen_capital: Optional[str] = None
+    fecha_inicio_operaciones: Optional[str] = None
+    estatus_padron: Optional[str] = None
+    fecha_ultimo_cambio_estado: Optional[str] = None
+    codigo_postal: Optional[str] = None
+    entidad_federativa: Optional[str] = None
+    colonia: Optional[str] = None
+    tipo_vialidad: Optional[str] = None
+    calle: Optional[str] = None
+    numero_exterior: Optional[str] = None
+    numero_interior: Optional[str] = None
+    sat_url_validacion: Optional[str] = None
+    sat_validado: Optional[bool] = None
+    sat_raw_data: Optional[str] = None
 
 class InviteMemberRequest(BaseModel):
     email: str
@@ -56,7 +96,9 @@ class AcceptInvitationRequest(BaseModel):
 @router.post("/upload-csf")
 def upload_constancia_fiscal(file: UploadFile = File(...)):
     """
-    Recibe y almacena la Constancia de Situación Fiscal (CSF) emitida por el SAT (PDF o Imagen).
+    Recibe y procesa la Constancia de Situación Fiscal (CSF) emitida por el SAT (PDF o Imagen).
+    Extrae y decodifica el código QR para validar con el portal del SAT (siat.sat.gob.mx),
+    y analiza la capa de texto del PDF para extraer todos los datos fiscales.
     """
     upload_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "csf")
     os.makedirs(upload_dir, exist_ok=True)
@@ -66,13 +108,54 @@ def upload_constancia_fiscal(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
     
     file_url = f"/uploads/csf/{clean_filename}"
+
+    # Procesar documento con sat_service
+    sat_data = process_csf_document(filepath, filename=file.filename)
+
     return {
         "status": "success",
         "filename": file.filename,
         "file_url": file_url,
-        "message": "Constancia de Situación Fiscal cargada y verificada correctamente"
+        "sat_validado": sat_data.get("sat_validado", False),
+        "qr_detectado": sat_data.get("qr_detectado", False),
+        "sat_data": sat_data,
+        "message": "Constancia de Situación Fiscal procesada y validada con el SAT exitosamente" if sat_data.get("sat_validado") else "Constancia cargada correctamente"
     }
 
+
+def serialize_company(c: Company, members_count: int = 1) -> dict:
+    return {
+        "id": c.id,
+        "nombre": c.nombre,
+        "municipio": c.municipio,
+        "industria": c.industria,
+        "rfc": c.rfc,
+        "direccion": c.direccion,
+        "telefono_contacto": c.telefono_contacto,
+        "constancia_fiscal_url": c.constancia_fiscal_url,
+        "estado_verificacion": c.estado_verificacion or "verificada",
+        "regimen_fiscal": c.regimen_fiscal,
+        "created_by_email": c.created_by_email,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "members_count": max(members_count, 1),
+        # Metadatos oficiales del SAT / CSF
+        "idcif": c.idcif,
+        "curp": c.curp,
+        "razon_social": c.razon_social,
+        "regimen_capital": c.regimen_capital,
+        "fecha_inicio_operaciones": c.fecha_inicio_operaciones,
+        "estatus_padron": c.estatus_padron or "ACTIVO",
+        "fecha_ultimo_cambio_estado": c.fecha_ultimo_cambio_estado,
+        "codigo_postal": c.codigo_postal,
+        "entidad_federativa": c.entidad_federativa,
+        "colonia": c.colonia,
+        "tipo_vialidad": c.tipo_vialidad,
+        "calle": c.calle,
+        "numero_exterior": c.numero_exterior,
+        "numero_interior": c.numero_interior,
+        "sat_url_validacion": c.sat_url_validacion,
+        "sat_validado": c.sat_validado or bool(c.constancia_fiscal_url)
+    }
 
 @router.get("")
 def list_user_companies(
@@ -104,21 +187,7 @@ def list_user_companies(
                 CompanyMember.company_id == c.id,
                 CompanyMember.status == "active"
             ).count()
-            result.append({
-                "id": c.id,
-                "nombre": c.nombre,
-                "municipio": c.municipio,
-                "industria": c.industria,
-                "rfc": c.rfc,
-                "direccion": c.direccion,
-                "telefono_contacto": c.telefono_contacto,
-                "constancia_fiscal_url": c.constancia_fiscal_url,
-                "estado_verificacion": c.estado_verificacion or "verificada",
-                "regimen_fiscal": c.regimen_fiscal,
-                "created_by_email": c.created_by_email,
-                "created_at": c.created_at.isoformat() if c.created_at else None,
-                "members_count": max(members_count, 1)
-            })
+            result.append(serialize_company(c, members_count))
         return result
 
     # Modo general (sin filtro por usuario): devolver empresas registradas
@@ -129,21 +198,7 @@ def list_user_companies(
             CompanyMember.company_id == c.id,
             CompanyMember.status == "active"
         ).count()
-        result.append({
-            "id": c.id,
-            "nombre": c.nombre,
-            "municipio": c.municipio,
-            "industria": c.industria,
-            "rfc": c.rfc,
-            "direccion": c.direccion,
-            "telefono_contacto": c.telefono_contacto,
-            "constancia_fiscal_url": c.constancia_fiscal_url,
-            "estado_verificacion": c.estado_verificacion or "verificada",
-            "regimen_fiscal": c.regimen_fiscal,
-            "created_by_email": c.created_by_email,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
-            "members_count": max(members_count, 1)
-        })
+        result.append(serialize_company(c, members_count))
 
     return result
 
@@ -165,8 +220,26 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
         telefono_contacto=payload.telefono_contacto,
         constancia_fiscal_url=payload.constancia_fiscal_url,
         regimen_fiscal=payload.regimen_fiscal,
-        estado_verificacion="verificada" if payload.constancia_fiscal_url else "pendiente_revision",
-        created_by_email=clean_email
+        estado_verificacion="verificada" if (payload.constancia_fiscal_url or payload.sat_validado) else "pendiente_revision",
+        created_by_email=clean_email,
+        # Campos SAT oficiales
+        idcif=payload.idcif,
+        curp=payload.curp,
+        razon_social=payload.razon_social,
+        regimen_capital=payload.regimen_capital,
+        fecha_inicio_operaciones=payload.fecha_inicio_operaciones,
+        estatus_padron=payload.estatus_padron or "ACTIVO",
+        fecha_ultimo_cambio_estado=payload.fecha_ultimo_cambio_estado,
+        codigo_postal=payload.codigo_postal,
+        entidad_federativa=payload.entidad_federativa,
+        colonia=payload.colonia,
+        tipo_vialidad=payload.tipo_vialidad,
+        calle=payload.calle,
+        numero_exterior=payload.numero_exterior,
+        numero_interior=payload.numero_interior,
+        sat_url_validacion=payload.sat_url_validacion,
+        sat_validado=payload.sat_validado or bool(payload.constancia_fiscal_url),
+        sat_raw_data=payload.sat_raw_data
     )
     db.add(company)
     db.commit()
@@ -193,19 +266,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
     return {
         "status": "success",
         "message": f"Empresa {clean_name} registrada exitosamente",
-        "company": {
-            "id": company.id,
-            "nombre": company.nombre,
-            "municipio": company.municipio,
-            "industria": company.industria,
-            "rfc": company.rfc,
-            "direccion": company.direccion,
-            "telefono_contacto": company.telefono_contacto,
-            "constancia_fiscal_url": company.constancia_fiscal_url,
-            "estado_verificacion": company.estado_verificacion,
-            "regimen_fiscal": company.regimen_fiscal,
-            "members_count": 1
-        }
+        "company": serialize_company(company, 1)
     }
 
 
@@ -236,24 +297,49 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
     if payload.regimen_fiscal is not None:
         company.regimen_fiscal = payload.regimen_fiscal.strip()
 
+    # Campos SAT opcionales
+    if payload.idcif is not None:
+        company.idcif = payload.idcif
+    if payload.curp is not None:
+        company.curp = payload.curp
+    if payload.razon_social is not None:
+        company.razon_social = payload.razon_social
+    if payload.regimen_capital is not None:
+        company.regimen_capital = payload.regimen_capital
+    if payload.fecha_inicio_operaciones is not None:
+        company.fecha_inicio_operaciones = payload.fecha_inicio_operaciones
+    if payload.estatus_padron is not None:
+        company.estatus_padron = payload.estatus_padron
+    if payload.fecha_ultimo_cambio_estado is not None:
+        company.fecha_ultimo_cambio_estado = payload.fecha_ultimo_cambio_estado
+    if payload.codigo_postal is not None:
+        company.codigo_postal = payload.codigo_postal
+    if payload.entidad_federativa is not None:
+        company.entidad_federativa = payload.entidad_federativa
+    if payload.colonia is not None:
+        company.colonia = payload.colonia
+    if payload.tipo_vialidad is not None:
+        company.tipo_vialidad = payload.tipo_vialidad
+    if payload.calle is not None:
+        company.calle = payload.calle
+    if payload.numero_exterior is not None:
+        company.numero_exterior = payload.numero_exterior
+    if payload.numero_interior is not None:
+        company.numero_interior = payload.numero_interior
+    if payload.sat_url_validacion is not None:
+        company.sat_url_validacion = payload.sat_url_validacion
+    if payload.sat_validado is not None:
+        company.sat_validado = payload.sat_validado
+    if payload.sat_raw_data is not None:
+        company.sat_raw_data = payload.sat_raw_data
+
     db.commit()
     db.refresh(company)
 
     return {
         "status": "success",
         "message": "Empresa actualizada correctamente",
-        "company": {
-            "id": company.id,
-            "nombre": company.nombre,
-            "municipio": company.municipio,
-            "industria": company.industria,
-            "rfc": company.rfc,
-            "direccion": company.direccion,
-            "telefono_contacto": company.telefono_contacto,
-            "constancia_fiscal_url": company.constancia_fiscal_url,
-            "estado_verificacion": company.estado_verificacion,
-            "regimen_fiscal": company.regimen_fiscal
-        }
+        "company": serialize_company(company)
     }
 
 

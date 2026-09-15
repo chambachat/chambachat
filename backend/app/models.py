@@ -139,6 +139,26 @@ class Company(Base):
     constancia_fiscal_url = Column(String(500), nullable=True)
     estado_verificacion = Column(String(50), default="verificada")  # "verificada" | "pendiente_revision"
     regimen_fiscal = Column(String(100), nullable=True)
+    
+    # Campos oficiales extraídos del SAT / Constancia Fiscal
+    idcif = Column(String(50), nullable=True)
+    curp = Column(String(20), nullable=True)
+    razon_social = Column(String(255), nullable=True)
+    regimen_capital = Column(String(150), nullable=True)
+    fecha_inicio_operaciones = Column(String(50), nullable=True)
+    estatus_padron = Column(String(50), nullable=True)  # "ACTIVO", "SUSPENDIDO", etc.
+    fecha_ultimo_cambio_estado = Column(String(50), nullable=True)
+    codigo_postal = Column(String(10), nullable=True)
+    entidad_federativa = Column(String(100), nullable=True)
+    colonia = Column(String(150), nullable=True)
+    tipo_vialidad = Column(String(50), nullable=True)
+    calle = Column(String(255), nullable=True)
+    numero_exterior = Column(String(50), nullable=True)
+    numero_interior = Column(String(50), nullable=True)
+    sat_url_validacion = Column(String(500), nullable=True)
+    sat_validado = Column(Boolean, default=False)
+    sat_raw_data = Column(Text, nullable=True)  # JSON con metadatos completos
+
     created_by_email = Column(String(255), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
