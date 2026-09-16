@@ -1,9 +1,14 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import json
 import uuid
 from typing import Dict, Any, Tuple, List
 from sqlalchemy.orm import Session
 from app.models import BotFlowConfig, ChatSession, User, Job, RouteStop, TransportRoute
-from app.services.matchmaking import match_jobs_for_candidate, MUNICIPIOS_NL_COORDS, haversine_distance_km
+from app.services.matchmaking import match_jobs_for_candidate
+from app.services.geo import get_municipio_coords, haversine_distance_km
 from app.services.deepseek_engine import query_deepseek_chat
 from app.config import settings
 
@@ -161,8 +166,7 @@ async def process_chat_message(
             c_lat = float(data["latitud"])
             c_lon = float(data["longitud"])
         else:
-            coords = MUNICIPIOS_NL_COORDS.get((target_muni or "monterrey").lower(), (25.6866, -100.3161))
-            c_lat, c_lon = coords[0], coords[1]
+            c_lat, c_lon = get_municipio_coords(target_muni or "monterrey")
 
         all_jobs = db.query(Job).all()
 
@@ -176,31 +180,11 @@ async def process_chat_message(
             )[:4]
 
         # Calcular rutas de transporte cercanas
+        from app.services.routes_service import find_nearby_stops
         try:
-            active_stops = db.query(RouteStop).join(TransportRoute).filter(TransportRoute.activa == True).all()
-            for stop in active_stops:
-                d_km = haversine_distance_km(c_lat, c_lon, stop.latitud, stop.longitud)
-                if d_km <= 8.0:
-                    walking_min = max(2, int((d_km / 4.5) * 60))
-                    nearby_routes.append({
-                        "stop_id": stop.id,
-                        "nombre_parada": stop.nombre,
-                        "horario_paso": stop.horario,
-                        "colonia_referencia": stop.colonia_referencia,
-                        "distancia_km": d_km,
-                        "caminando_min": walking_min,
-                        "ruta_id": stop.route.id,
-                        "nombre_ruta": stop.route.nombre,
-                        "turno": stop.route.turno,
-                        "color_hex": stop.route.color_hex,
-                        "hora_llegada_planta": stop.route.hora_llegada_planta,
-                        "empresa_id": stop.route.company_id,
-                        "empresa_nombre": stop.route.company.nombre if stop.route.company else "Planta Industrial"
-                    })
-            nearby_routes.sort(key=lambda x: x["distancia_km"])
-            nearby_routes = nearby_routes[:4]
+            nearby_routes = find_nearby_stops(db, c_lat, c_lon, max_km=8.0, limit=4)
         except Exception as e:
-            print(f"Error consultando rutas de transporte: {e}")
+            logger.error(f"Error consultando rutas de transporte: {e}")
 
         # Guardar en base de datos si tenemos al menos nombre o puesto/municipio/coordenadas
         if data.get("nombre") or data.get("municipio") or data.get("puesto_deseado") or is_location_event:

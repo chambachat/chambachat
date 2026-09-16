@@ -7,46 +7,17 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Company, TransportRoute, RouteStop, User
 from app.dependencies import get_current_user, require_company_member
-from app.services.matchmaking import haversine_distance_km
 
 router = APIRouter(prefix="/api/v1", tags=["Transport Routes"])
 
 
 # --- SCHEMAS ---
 
-class RouteStopIn(BaseModel):
-    id: Optional[int] = None
-    orden: int
-    nombre: str
-    horario: str
-    latitud: float
-    longitud: float
-    colonia_referencia: Optional[str] = None
-    referencia_visual: Optional[str] = None
-
-
-class TransportRouteCreate(BaseModel):
-    nombre: str
-    turno: Optional[str] = "Turno 1 (Matutino)"
-    color_hex: Optional[str] = "#059669"
-    descripcion: Optional[str] = None
-    activa: Optional[bool] = True
-    hora_inicio: Optional[str] = None
-    hora_llegada_planta: Optional[str] = None
-    tiempo_estimado_min: Optional[int] = None
-    stops: List[RouteStopIn] = []
-
-
-class TransportRouteUpdate(BaseModel):
-    nombre: Optional[str] = None
-    turno: Optional[str] = None
-    color_hex: Optional[str] = None
-    descripcion: Optional[str] = None
-    activa: Optional[bool] = None
-    hora_inicio: Optional[str] = None
-    hora_llegada_planta: Optional[str] = None
-    tiempo_estimado_min: Optional[int] = None
-    stops: Optional[List[RouteStopIn]] = None
+from app.schemas import (
+    RouteStopIn,
+    TransportRouteCreate,
+    TransportRouteUpdate
+)
 
 
 # --- HELPERS ---
@@ -185,22 +156,8 @@ def update_company_route(
     if not route:
         raise HTTPException(status_code=404, detail="Ruta no encontrada")
 
-    if payload.nombre is not None:
-        route.nombre = payload.nombre.strip()
-    if payload.turno is not None:
-        route.turno = payload.turno
-    if payload.color_hex is not None:
-        route.color_hex = payload.color_hex
-    if payload.descripcion is not None:
-        route.descripcion = payload.descripcion
-    if payload.activa is not None:
-        route.activa = payload.activa
-    if payload.hora_inicio is not None:
-        route.hora_inicio = payload.hora_inicio
-    if payload.hora_llegada_planta is not None:
-        route.hora_llegada_planta = payload.hora_llegada_planta
-    if payload.tiempo_estimado_min is not None:
-        route.tiempo_estimado_min = payload.tiempo_estimado_min
+    for field, value in payload.model_dump(exclude={'stops'}, exclude_unset=True).items():
+        setattr(route, field, value)
 
     # Sincronizar paradas si se envió la lista
     if payload.stops is not None:
@@ -262,40 +219,10 @@ def find_nearby_stops(
     Busca paradas de transporte activas cercanas a las coordenadas del candidato.
     Retorna la parada más próxima, distancia a pie estimada, ruta a la que pertenece y horario.
     """
-    query = db.query(RouteStop).join(TransportRoute).filter(TransportRoute.activa == True)
-    if company_id:
-        query = query.filter(TransportRoute.company_id == company_id)
-    
-    all_stops = query.all()
-    results = []
-
-    for stop in all_stops:
-        dist_km = haversine_distance_km(lat, lon, stop.latitud, stop.longitud)
-        if dist_km <= max_distance_km:
-            # Estimar caminata a 4.5 km/h
-            walking_min = max(2, int((dist_km / 4.5) * 60))
-            results.append({
-                "stop_id": stop.id,
-                "nombre_parada": stop.nombre,
-                "horario_paso": stop.horario,
-                "colonia_referencia": stop.colonia_referencia,
-                "latitud": stop.latitud,
-                "longitud": stop.longitud,
-                "distancia_km": dist_km,
-                "caminando_min": walking_min,
-                "ruta_id": stop.route.id,
-                "nombre_ruta": stop.route.nombre,
-                "turno": stop.route.turno,
-                "color_hex": stop.route.color_hex,
-                "hora_llegada_planta": stop.route.hora_llegada_planta,
-                "empresa_id": stop.route.company_id,
-                "empresa_nombre": stop.route.company.nombre if stop.route.company else "Planta Industrial"
-            })
-
-    # Ordenar por proximidad (la parada más cercana primero)
-    results.sort(key=lambda x: x["distancia_km"])
+    from app.services.routes_service import find_nearby_stops as _find_nearby_stops
+    results = _find_nearby_stops(db, lat, lon, max_km=max_distance_km, company_id=company_id, limit=10)
     return {
         "total_encontradas": len(results),
-        "stops_cercanas": results[:10]
+        "stops_cercanas": results
     }
 

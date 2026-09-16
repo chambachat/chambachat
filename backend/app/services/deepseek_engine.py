@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import json
 import re
 import httpx
@@ -101,11 +105,11 @@ async def query_deepseek_chat(
             raw_text = data["choices"][0]["message"]["content"]
             return parse_deepseek_output(raw_text)
         else:
-            print(f"DeepSeek API respondió código {resp.status_code}: {resp.text}")
+            logger.error(f"DeepSeek API respondió código {resp.status_code}: {resp.text}")
             return generate_heuristic_response(conversation_history, user_message, context_data)
 
     except Exception as e:
-        print(f"Excepción al conectar con DeepSeek API: {e}")
+        logger.error(f"Excepción al conectar con DeepSeek API: {e}")
         return generate_heuristic_response(conversation_history, user_message, context_data)
 
 def parse_deepseek_output(raw_text: str) -> Dict[str, Any]:

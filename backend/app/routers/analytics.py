@@ -40,17 +40,12 @@ def get_analytics_summary(db: Session = Depends(get_db)):
             for k, v in motivos_counter.most_common(5)
         ]
     else:
-        promedio_meses = 4.2
-        perm_inea = 7.1
-        perm_no_inea = 3.6
-        perm_fijos = 5.8
-        perm_rot = 3.4
-        motivos_list = [
-            {"motivo": "Transporte / Distancia excesiva", "frecuencia": 38, "porcentaje": 38.0},
-            {"motivo": "Salario insuficiente", "frecuencia": 26, "porcentaje": 26.0},
-            {"motivo": "Desgaste por turnos rotativos", "frecuencia": 20, "porcentaje": 20.0},
-            {"motivo": "Falta de crecimiento escolar", "frecuencia": 16, "porcentaje": 16.0}
-        ]
+        promedio_meses = 0.0
+        perm_inea = 0.0
+        perm_no_inea = 0.0
+        perm_fijos = 0.0
+        perm_rot = 0.0
+        motivos_list = []
 
     # Distribución de escolaridad y municipios
     users = db.query(User).all()

@@ -16,6 +16,16 @@ from app.schemas import (
 router = APIRouter(prefix="/api/v1/applications", tags=["Applications & Recruiter Chat"])
 
 def compute_match_score(job: Optional[Job], candidate_muni: Optional[str], candidate_phone: Optional[str]) -> int:
+    """
+    Estima la compatibilidad (match_score) entre el candidato y la vacante.
+    Metodología:
+    - Base de 70 puntos.
+    - +18 si el municipio coincide exactamente.
+    - +12 si es un municipio del área metropolitana.
+    - +8 si el candidato proporcionó teléfono válido.
+    - +2 si la vacante tiene turnos fijos.
+    El resultado está delimitado entre 72 y 98.
+    """
     score = 70
     if job and candidate_muni:
         if candidate_muni.lower() in job.municipio.lower() or job.municipio.lower() in candidate_muni.lower():

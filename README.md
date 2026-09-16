@@ -1,71 +1,100 @@
-# Chambachat V2 🤠
+# ChambaChat 🤠
 
-**Plataforma de Reclutamiento B2B/B2C y People Analytics para Manufactura en Nuevo León.**
+**Plataforma de Reclutamiento Industrial con IA para Manufactura en Nuevo León, México.**
 
-Construido según las especificaciones del documento oficial: `PRD y Arquitectura Chambachat - Antigravity V2.txt`.
+Conecta candidatos operarios con empresas industriales verificadas por el SAT a través de un chatbot conversacional inteligente.
 
----
-
-## 🚀 Arquitectura y Componentes Implementados
-
-1. **📱 Módulo B2C (Candidatos Operarios)**:
-   - Simulador de chatbot inteligente optimizado para WhatsApp / web móvil.
-   - Perfilado conversacional: Nombre, Municipio/Zona de Nuevo León y Nivel Educativo.
-   - **Detección de Rezago Educativo**: Inyección dinámica del mensaje de canalización para acreditar primaria o secundaria con el **INEA**.
-   - **Tagging Automático**: Actualiza `tag_inea = TRUE` en base de datos.
-   - **Matchmaking Geoespacial**: Algoritmo Haversine que prioriza vacantes en parques industriales cercanos y empresas con convenio INEA.
-
-2. **💼 Módulo B2B (Empresas & Reclutadores)**:
-   - **Predictor de Retención (People Analytics)**: Modelo matemático interactivo con sliders en tiempo real (Sueldo \$1,500 - \$4,500 MXN, Tiempo de traslado 10 - 120 min, Turnos fijos vs rotativos `+2.0m`, Aula/Apoyo INEA `+3.5m`).
-   - Generación automática de recomendaciones tácticas para reducir la rotación laboral.
-   - **Bolsa de Vacantes**: Creación y administración de ofertas con georreferenciación.
-   - **Base de Talento**: Padrón con 100 operarios sintéticos de Nuevo León filtrables por municipio y estatus INEA.
-   - **Dashboard Ejecutivo**: Métricas de permanencia histórica, causas raíz de rotación y gráficos de distribución escolar.
-
-3. **⚙️ Panel de Administración (Orquestación sin Código)**:
-   - Sustitución de plataformas de terceros (ManyChat, Typeform, etc.).
-   - Panel visual donde los administradores pueden editar los copys, prompts de bienvenida, preguntas y la invitación motivacional del INEA en tiempo real, almacenados directamente en base de datos.
-
-4. **🗄️ Base de Datos & Capa de Datos**:
-   - DDL oficial para PostgreSQL: `backend/scripts/postgres_schema.sql` (con `CREATE TYPE educacion_enum`, tipo geométrico `POINT`, índices de alto rendimiento y llaves foráneas).
-   - Compatibilidad nativa SQLite/PostgreSQL vía SQLAlchemy.
-   - Generador de datos sintéticos: 100 operarios regiomontanos y 100 registros de histórico de contrataciones con variabilidad estadística realista.
+> **Producción**: [chambachat.onrender.com](https://chambachat.onrender.com) • [chambachat.com](https://chambachat.com)
 
 ---
 
-## 🛠️ Cómo Iniciar la Plataforma
+## 🏗️ Arquitectura
 
-### Opción Rápida (1 Clic en Windows)
-Haz doble clic sobre el archivo:
-```cmd
-start.bat
-```
-
-O desde la terminal:
-```powershell
-.\backend\venv\Scripts\python backend/run.py
-```
-
-El servidor iniciará en:
-👉 **http://localhost:8000** (servirá tanto la API FastAPI como la plataforma web compilada).
-
-### Documentación Interactiva de la API
-- Swagger UI: **http://localhost:8000/docs**
-- ReDoc: **http://localhost:8000/redoc**
+| Capa | Tecnología |
+|------|-----------|
+| **Frontend** | React 18 + Vite + Tailwind CSS |
+| **Backend** | FastAPI (Python 3.11) + SQLAlchemy ORM |
+| **LLM** | DeepSeek Chat API (chatbot conversacional) |
+| **Base de datos** | PostgreSQL (Supabase) en producción, SQLite en desarrollo |
+| **Mapas** | Leaflet.js + OpenStreetMap + Nominatim geocoding |
+| **Auth** | JWT con verificación por email (OTP SHA-256) |
+| **Migraciones** | Alembic |
+| **Email** | Resend API con fallback SMTP |
+| **Despliegue** | Render (auto-deploy desde `main`) |
+| **CI** | GitHub Actions (pytest + build en push/PR) |
 
 ---
 
-## 🧪 Pruebas Automatizadas
+## 📱 Módulos
 
-Se incluyen pruebas unitarias y de integración completas:
+### B2C — Candidatos Operarios
+- **Chatbot IA (Chambot)**: Perfilado conversacional, matchmaking geoespacial Haversine, detección de rezago educativo INEA.
+- **Ubicación GPS**: El candidato comparte su ubicación para encontrar rutas de transporte y vacantes cercanas.
+- **Postulación directa**: Aplica a vacantes desde el chat, con chat directo con el reclutador.
 
-```powershell
-# 1. Pruebas de la fórmula matemática de retención
-.\backend\venv\Scripts\python backend/tests/test_chambachat.py
+### B2B — Empresas y Reclutadores
+- **Verificación fiscal SAT**: Carga de Constancia de Situación Fiscal (CSF) con extracción de QR y validación en vivo.
+- **Gestión de equipo**: Invitaciones por email, roles (admin/reclutador), multi-planta.
+- **Turnos laborales**: CRUD completo de turnos con horarios y días.
+- **Rutas de transporte**: Mapa interactivo con paradas geolocalizadas, polilíneas y geocodificación inversa.
+- **Vacantes**: Publicación con georreferenciación y filtro por empresa.
+- **People Analytics**: Dashboard con métricas de retención, distribución escolar y motivos de baja.
+- **Predictor de retención**: Modelo interactivo con sliders (sueldo, traslado, turnos, INEA).
 
-# 2. Pruebas de integración de todos los endpoints y flujo de chat
-.\backend\venv\Scripts\python backend/tests/test_api_endpoints.py
+### Admin
+- **Orquestador de flujos**: Edición de prompts del chatbot sin código.
+
+---
+
+## 🛠️ Setup Local
+
+### Requisitos
+- Python 3.11+
+- Node.js 18+
+
+### Backend
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # para tests
+
+# Copiar y configurar variables
+copy ..\.env.example ..\.env
+
+python run.py
 ```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev     # desarrollo en http://localhost:5173
+npm run build   # producción
+```
+
+### Tests
+```bash
+cd backend
+python -m pytest -v
+```
+
+---
+
+## 🔐 Variables de Entorno
+
+Ver [`.env.example`](.env.example) para la lista completa. Variables críticas:
+
+| Variable | Descripción | Requerida |
+|----------|-------------|:---------:|
+| `DATABASE_URL` | PostgreSQL connection string | Producción |
+| `DEEPSEEK_API_KEY` | API key de DeepSeek LLM | ✅ |
+| `JWT_SECRET_KEY` | Secreto para firmar JWTs | Producción |
+| `CORS_ORIGINS` | Orígenes permitidos (separados por coma) | ✅ |
+| `RESEND_API_KEY` | API key de Resend para emails | Opcional |
+| `SMTP_HOST/USER/PASSWORD` | Credenciales SMTP alternativas | Opcional |
+| `LOG_LEVEL` | Nivel de logging (DEBUG/INFO/WARNING) | Opcional |
 
 ---
 
@@ -73,40 +102,74 @@ Se incluyen pruebas unitarias y de integración completas:
 
 ```
 chambachat/
-├── PRD y Arquitectura Chambachat - Antigravity V2.txt
-├── start.bat
-├── README.md
+├── .github/workflows/test.yml        # CI: pytest + build
+├── .env.example                       # Variables de entorno
 ├── backend/
-│   ├── run.py                       # Servidor y auto-seeding
-│   ├── requirements.txt             # Dependencias Python
+│   ├── alembic/                       # Migraciones de DB
 │   ├── app/
-│   │   ├── main.py                  # FastAPI app y montaje de rutas/frontend
-│   │   ├── database.py              # Conexión SQLAlchemy
-│   │   ├── models.py                # Modelos Users, Jobs, HiringHistory, BotFlowConfig
-│   │   ├── schemas.py               # Modelos Pydantic
-│   │   ├── services/
-│   │   │   ├── predictor.py         # Algoritmo de retención PRD
-│   │   │   ├── matchmaking.py       # Algoritmo Haversine geodésico
-│   │   │   └── chatbot_engine.py    # Máquina de estados conversacional
-│   │   └── routers/                 # Endpoints REST
-│   ├── scripts/
-│   │   ├── seed.py                  # Generador de 100 operarios e históricos
-│   │   └── postgres_schema.sql      # DDL nativo para PostgreSQL en Render
-│   └── tests/
-│       ├── test_chambachat.py       # Unit tests de la fórmula
-│       └── test_api_endpoints.py    # Integration tests de la API
-└── frontend/
-    ├── package.json
-    ├── vite.config.js
-    ├── src/
-    │   ├── App.jsx
-    │   ├── components/
-    │   │   ├── B2C/ChatSimulator.jsx
-    │   │   ├── B2B/RetentionPredictor.jsx
-    │   │   ├── B2B/JobsManager.jsx
-    │   │   ├── B2B/CandidatesList.jsx
-    │   │   ├── B2B/AnalyticsDashboard.jsx
-    │   │   └── Admin/FlowOrchestrator.jsx
-    │   └── services/api.js
-    └── dist/                        # Build de producción listo para servir
+│   │   ├── config.py                  # Settings (Pydantic)
+│   │   ├── database.py                # SQLAlchemy engine
+│   │   ├── dependencies.py            # Auth: get_current_user, require_role
+│   │   ├── main.py                    # FastAPI app + CORS + migrations
+│   │   ├── models.py                  # SQLAlchemy models (13 tablas)
+│   │   ├── schemas.py                 # Pydantic schemas
+│   │   ├── routers/                   # Endpoints por dominio
+│   │   │   ├── auth.py                # Login, verificación, sync
+│   │   │   ├── companies.py           # Empresas, equipo, turnos
+│   │   │   ├── routes.py              # Rutas de transporte
+│   │   │   ├── jobs.py                # Vacantes
+│   │   │   ├── applications.py        # Postulaciones + chat recruiter
+│   │   │   ├── analytics.py           # People Analytics
+│   │   │   └── ...
+│   │   └── services/
+│   │       ├── chatbot_engine.py      # Lógica del chatbot
+│   │       ├── deepseek_engine.py     # Integración DeepSeek LLM
+│   │       ├── email_service.py       # Resend + SMTP
+│   │       ├── matchmaking.py         # Matchmaking geoespacial
+│   │       └── sat_service.py         # Extracción CSF del SAT
+│   ├── tests/                         # 34 tests
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx                    # Router principal
+│   │   ├── components/
+│   │   │   ├── Auth/                  # Login/registro
+│   │   │   ├── Chat/                  # Chatbot IA principal
+│   │   │   ├── B2B/                   # Panel empresa
+│   │   │   │   ├── Team/             # Gestión de equipo (11 componentes)
+│   │   │   │   ├── Routes/           # Rutas de transporte (5 componentes)
+│   │   │   │   └── ...
+│   │   │   ├── ui/                    # Toast, ConfirmDialog
+│   │   │   └── ...
+│   │   ├── hooks/                     # Custom hooks (4 hooks)
+│   │   └── services/                  # API client, auth, chat storage
+│   └── package.json
+└── recursos/                          # Assets originales
 ```
+
+---
+
+## 📋 API
+
+Documentación interactiva disponible en:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+### Endpoints principales
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/send-verification-code` | Enviar OTP por email |
+| POST | `/api/v1/verify-code` | Verificar OTP → JWT |
+| POST | `/api/v1/sync-profile` | Sincronizar perfil |
+| GET/POST | `/api/v1/companies` | CRUD empresas |
+| GET/POST | `/api/v1/companies/{id}/routes` | Rutas de transporte |
+| GET/POST | `/api/v1/jobs` | Vacantes |
+| POST | `/api/v1/chat/start` | Iniciar sesión de chat |
+| POST | `/api/v1/chat/message` | Enviar mensaje al chatbot |
+| POST | `/api/v1/apply` | Postularse a vacante |
+
+---
+
+## 📄 Licencia
+
+Proyecto propietario — ChambaChat © 2024-2026

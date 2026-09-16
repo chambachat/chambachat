@@ -16,108 +16,15 @@ from app.services.sat_service import process_csf_document
 
 router = APIRouter(prefix="/api/v1/companies", tags=["Companies & Team"])
 
-# --- SCHEMAS ---
-
-class CompanyCreate(BaseModel):
-    nombre: str
-    municipio: Optional[str] = "Apodaca"
-    industria: Optional[str] = "Manufactura y Logística"
-    rfc: Optional[str] = None
-    direccion: Optional[str] = None
-    latitud: Optional[float] = None
-    longitud: Optional[float] = None
-    telefono_contacto: Optional[str] = None
-    constancia_fiscal_url: Optional[str] = None
-    regimen_fiscal: Optional[str] = None
-    creator_email: str
-    creator_name: Optional[str] = None
-
-    # Campos oficiales SAT / CSF
-    idcif: Optional[str] = None
-    curp: Optional[str] = None
-    razon_social: Optional[str] = None
-    regimen_capital: Optional[str] = None
-    fecha_inicio_operaciones: Optional[str] = None
-    estatus_padron: Optional[str] = None
-    fecha_ultimo_cambio_estado: Optional[str] = None
-    codigo_postal: Optional[str] = None
-    entidad_federativa: Optional[str] = None
-    colonia: Optional[str] = None
-    tipo_vialidad: Optional[str] = None
-    calle: Optional[str] = None
-    numero_exterior: Optional[str] = None
-    numero_interior: Optional[str] = None
-    sat_url_validacion: Optional[str] = None
-    sat_validado: Optional[bool] = False
-    sat_raw_data: Optional[str] = None
-
-class CompanyUpdate(BaseModel):
-    nombre: Optional[str] = None
-    municipio: Optional[str] = None
-    industria: Optional[str] = None
-    rfc: Optional[str] = None
-    direccion: Optional[str] = None
-    latitud: Optional[float] = None
-    longitud: Optional[float] = None
-    telefono_contacto: Optional[str] = None
-    constancia_fiscal_url: Optional[str] = None
-    regimen_fiscal: Optional[str] = None
-
-    # Campos oficiales SAT / CSF
-    idcif: Optional[str] = None
-    curp: Optional[str] = None
-    razon_social: Optional[str] = None
-    regimen_capital: Optional[str] = None
-    fecha_inicio_operaciones: Optional[str] = None
-    estatus_padron: Optional[str] = None
-    fecha_ultimo_cambio_estado: Optional[str] = None
-    codigo_postal: Optional[str] = None
-    entidad_federativa: Optional[str] = None
-    colonia: Optional[str] = None
-    tipo_vialidad: Optional[str] = None
-    calle: Optional[str] = None
-    numero_exterior: Optional[str] = None
-    numero_interior: Optional[str] = None
-    sat_url_validacion: Optional[str] = None
-    sat_validado: Optional[bool] = None
-    sat_raw_data: Optional[str] = None
-
-class CompanyLocationUpdate(BaseModel):
-    latitud: float
-    longitud: float
-    direccion: Optional[str] = None
-    municipio: Optional[str] = None
-
-class CompanyShiftCreate(BaseModel):
-    nombre: str
-    hora_entrada: str
-    hora_salida: str
-    dias: Optional[str] = "Lunes a Sábado"
-    tipo: Optional[str] = "Fijo"
-    descripcion: Optional[str] = None
-
-class CompanyShiftUpdate(BaseModel):
-    nombre: Optional[str] = None
-    hora_entrada: Optional[str] = None
-    hora_salida: Optional[str] = None
-    dias: Optional[str] = None
-    tipo: Optional[str] = None
-    descripcion: Optional[str] = None
-    activo: Optional[bool] = None
-
-
-class InviteMemberRequest(BaseModel):
-    email: str
-    nombre: Optional[str] = None
-    role: Optional[str] = "recruiter"  # "admin" | "recruiter"
-    inviter_name: str
-    inviter_email: str
-    origin_url: Optional[str] = None
-
-class AcceptInvitationRequest(BaseModel):
-    token: str
-    user_email: str
-    user_name: Optional[str] = None
+from app.schemas import (
+    CompanyCreate,
+    CompanyUpdate,
+    CompanyLocationUpdate,
+    CompanyShiftCreate,
+    CompanyShiftUpdate,
+    InviteMemberRequest,
+    AcceptInvitationRequest
+)
 
 
 # --- ENDPOINTS ---
@@ -315,63 +222,11 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
     if not company:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
 
-    if payload.nombre is not None:
-        company.nombre = payload.nombre.strip()
-    if payload.municipio is not None:
-        company.municipio = payload.municipio.strip()
-    if payload.industria is not None:
-        company.industria = payload.industria.strip()
-    if payload.rfc is not None:
-        company.rfc = payload.rfc.strip()
-    if payload.direccion is not None:
-        company.direccion = payload.direccion.strip()
-    if payload.latitud is not None:
-        company.latitud = payload.latitud
-    if payload.longitud is not None:
-        company.longitud = payload.longitud
-    if payload.telefono_contacto is not None:
-        company.telefono_contacto = payload.telefono_contacto.strip()
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(company, field, value)
+    
     if payload.constancia_fiscal_url is not None:
-        company.constancia_fiscal_url = payload.constancia_fiscal_url
         company.estado_verificacion = "verificada"
-    if payload.regimen_fiscal is not None:
-        company.regimen_fiscal = payload.regimen_fiscal.strip()
-
-    # Campos SAT opcionales
-    if payload.idcif is not None:
-        company.idcif = payload.idcif
-    if payload.curp is not None:
-        company.curp = payload.curp
-    if payload.razon_social is not None:
-        company.razon_social = payload.razon_social
-    if payload.regimen_capital is not None:
-        company.regimen_capital = payload.regimen_capital
-    if payload.fecha_inicio_operaciones is not None:
-        company.fecha_inicio_operaciones = payload.fecha_inicio_operaciones
-    if payload.estatus_padron is not None:
-        company.estatus_padron = payload.estatus_padron
-    if payload.fecha_ultimo_cambio_estado is not None:
-        company.fecha_ultimo_cambio_estado = payload.fecha_ultimo_cambio_estado
-    if payload.codigo_postal is not None:
-        company.codigo_postal = payload.codigo_postal
-    if payload.entidad_federativa is not None:
-        company.entidad_federativa = payload.entidad_federativa
-    if payload.colonia is not None:
-        company.colonia = payload.colonia
-    if payload.tipo_vialidad is not None:
-        company.tipo_vialidad = payload.tipo_vialidad
-    if payload.calle is not None:
-        company.calle = payload.calle
-    if payload.numero_exterior is not None:
-        company.numero_exterior = payload.numero_exterior
-    if payload.numero_interior is not None:
-        company.numero_interior = payload.numero_interior
-    if payload.sat_url_validacion is not None:
-        company.sat_url_validacion = payload.sat_url_validacion
-    if payload.sat_validado is not None:
-        company.sat_validado = payload.sat_validado
-    if payload.sat_raw_data is not None:
-        company.sat_raw_data = payload.sat_raw_data
 
     db.commit()
     db.refresh(company)
@@ -771,20 +626,8 @@ def update_company_shift(company_id: int, shift_id: int, payload: CompanyShiftUp
     if not shift:
         raise HTTPException(status_code=404, detail="Turno no encontrado")
 
-    if payload.nombre is not None:
-        shift.nombre = payload.nombre.strip()
-    if payload.hora_entrada is not None:
-        shift.hora_entrada = payload.hora_entrada.strip()
-    if payload.hora_salida is not None:
-        shift.hora_salida = payload.hora_salida.strip()
-    if payload.dias is not None:
-        shift.dias = payload.dias.strip()
-    if payload.tipo is not None:
-        shift.tipo = payload.tipo.strip()
-    if payload.descripcion is not None:
-        shift.descripcion = payload.descripcion.strip()
-    if payload.activo is not None:
-        shift.activo = payload.activo
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(shift, field, value)
 
     db.commit()
     db.refresh(shift)

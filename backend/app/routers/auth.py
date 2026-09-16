@@ -39,64 +39,11 @@ _CODE_LENGTH = 6  # Código de 6 dígitos para mayor seguridad
 
 # ─── Schemas ─────────────────────────────────────────────────────────
 
-class VerificationCodeRequest(BaseModel):
-    email: str
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v: str) -> str:
-        v = v.strip().lower()
-        if not v or "@" not in v:
-            raise ValueError("Correo electrónico inválido.")
-        return v
-
-
-class VerifyCodeRequest(BaseModel):
-    email: str
-    code: str
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v: str) -> str:
-        v = v.strip().lower()
-        if not v or "@" not in v:
-            raise ValueError("Correo electrónico inválido.")
-        return v
-
-    @field_validator("code")
-    @classmethod
-    def validate_code(cls, v: str) -> str:
-        v = v.strip()
-        if not v or not v.isdigit() or len(v) != _CODE_LENGTH:
-            raise ValueError(f"El código debe ser de {_CODE_LENGTH} dígitos.")
-        return v
-
-
-class ProfileSyncRequest(BaseModel):
-    email: str
-    nombre: str
-    avatar_url: Optional[str] = None
-    google_id: Optional[str] = None
-    role: Optional[str] = "candidate"
-    empresa_nombre: Optional[str] = None
-    session_id: Optional[str] = None
-    municipio: Optional[str] = "Monterrey"
-    nivel_educativo: Optional[str] = "Secundaria"
-    tag_inea: Optional[bool] = False
-    telefono: Optional[str] = None
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v: str) -> str:
-        return v.strip().lower() if v else ""
-
-    @field_validator("role")
-    @classmethod
-    def validate_role(cls, v: Optional[str]) -> str:
-        allowed = {"candidate", "recruiter", "admin"}
-        if v and v not in allowed:
-            raise ValueError(f"Rol inválido. Permitidos: {', '.join(allowed)}")
-        return v or "candidate"
+from app.schemas import (
+    VerificationCodeRequest,
+    VerifyCodeRequest,
+    ProfileSyncRequest
+)
 
 
 # ─── Funciones auxiliares ─────────────────────────────────────────────

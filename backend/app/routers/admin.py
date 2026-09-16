@@ -41,14 +41,8 @@ def update_prompt(step_key: str, update_in: PromptUpdate, db: Session = Depends(
     if not prompt:
         raise HTTPException(status_code=404, detail="Paso conversacional no encontrado")
 
-    if update_in.titulo_admin is not None:
-        prompt.titulo_admin = update_in.titulo_admin
-    if update_in.prompt_texto is not None:
-        prompt.prompt_texto = update_in.prompt_texto
-    if update_in.opciones_json is not None:
-        prompt.opciones_json = update_in.opciones_json
-    if update_in.activo is not None:
-        prompt.activo = update_in.activo
+    for field, value in update_in.model_dump(exclude_unset=True).items():
+        setattr(prompt, field, value)
 
     db.commit()
     db.refresh(prompt)

@@ -21,3 +21,6 @@ backend/uploads/csf/*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Heavy assets (originals in frontend/public)
+recursos/
