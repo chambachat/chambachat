@@ -25,7 +25,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import User, ChatSession, EmailVerificationCode
 from app.services.email_service import send_real_verification_email
-from app.services.matchmaking import MUNICIPIOS_NL_COORDS
+from app.services.geo import MUNICIPIOS_NL_COORDS
 
 logger = logging.getLogger(__name__)
 

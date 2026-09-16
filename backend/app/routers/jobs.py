@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Job, Company
 from app.schemas import JobCreate, JobResponse
-from app.services.matchmaking import MUNICIPIOS_NL_COORDS
+from app.services.geo import MUNICIPIOS_NL_COORDS
 from app.dependencies import get_current_user, get_current_user_optional, require_company_member
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["Jobs"])

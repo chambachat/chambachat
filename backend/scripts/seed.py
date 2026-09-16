@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from app.database import SessionLocal, engine, Base
 from app.models import User, Job, HiringHistory, BotFlowConfig
 from app.services.predictor import calculate_predicted_retention
-from app.services.matchmaking import MUNICIPIOS_NL_COORDS
+from app.services.geo import MUNICIPIOS_NL_COORDS
 
 # Lista de nombres regiomontanos comunes
 NOMBRES = [

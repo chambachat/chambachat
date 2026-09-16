@@ -16,6 +16,13 @@ def _dispatch_email(to_email: str, subject: str, html_content: str) -> dict:
     import requests
     
 
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", 587))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASSWORD")
+    smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user or "noreply@chambachat.com")
+    resend_key = os.getenv("RESEND_API_KEY")
+
     resend_error = None
     if resend_key:
         try:
