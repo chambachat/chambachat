@@ -31,7 +31,7 @@ export default function ChatWelcome({ onPrompt }) {
         <img src="/chambot.png" alt="Chambot" className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-md hover:scale-105 transition-transform" />
       </div>
       <div className="space-y-1.5 sm:space-y-2 px-2">
-        <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">¡Qué onda! ¿En qué te ayudo hoy a jalar?</h1>
+        <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">¡Qué onda! ¿Buscamos una chambita?</h1>
         <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
           Pregúntame sobre vacantes de montacarguistas, ensamble, almacén, turnos fijos o sueldos en Nuevo León.
         </p>
