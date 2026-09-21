@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.config import settings
-from app.database import engine, Base, SessionLocal
+from app.database import SessionLocal
 from app.models import BotFlowConfig
 from app.services.chatbot_engine import DEFAULT_PROMPTS
 from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes
@@ -18,31 +18,25 @@ logger = logging.getLogger(__name__)
 def _run_alembic_migrations():
     """
     Ejecuta 'alembic upgrade head' al arrancar la aplicación.
-    En producción, build.sh también lo corre, pero esto garantiza
-    que la base de datos esté siempre actualizada en desarrollo.
+    Alembic es la única fuente de verdad del esquema: si la migración falla,
+    la aplicación no arranca (no hay fallback a create_all).
     """
+    from alembic.config import Config as AlembicConfig
+    from alembic import command as alembic_command
+
+    backend_dir = os.path.join(os.path.dirname(__file__), "..")
+    alembic_cfg = AlembicConfig(os.path.join(backend_dir, "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
     try:
-        from alembic.config import Config as AlembicConfig
-        from alembic import command as alembic_command
-
-        alembic_cfg = AlembicConfig(
-            os.path.join(os.path.dirname(__file__), "..", "alembic.ini")
-        )
-        alembic_cfg.set_main_option(
-            "script_location",
-            os.path.join(os.path.dirname(__file__), "..", "alembic"),
-        )
-        alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-
         alembic_command.upgrade(alembic_cfg, "head")
-        logger.info("Migraciones de Alembic aplicadas correctamente.")
     except Exception as exc:
-        logger.warning(
-            "No se pudieron ejecutar migraciones de Alembic (%s). "
-            "Intentando crear tablas directamente como fallback.",
-            exc,
-        )
-        Base.metadata.create_all(bind=engine)
+        raise RuntimeError(
+            f"No se pudieron aplicar las migraciones de Alembic: {exc}. "
+            "Revisa DATABASE_URL y el estado de la tabla alembic_version."
+        ) from exc
+    logger.info("Migraciones de Alembic aplicadas correctamente.")
 
 
 _run_alembic_migrations()

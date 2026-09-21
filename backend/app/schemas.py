@@ -1,7 +1,11 @@
 from datetime import datetime, date
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator
-_CODE_LENGTH = 4
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# Longitud del código de verificación por correo. Fuente única de verdad:
+# la usan el router de auth (generación) y VerifyCodeRequest (validación).
+VERIFICATION_CODE_LENGTH = 6
+_CODE_LENGTH = VERIFICATION_CODE_LENGTH
 
 # ==========================================
 # RETENTION PREDICTOR SCHEMAS
@@ -81,8 +85,7 @@ class MessageResponse(BaseModel):
     leido: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ApplicationResponse(BaseModel):
     id: int
@@ -93,7 +96,7 @@ class ApplicationResponse(BaseModel):
     candidate_phone: Optional[str] = None
     municipio: Optional[str] = None
     status: str
-    match_score: Optional[int] = 85
+    match_score: Optional[int] = None  # Afinidad estimada (heurística), ver compute_match_score
     bot_silenced: bool = False
     last_candidate_message_at: Optional[datetime] = None
     last_recruiter_message_at: Optional[datetime] = None
@@ -103,8 +106,7 @@ class ApplicationResponse(BaseModel):
     job_details: Optional[dict] = None
     messages: List[MessageResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================================
 # JOBS SCHEMAS
@@ -130,8 +132,7 @@ class JobResponse(JobBase):
     empresa_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================================
 # CANDIDATES SCHEMAS
@@ -150,8 +151,7 @@ class CandidateResponse(BaseModel):
     activo: bool
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================================
 # ADMIN PROMPTS SCHEMAS
@@ -165,8 +165,7 @@ class PromptResponse(BaseModel):
     activo: bool
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PromptUpdate(BaseModel):
     titulo_admin: Optional[str] = None
@@ -178,6 +177,7 @@ class PromptUpdate(BaseModel):
 # ANALYTICS SCHEMAS
 # ==========================================
 class AnalyticsSummary(BaseModel):
+    has_data: bool = False  # False cuando no hay histórico de contrataciones suficiente
     total_operarios: int
     total_vacantes: int
     total_inea_canalizados: int
@@ -203,7 +203,7 @@ class CompanyCreate(BaseModel):
     telefono_contacto: Optional[str] = None
     constancia_fiscal_url: Optional[str] = None
     regimen_fiscal: Optional[str] = None
-    creator_email: str
+    creator_email: Optional[str] = None  # ignorado: se usa el email del JWT
     creator_name: Optional[str] = None
 
     # Campos oficiales SAT / CSF
@@ -284,13 +284,13 @@ class InviteMemberRequest(BaseModel):
     email: str
     nombre: Optional[str] = None
     role: Optional[str] = "recruiter"  # "admin" | "recruiter"
-    inviter_name: str
-    inviter_email: str
+    inviter_name: Optional[str] = None  # por defecto, el nombre del usuario autenticado
+    inviter_email: Optional[str] = None  # ignorado: se usa el email del JWT
     origin_url: Optional[str] = None
 
 class AcceptInvitationRequest(BaseModel):
     token: str
-    user_email: str
+    user_email: Optional[str] = None  # ignorado: se usa el email del JWT
     user_name: Optional[str] = None
 
 
@@ -387,3 +387,301 @@ class TransportRouteUpdate(BaseModel):
     tiempo_estimado_min: Optional[int] = None
     stops: Optional[List[RouteStopIn]] = None
 
+
+
+
+# ==========================================
+# AUTH RESPONSE SCHEMAS
+# ==========================================
+class AuthUserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    email: Optional[str] = None
+    role: str = "candidate"
+    empresa_nombre: Optional[str] = None
+    telefono: Optional[str] = None
+    municipio: Optional[str] = None
+    nivel_educativo: Optional[str] = None
+    avatar_url: Optional[str] = None
+    tag_inea: Optional[bool] = False
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def default_role(cls, v):
+        return v or "candidate"
+
+
+class SendCodeResponse(BaseModel):
+    status: str
+    email: str
+    real_email_sent: bool
+    expires_in_minutes: int
+    code_length: int
+    message: str
+    provider: Optional[str] = None
+    error_detail: Optional[str] = None
+
+
+class VerifyCodeResponse(BaseModel):
+    status: str
+    token: str
+    user: AuthUserResponse
+
+
+class ProfileSyncResponse(AuthUserResponse):
+    status: str = "success"
+    user_id: int
+
+
+class RefreshTokenResponse(BaseModel):
+    status: str = "success"
+    token: str
+    user: AuthUserResponse
+
+
+# ==========================================
+# COMPANY / TEAM / SHIFT RESPONSE SCHEMAS
+# ==========================================
+class StatusMessageResponse(BaseModel):
+    status: str = "success"
+    message: str
+
+
+class CompanyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    municipio: Optional[str] = None
+    industria: Optional[str] = None
+    rfc: Optional[str] = None
+    direccion: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
+    telefono_contacto: Optional[str] = None
+    constancia_fiscal_url: Optional[str] = None
+    estado_verificacion: str = "verificada"
+    regimen_fiscal: Optional[str] = None
+    created_by_email: Optional[str] = None
+    created_at: Optional[datetime] = None
+    members_count: int = 1
+    # Metadatos oficiales del SAT / CSF
+    idcif: Optional[str] = None
+    curp: Optional[str] = None
+    razon_social: Optional[str] = None
+    regimen_capital: Optional[str] = None
+    fecha_inicio_operaciones: Optional[str] = None
+    estatus_padron: str = "ACTIVO"
+    fecha_ultimo_cambio_estado: Optional[str] = None
+    codigo_postal: Optional[str] = None
+    entidad_federativa: Optional[str] = None
+    colonia: Optional[str] = None
+    tipo_vialidad: Optional[str] = None
+    calle: Optional[str] = None
+    numero_exterior: Optional[str] = None
+    numero_interior: Optional[str] = None
+    sat_url_validacion: Optional[str] = None
+    sat_validado: bool = False
+
+    @field_validator("estado_verificacion", mode="before")
+    @classmethod
+    def default_estado(cls, v):
+        return v or "verificada"
+
+    @field_validator("estatus_padron", mode="before")
+    @classmethod
+    def default_padron(cls, v):
+        return v or "ACTIVO"
+
+    @field_validator("sat_validado", mode="before")
+    @classmethod
+    def default_sat_validado(cls, v):
+        return bool(v)
+
+    @field_validator("members_count", mode="before")
+    @classmethod
+    def min_members(cls, v):
+        return max(int(v or 0), 1)
+
+    @model_validator(mode="after")
+    def derive_sat_validado(self):
+        if not self.sat_validado and self.constancia_fiscal_url:
+            self.sat_validado = True
+        return self
+
+
+class CompanyMutationResponse(StatusMessageResponse):
+    company: CompanyResponse
+
+
+class CompanyMemberResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    nombre: Optional[str] = None
+    role: Optional[str] = "recruiter"
+    status: Optional[str] = "active"
+    invited_by_email: Optional[str] = None
+    joined_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+    @model_validator(mode="after")
+    def default_nombre(self):
+        if not self.nombre and self.email:
+            self.nombre = self.email.split("@")[0]
+        return self
+
+
+class CompanyInvitationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: int
+    email: str
+    nombre: Optional[str] = None
+    role: Optional[str] = "recruiter"
+    token: str
+    status: Optional[str] = "pending"
+    invited_by: Optional[str] = Field(default=None, validation_alias="invited_by_email")
+    created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+
+
+class CompanyTeamResponse(BaseModel):
+    company_id: int
+    company_name: str
+    active_members: List[CompanyMemberResponse]
+    pending_invitations: List[CompanyInvitationResponse]
+    total_members: int
+    total_pending: int
+
+
+class InviteMemberResponse(StatusMessageResponse):
+    token: str
+    invite_url: str
+    email_sent: bool = False
+    email_provider: Optional[str] = None
+    email_error: Optional[str] = None
+
+
+class CompanyBriefResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    municipio: Optional[str] = None
+    industria: Optional[str] = None
+
+
+class AcceptInvitationResponse(StatusMessageResponse):
+    company: CompanyBriefResponse
+    member: CompanyMemberResponse
+
+
+class CompanyShiftResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    company_id: int
+    nombre: str
+    hora_entrada: str
+    hora_salida: str
+    dias: str = "Lunes a Sábado"
+    tipo: str = "Fijo"
+    descripcion: Optional[str] = None
+    activo: bool = True
+    created_at: Optional[datetime] = None
+
+    @field_validator("dias", mode="before")
+    @classmethod
+    def default_dias(cls, v):
+        return v or "Lunes a Sábado"
+
+    @field_validator("tipo", mode="before")
+    @classmethod
+    def default_tipo(cls, v):
+        return v or "Fijo"
+
+
+class CompanyShiftMutationResponse(StatusMessageResponse):
+    shift: CompanyShiftResponse
+
+
+class CsfUploadResponse(BaseModel):
+    status: str = "success"
+    filename: str
+    file_url: str
+    sat_validado: bool = False
+    qr_detectado: bool = False
+    sat_data: Dict[str, Any]
+    message: str
+
+
+# ==========================================
+# TRANSPORT ROUTES RESPONSE SCHEMAS
+# ==========================================
+class RouteStopResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    route_id: int
+    orden: int
+    nombre: str
+    horario: str
+    latitud: float
+    longitud: float
+    colonia_referencia: Optional[str] = None
+    referencia_visual: Optional[str] = None
+
+
+class RouteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    company_id: int
+    empresa_nombre: Optional[str] = None
+    nombre: str
+    turno: Optional[str] = None
+    color_hex: str = "#059669"
+    descripcion: Optional[str] = None
+    activa: bool = True
+    hora_inicio: Optional[str] = None
+    hora_llegada_planta: Optional[str] = None
+    tiempo_estimado_min: Optional[int] = None
+    total_stops: int = 0
+    stops: List[RouteStopResponse] = []
+    created_at: Optional[datetime] = None
+
+    @field_validator("color_hex", mode="before")
+    @classmethod
+    def default_color(cls, v):
+        return v or "#059669"
+
+    @field_validator("activa", mode="before")
+    @classmethod
+    def default_activa(cls, v):
+        return True if v is None else bool(v)
+
+    @model_validator(mode="after")
+    def derive_from_stops(self):
+        # Paradas siempre ordenadas por 'orden'
+        self.stops = sorted(self.stops, key=lambda s: s.orden)
+        self.total_stops = len(self.stops)
+        if self.stops and not self.hora_inicio:
+            self.hora_inicio = self.stops[0].horario
+        if len(self.stops) > 1 and not self.hora_llegada_planta:
+            self.hora_llegada_planta = self.stops[-1].horario
+        if not self.tiempo_estimado_min:
+            self.tiempo_estimado_min = len(self.stops) * 12 if self.stops else 30
+        return self
+
+
+class RouteMutationResponse(StatusMessageResponse):
+    route: RouteResponse
+
+
+class NearbyStopsResponse(BaseModel):
+    total_encontradas: int
+    stops_cercanas: List[Dict[str, Any]]

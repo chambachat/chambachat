@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Trash2, Clock, Copy, X } from 'lucide-react';
+import { useToast } from '../../ui/Toast';
 
 export default function MembersList({
   teamData,
@@ -7,6 +8,7 @@ export default function MembersList({
   onRemoveMember,
   originUrl = 'https://chambachat.onrender.com'
 }) {
+  const toast = useToast();
   const [copiedToken, setCopiedToken] = useState(false);
 
   const copyToClipboard = async (text) => {
@@ -76,8 +78,8 @@ export default function MembersList({
                 {member.email !== currentUser?.email && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm(`¿Seguro que deseas remover a "${member.nombre || member.email}" del equipo?`)) {
+                    onClick={async () => {
+                      if (await toast.confirm(`¿Seguro que deseas remover a "${member.nombre || member.email}" del equipo?`)) {
                         onRemoveMember(member.id);
                       }
                     }}
@@ -127,8 +129,8 @@ export default function MembersList({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm(`¿Seguro que deseas remover a "${inv.email}" del equipo?`)) {
+                    onClick={async () => {
+                      if (await toast.confirm(`¿Seguro que deseas remover a "${inv.email}" del equipo?`)) {
                         onRemoveMember(inv.id);
                       }
                     }}

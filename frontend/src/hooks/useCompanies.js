@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
 import { getUserCompanies, createCompany, updateCompany } from '../services/api';
 
-export function useCompanies(currentUser, onCompanyChanged) {
+/**
+ * Empresas del usuario autenticado (el backend filtra por el JWT).
+ * `initialCompany` permite arrancar con la empresa ya elegida en otra pestaña.
+ */
+export function useCompanies(currentUser, onCompanyChanged, initialCompany = null) {
   const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(initialCompany);
   const [loading, setLoading] = useState(true);
   const [savingCompany, setSavingCompany] = useState(false);
 
   const loadCompanies = async () => {
     try {
       setLoading(true);
-      const userEmail = currentUser?.email;
-      const empresaHint = currentUser?.empresa_nombre || currentUser?.company_name;
-      const data = await getUserCompanies(userEmail, empresaHint);
+      const data = await getUserCompanies();
       setCompanies(data || []);
       if (data && data.length > 0) {
         const current = selectedCompany ? (data.find(c => c.id === selectedCompany.id) || data[0]) : data[0];

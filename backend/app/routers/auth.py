@@ -13,11 +13,8 @@ import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta
-from typing import Optional
-
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -34,15 +31,20 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 # ─── Constantes de seguridad ─────────────────────────────────────────
 _CODE_EXPIRATION_MINUTES = 15
 _MAX_VERIFICATION_ATTEMPTS = 5
-_CODE_LENGTH = 6  # Código de 6 dígitos para mayor seguridad
 
 
 # ─── Schemas ─────────────────────────────────────────────────────────
 
 from app.schemas import (
+    VERIFICATION_CODE_LENGTH as _CODE_LENGTH,
+    AuthUserResponse,
+    ProfileSyncRequest,
+    ProfileSyncResponse,
+    RefreshTokenResponse,
+    SendCodeResponse,
     VerificationCodeRequest,
     VerifyCodeRequest,
-    ProfileSyncRequest
+    VerifyCodeResponse,
 )
 
 
@@ -82,7 +84,7 @@ def _cleanup_expired_codes(db: Session, email: str) -> None:
 
 # ─── Endpoints ────────────────────────────────────────────────────────
 
-@router.post("/send-verification-code")
+@router.post("/send-verification-code", response_model=SendCodeResponse)
 def send_verification_code(req: VerificationCodeRequest, db: Session = Depends(get_db)):
     """
     Genera un código de verificación de 6 dígitos, lo hashea y lo guarda en la DB.
@@ -122,7 +124,7 @@ def send_verification_code(req: VerificationCodeRequest, db: Session = Depends(g
     db.commit()
 
     # Enviar el código por correo real
-    email_result = send_real_verification_email(email, code)
+    email_result = send_real_verification_email(email, code, expiration_minutes=_CODE_EXPIRATION_MINUTES)
     real_sent = bool(email_result.get("sent"))
 
     logger.info(
@@ -155,7 +157,7 @@ def send_verification_code(req: VerificationCodeRequest, db: Session = Depends(g
     return response
 
 
-@router.post("/verify-code")
+@router.post("/verify-code", response_model=VerifyCodeResponse)
 def verify_code(req: VerifyCodeRequest, db: Session = Depends(get_db)):
     """
     Valida el código de verificación contra la DB.
@@ -224,25 +226,10 @@ def verify_code(req: VerifyCodeRequest, db: Session = Depends(get_db)):
 
     logger.info("Usuario autenticado exitosamente: %s (id=%d)", email, user.id)
 
-    return {
-        "status": "verified",
-        "token": token,
-        "user": {
-            "id": user.id,
-            "nombre": user.nombre,
-            "email": user.email,
-            "role": user.role or "candidate",
-            "empresa_nombre": user.empresa_nombre,
-            "telefono": user.telefono,
-            "municipio": user.municipio,
-            "nivel_educativo": user.nivel_educativo,
-            "avatar_url": user.avatar_url,
-            "tag_inea": user.tag_inea,
-        },
-    }
+    return VerifyCodeResponse(status="verified", token=token, user=AuthUserResponse.model_validate(user))
 
 
-@router.post("/sync-google-profile")
+@router.post("/sync-google-profile", response_model=ProfileSyncResponse)
 def sync_google_profile(
     req: ProfileSyncRequest,
     db: Session = Depends(get_db),
@@ -293,49 +280,17 @@ def sync_google_profile(
             chat_sess.collected_data = json.dumps(data)
             db.commit()
 
-    return {
-        "status": "success",
-        "user_id": user.id,
-        "nombre": user.nombre,
-        "email": user.email,
-        "role": user.role or "candidate",
-        "empresa_nombre": user.empresa_nombre,
-        "telefono": user.telefono,
-        "municipio": user.municipio,
-        "nivel_educativo": user.nivel_educativo,
-        "tag_inea": user.tag_inea,
-        "avatar_url": user.avatar_url,
-    }
+    return ProfileSyncResponse(status="success", user_id=user.id, **AuthUserResponse.model_validate(user).model_dump())
 
 
-@router.post("/refresh-token")
+@router.post("/refresh-token", response_model=RefreshTokenResponse)
 def refresh_token(current_user: User = Depends(get_current_user)):
     """Emite un nuevo JWT para el usuario autenticado (extensión de sesión)."""
     new_token = _create_jwt(current_user)
-    return {
-        "status": "success",
-        "token": new_token,
-        "user": {
-            "id": current_user.id,
-            "nombre": current_user.nombre,
-            "email": current_user.email,
-            "role": current_user.role or "candidate",
-        },
-    }
+    return RefreshTokenResponse(token=new_token, user=AuthUserResponse.model_validate(current_user))
 
 
-@router.get("/me")
+@router.get("/me", response_model=AuthUserResponse)
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Devuelve la información del usuario autenticado."""
-    return {
-        "id": current_user.id,
-        "nombre": current_user.nombre,
-        "email": current_user.email,
-        "role": current_user.role or "candidate",
-        "empresa_nombre": current_user.empresa_nombre,
-        "telefono": current_user.telefono,
-        "municipio": current_user.municipio,
-        "nivel_educativo": current_user.nivel_educativo,
-        "tag_inea": current_user.tag_inea,
-        "avatar_url": current_user.avatar_url,
-    }
+    return AuthUserResponse.model_validate(current_user)

@@ -79,6 +79,8 @@ npm run build   # producción
 cd backend
 python -m pytest -v
 ```
+Los tests corren sobre una base SQLite temporal (nunca tocan `backend/chambachat.db`),
+sin red: DeepSeek usa el motor heurístico y el portal del SAT se simula. Ver `tests/conftest.py`.
 
 ---
 
@@ -94,6 +96,7 @@ Ver [`.env.example`](.env.example) para la lista completa. Variables críticas:
 | `CORS_ORIGINS` | Orígenes permitidos (separados por coma) | ✅ |
 | `RESEND_API_KEY` | API key de Resend para emails | Opcional |
 | `SMTP_HOST/USER/PASSWORD` | Credenciales SMTP alternativas | Opcional |
+| `PUBLIC_BASE_URL` | URL pública del frontend (logos en correos) | Opcional |
 | `LOG_LEVEL` | Nivel de logging (DEBUG/INFO/WARNING) | Opcional |
 
 ---
@@ -112,7 +115,8 @@ chambachat/
 │   │   ├── dependencies.py            # Auth: get_current_user, require_role
 │   │   ├── main.py                    # FastAPI app + CORS + migrations
 │   │   ├── models.py                  # SQLAlchemy models (13 tablas)
-│   │   ├── schemas.py                 # Pydantic schemas
+│   │   ├── schemas.py                 # Pydantic schemas (request + response)
+│   │   ├── templates/                 # Plantillas HTML de correo
 │   │   ├── routers/                   # Endpoints por dominio
 │   │   │   ├── auth.py                # Login, verificación, sync
 │   │   │   ├── companies.py           # Empresas, equipo, turnos
@@ -124,10 +128,13 @@ chambachat/
 │   │   └── services/
 │   │       ├── chatbot_engine.py      # Lógica del chatbot
 │   │       ├── deepseek_engine.py     # Integración DeepSeek LLM
-│   │       ├── email_service.py       # Resend + SMTP
+│   │       ├── email_service.py       # Resend + SMTP (plantillas en templates/)
+│   │       ├── geo.py                 # Coordenadas de municipios NL
 │   │       ├── matchmaking.py         # Matchmaking geoespacial
+│   │       ├── routes_service.py      # Paradas cercanas
+│   │       ├── shifts_service.py      # Turnos por defecto
 │   │       └── sat_service.py         # Extracción CSF del SAT
-│   ├── tests/                         # 34 tests
+│   ├── tests/                         # pytest (conftest con DB aislada)
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -141,7 +148,8 @@ chambachat/
 │   │   │   │   └── ...
 │   │   │   ├── ui/                    # Toast, ConfirmDialog
 │   │   │   └── ...
-│   │   ├── hooks/                     # Custom hooks (4 hooks)
+│   │   ├── constants/                 # municipios.js: catálogo geográfico único
+│   │   ├── hooks/                     # Custom hooks
 │   │   └── services/                  # API client, auth, chat storage
 │   └── package.json
 └── recursos/                          # Assets originales

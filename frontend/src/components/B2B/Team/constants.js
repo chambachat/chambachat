@@ -1,29 +1,4 @@
-export const MUNICIPIOS_NL = [
-  'Apodaca',
-  'Pesquería',
-  'San Nicolás de los Garza',
-  'Monterrey',
-  'General Escobedo',
-  'Guadalupe',
-  'Santa Catarina',
-  'García',
-  'Ciénega de Flores',
-  'Salinas Victoria',
-  'Santiago',
-  'San Pedro Garza García',
-  'Cadereyta Jiménez',
-  'Juárez',
-  'El Carmen',
-  'Montemorelos',
-  'Linares',
-  'Marín',
-  'Doctor Arroyo',
-  'Sabinas Hidalgo',
-  'Allende',
-  'Zuazua',
-  'Hidalgo',
-  'Abasolo'
-];
+export { MUNICIPIOS_NL } from '../../../constants/municipios';
 
 export const REGIMENES_SAT = [
   '601 - General de Ley Personas Morales',

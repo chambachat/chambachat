@@ -99,14 +99,12 @@ export function useChatSession(currentUser) {
   };
 
   const handleClearAll = (e) => {
-    e.stopPropagation();
-    if (window.confirm('¿Deseas eliminar todo tu historial de conversaciones?')) {
-      clearAllSessions();
-      const fresh = createNewSession();
-      setSessions([fresh]);
-      setActiveSession(fresh);
-      setActiveSessionId(fresh.id);
-    }
+    if (e?.stopPropagation) e.stopPropagation();
+    clearAllSessions();
+    const fresh = createNewSession();
+    setSessions([fresh]);
+    setActiveSession(fresh);
+    setActiveSessionId(fresh.id);
   };
 
   const onNewMessages = useCallback((newIncomingMsgs) => {

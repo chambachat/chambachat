@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle2, RefreshCw } from 'lucide-react';
 
-export default function VerifyCodeStep({ email, onVerify, onResend, onChangeEmail, loading, isRealEmailSent, verificationCode, role, error }) {
+export default function VerifyCodeStep({ email, onVerify, onResend, onChangeEmail, loading, isRealEmailSent, role, error }) {
   const [enteredCode, setEnteredCode] = useState('');
 
   const handleSubmit = (e) => {
@@ -25,40 +25,30 @@ export default function VerifyCodeStep({ email, onVerify, onResend, onChangeEmai
           </div>
         </div>
       ) : (
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-1.5">
           <div className="flex items-center gap-2 text-amber-900 text-xs font-bold">
             <span className="text-base">⚠️</span>
-            <span>Servidor de correo SMTP en modo de prueba</span>
+            <span>No pudimos enviar el correo</span>
           </div>
-          <div className="p-2 rounded-xl bg-white border border-amber-200 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[11px] text-slate-600 shrink-0">Código generado:</span>
-              <span className="font-mono font-black text-sm text-emerald-700 tracking-widest bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
-                {verificationCode}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEnteredCode(verificationCode)}
-              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200 px-2 py-1 rounded-lg transition shrink-0"
-            >
-              Usar código
-            </button>
-          </div>
+          <p className="text-[11px] text-amber-800 leading-relaxed">
+            El servidor de correo no está disponible en este momento. Intenta reenviar el código en unos minutos o contacta al administrador.
+          </p>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1 text-center">
-            Ingresa el código de 4 dígitos
+            Ingresa el código de 6 dígitos
           </label>
           <input
             type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             maxLength={6}
-            placeholder="Ej. 1234"
+            placeholder="Ej. 123456"
             value={enteredCode}
-            onChange={(e) => setEnteredCode(e.target.value)}
+            onChange={(e) => setEnteredCode(e.target.value.replace(/\D/g, ''))}
             autoFocus
             className="w-full text-center text-xl font-mono font-bold tracking-widest py-3 px-4 rounded-2xl bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:bg-white focus:outline-none transition"
           />

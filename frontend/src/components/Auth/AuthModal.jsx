@@ -23,7 +23,6 @@ export default function AuthModal({
   const [error, setError] = useState('');
 
   const [pendingUser, setPendingUser] = useState(null);
-  const [verificationCode, setVerificationCode] = useState('');
   const [isRealEmailSent, setIsRealEmailSent] = useState(false);
 
   useEffect(() => {
@@ -47,18 +46,15 @@ export default function AuthModal({
     setError('');
     try {
       const res = await sendVerificationCode(cleanEmail);
-      const code = res?.code || `${Math.floor(1000 + Math.random() * 9000)}`;
-      setVerificationCode(code);
       setIsRealEmailSent(Boolean(res?.real_email_sent));
+      if (!res?.real_email_sent) {
+        setError(res?.message || 'No se pudo enviar el correo. Intenta más tarde.');
+      }
       setPendingUser({ ...userData, email: cleanEmail });
       setStep('verify');
     } catch (err) {
-      console.error('Error:', err);
-      const fallbackCode = `${Math.floor(1000 + Math.random() * 9000)}`;
-      setVerificationCode(fallbackCode);
-      setIsRealEmailSent(false);
-      setPendingUser({ ...userData, email: cleanEmail });
-      setStep('verify');
+      console.error('Error enviando código:', err);
+      setError(err.message || 'No se pudo enviar el código. Intenta nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -96,27 +92,23 @@ export default function AuthModal({
     setError('');
     try {
       const res = await sendVerificationCode(pendingUser.email);
-      const newCode = res?.code || `${Math.floor(1000 + Math.random() * 9000)}`;
-      setVerificationCode(newCode);
       setIsRealEmailSent(Boolean(res?.real_email_sent));
+      if (!res?.real_email_sent) {
+        setError(res?.message || 'No se pudo reenviar el correo.');
+      }
     } catch (e) {
       console.error(e);
+      setError(e.message || 'No se pudo reenviar el código.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerify = async (enteredCode) => {
-    const cleanEntered = enteredCode.trim();
-    const cleanTarget = (verificationCode || '').trim();
+    const cleanEntered = (enteredCode || '').trim();
 
-    if (!cleanEntered) {
-      setError('Por favor ingresa el código de 4 dígitos.');
-      return;
-    }
-
-    if (cleanEntered !== cleanTarget) {
-      setError('El código ingresado no coincide con el enviado a tu correo.');
+    if (!/^\d{6}$/.test(cleanEntered)) {
+      setError('Ingresa el código de 6 dígitos que recibiste por correo.');
       return;
     }
 
@@ -124,22 +116,21 @@ export default function AuthModal({
     setError('');
     try {
       const { email, name, phone } = pendingUser;
-      const derivedName = name || email.split('@')[0].replace('.', ' ');
       const data = await verifyCode(email, cleanEntered);
-      
+
       const user = {
         ...data.user,
-        name: derivedName || data.user?.name,
-        phone: phone || data.user?.phone,
+        name: name || data.user?.nombre || email.split('@')[0].replace('.', ' '),
+        phone: phone || data.user?.telefono,
         role: role || data.user?.role,
         provider: 'email'
       };
-      
+
       onAuthenticated(user);
       onClose();
     } catch (err) {
       console.error('Error confirmando cuenta:', err);
-      setError('Ocurrió un error al activar tu cuenta. Intenta nuevamente.');
+      setError(err.message || 'Ocurrió un error al activar tu cuenta. Intenta nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -280,7 +271,6 @@ export default function AuthModal({
             onChangeEmail={() => { setStep('form'); setError(''); }}
             loading={loading}
             isRealEmailSent={isRealEmailSent}
-            verificationCode={verificationCode}
             role={role}
             error={error}
           />

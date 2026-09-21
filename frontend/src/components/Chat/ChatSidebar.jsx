@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus, X, MessageSquare, Trash2, Building2, User, ChevronRight, Settings } from 'lucide-react';
+import { useToast } from '../ui/Toast';
 
 export default function ChatSidebar({
   sessions,
@@ -16,6 +17,7 @@ export default function ChatSidebar({
   onOpenAdmin,
   setIsAuthModalOpen
 }) {
+  const toast = useToast();
   return (
     <>
       <aside
@@ -46,7 +48,10 @@ export default function ChatSidebar({
             </span>
             {sessions.length > 1 && (
               <button
-                onClick={onClearAll}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (await toast.confirm('¿Deseas eliminar todo tu historial de conversaciones?')) onClearAll();
+                }}
                 className="text-[10px] text-slate-400 hover:text-rose-600 font-bold transition"
                 title="Borrar todo el historial"
               >

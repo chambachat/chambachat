@@ -42,6 +42,25 @@ export default function AnalyticsDashboard() {
 
   if (!data) return null;
 
+  if (!data.has_data) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-4">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
+          <BarChart3 className="w-7 h-7 text-slate-400" />
+        </div>
+        <h1 className="text-xl font-black text-slate-900">Aún no hay histórico suficiente</h1>
+        <p className="text-sm text-slate-500 max-w-md mx-auto">
+          Las métricas de permanencia y rotación se calculan con el historial real de contrataciones de tu planta.
+          Cuando existan registros, este panel se llenará automáticamente.
+        </p>
+        <div className="flex justify-center gap-6 text-sm text-slate-600 pt-2">
+          <span><strong className="text-slate-900">{data.total_operarios}</strong> operarios registrados</span>
+          <span><strong className="text-slate-900">{data.total_vacantes}</strong> vacantes activas</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
       {/* Header */}

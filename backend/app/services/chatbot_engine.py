@@ -1,16 +1,15 @@
-import logging
-
-logger = logging.getLogger(__name__)
-
 import json
+import logging
 import uuid
 from typing import Dict, Any, Tuple, List
 from sqlalchemy.orm import Session
-from app.models import BotFlowConfig, ChatSession, User, Job, RouteStop, TransportRoute
+from app.models import BotFlowConfig, ChatSession, User, Job
 from app.services.matchmaking import match_jobs_for_candidate
-from app.services.geo import get_municipio_coords, haversine_distance_km
+from app.services.geo import get_municipio_coords
 from app.services.deepseek_engine import query_deepseek_chat
-from app.config import settings
+from app.services.routes_service import find_nearby_stops
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPTS = {
     "welcome": {
@@ -57,7 +56,7 @@ async def process_chat_message(
             completed=False
         )
         db.add(chat_session)
-        db.commit()
+        db.flush()
     else:
         chat_session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
         if not chat_session:
@@ -68,7 +67,7 @@ async def process_chat_message(
                 completed=False
             )
             db.add(chat_session)
-            db.commit()
+            db.flush()
 
     data = json.loads(chat_session.collected_data or "{}")
     if user_name:
@@ -168,9 +167,13 @@ async def process_chat_message(
         else:
             c_lat, c_lon = get_municipio_coords(target_muni or "monterrey")
 
-        all_jobs = db.query(Job).all()
+        wants_jobs = bool(
+            target_muni or puesto_kw or is_location_event
+            or any(w in input_text.lower() for w in ["vacante", "jale", "chamba", "montacarguista", "apodaca", "pesquer"])
+        )
+        all_jobs = db.query(Job).all() if wants_jobs else []
 
-        if all_jobs and (target_muni or puesto_kw or is_location_event or any(w in input_text.lower() for w in ["vacante", "jale", "chamba", "montacarguista", "apodaca", "pesquer"])):
+        if all_jobs:
             matched_jobs = match_jobs_for_candidate(
                 candidate_lat=c_lat,
                 candidate_lon=c_lon,
@@ -180,7 +183,6 @@ async def process_chat_message(
             )[:4]
 
         # Calcular rutas de transporte cercanas
-        from app.services.routes_service import find_nearby_stops
         try:
             nearby_routes = find_nearby_stops(db, c_lat, c_lon, max_km=8.0, limit=4)
         except Exception as e:
@@ -208,8 +210,7 @@ async def process_chat_message(
                     activo=True
                 )
                 db.add(user_rec)
-                db.commit()
-                db.refresh(user_rec)
+                db.flush()
             else:
                 if data.get("municipio"):
                     user_rec.municipio = data["municipio"]
@@ -217,8 +218,6 @@ async def process_chat_message(
                     user_rec.nombre = data["nombre"]
                 user_rec.latitud = c_lat
                 user_rec.longitud = c_lon
-                db.commit()
-                db.refresh(user_rec)
 
             data["user_id"] = user_rec.id
             candidate_profile = {

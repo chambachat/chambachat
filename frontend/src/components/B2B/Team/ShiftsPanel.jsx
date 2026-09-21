@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock, Plus, Loader2, Settings, Trash2, Calendar } from 'lucide-react';
+import { useToast } from '../../ui/Toast';
 
 export default function ShiftsPanel({
   shifts,
@@ -8,6 +9,7 @@ export default function ShiftsPanel({
   onOpenEditShift,
   onDeleteShift
 }) {
+  const toast = useToast();
   return (
     <div className="bg-white border border-slate-200 rounded-3xl shadow-xs overflow-hidden">
       <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -81,8 +83,8 @@ export default function ShiftsPanel({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm(`¿Seguro que deseas eliminar el turno "${shift.nombre}"?`)) {
+                    onClick={async () => {
+                      if (await toast.confirm(`¿Seguro que deseas eliminar el turno "${shift.nombre}"?`)) {
                         onDeleteShift(shift.id, shift.nombre);
                       }
                     }}

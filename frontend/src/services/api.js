@@ -184,12 +184,9 @@ export async function getAnalytics() {
 
 // --- EMPRESAS & MI EQUIPO (B2B SaaS) ---
 
-export async function getUserCompanies(userEmail, empresaHint) {
-  const params = new URLSearchParams();
-  if (userEmail) params.append('user_email', userEmail);
-  if (empresaHint) params.append('empresa_hint', empresaHint);
-  const url = `${API_BASE}/companies${params.toString() ? `?${params.toString()}` : ''}`;
-  const res = await fetch(url, { headers: authHeaders() });
+export async function getUserCompanies() {
+  // El backend filtra por el usuario del JWT; no se envía user_email.
+  const res = await fetch(`${API_BASE}/companies`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Error al obtener empresas');
   return res.json();
 }
