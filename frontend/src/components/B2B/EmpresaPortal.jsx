@@ -46,7 +46,7 @@ export default function EmpresaPortal({ currentUser, activeTab, onSelectTab, act
   const activeLabel = B2B_TABS.find(t => t.id === activeTab)?.label || 'Portal Empresa';
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-slate-50 text-slate-900 flex flex-col md:flex-row">
       <EmpresaSidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

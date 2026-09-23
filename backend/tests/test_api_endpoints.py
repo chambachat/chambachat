@@ -223,6 +223,25 @@ def test_team_invite_and_accept_flow(client):
     assert team["total_pending"] == 1
     assert team["pending_invitations"][0]["invited_by"] == "owner_c@test.com"
 
+    # Consulta pública de la invitación (sin sesión) para guiar el acceso del invitado
+    lookup = client.get(f"/api/v1/companies/invitations/{body['token']}")
+    assert lookup.status_code == 200
+    info = lookup.json()
+    assert info["email"] == "invitado_c@test.com"
+    assert info["status"] == "pending"
+    assert info["company"]["nombre"] == "Planta C"
+    assert info["inviter_email"] == "owner_c@test.com"
+    assert info["has_account"] is True  # make_auth_header ya creó al invitado
+    assert client.get("/api/v1/companies/invitations/inv_no_existe").status_code == 404
+
+    # Invitado sin cuenta previa → has_account False (el modal ofrecerá crear la cuenta)
+    nueva = client.post(
+        f"/api/v1/companies/{company['id']}/invite",
+        json={"email": "sin_cuenta_c@test.com"},
+        headers=headers_admin,
+    ).json()
+    assert client.get(f"/api/v1/companies/invitations/{nueva['token']}").json()["has_account"] is False
+
     # Aceptar sin token → 401; con token del invitado → se une con SU email
     assert client.post("/api/v1/companies/accept-invitation", json={"token": body["token"]}).status_code == 401
     accept = client.post(
@@ -235,6 +254,7 @@ def test_team_invite_and_accept_flow(client):
 
     ids_invited = {c["id"] for c in client.get("/api/v1/companies", headers=headers_invited).json()}
     assert company["id"] in ids_invited
+    assert client.get(f"/api/v1/companies/invitations/{body['token']}").json()["status"] == "accepted"
 
 
 def test_company_shifts_defaults_and_crud(client):

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, AlertTriangle, Copy, MessageCircle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Copy } from 'lucide-react';
 
 /** Resultado de una invitación: estado real del correo + enlace para compartir a mano. */
 export default function InviteResultCard({ inviteResult, inviteEmail, onClose }) {
@@ -14,10 +14,6 @@ export default function InviteResultCard({ inviteResult, inviteEmail, onClose })
       setTimeout(() => setCopied(false), 2500);
     } catch (e) {}
   };
-
-  const whatsappText = encodeURIComponent(
-    `Hola, te invito a colaborar como reclutador en ChambaChat. Entra con este enlace: ${inviteUrl}`
-  );
 
   return (
     <div className="space-y-4 pt-2">
@@ -37,7 +33,7 @@ export default function InviteResultCard({ inviteResult, inviteEmail, onClose })
         ) : (
           <div className="text-xs text-amber-800 space-y-1">
             <p>
-              <strong>{inviteEmail}</strong> ya puede unirse con el enlace de abajo. Compártelo por WhatsApp o cópialo.
+              <strong>{inviteEmail}</strong> ya puede unirse con el enlace de abajo. Cópialo y compárteselo directamente.
             </p>
             {inviteResult?.email_error && (
               <p className="text-[11px] text-amber-700/90 break-words">Motivo: {inviteResult.email_error}</p>
@@ -60,15 +56,6 @@ export default function InviteResultCard({ inviteResult, inviteEmail, onClose })
           </div>
         </div>
 
-        <a
-          href={`https://wa.me/?text=${whatsappText}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white text-xs font-bold transition"
-        >
-          <MessageCircle className="w-4 h-4" />
-          <span>Compartir por WhatsApp</span>
-        </a>
       </div>
 
       <button

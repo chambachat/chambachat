@@ -580,6 +580,19 @@ class AcceptInvitationResponse(StatusMessageResponse):
     member: CompanyMemberResponse
 
 
+class InvitationLookupResponse(BaseModel):
+    """Datos públicos de una invitación (el token es el secreto). Sirve para guiar el acceso del invitado."""
+    email: str
+    nombre: Optional[str] = None
+    role: str = "recruiter"
+    status: str
+    expired: bool = False
+    has_account: bool = False
+    company: CompanyBriefResponse
+    inviter_name: Optional[str] = None
+    inviter_email: Optional[str] = None
+
+
 class CompanyShiftResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

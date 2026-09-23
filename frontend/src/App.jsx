@@ -5,7 +5,7 @@ import AdminView from './components/Admin/AdminView';
 import UserProfileModal from './components/UserProfile/UserProfileModal';
 import AuthModal from './components/Auth/AuthModal';
 import { getStoredUser, setStoredUser, signOut } from './services/authService';
-import { acceptCompanyInvitation } from './services/api';
+import { acceptCompanyInvitation, getInvitationByToken } from './services/api';
 import { useToast } from './components/ui/Toast';
 
 const EMPRESA_AUTH_PROMPT = {
@@ -28,6 +28,7 @@ export default function App() {
   const [authInitialRole, setAuthInitialRole] = useState('candidate');
   const [authPrompt, setAuthPrompt] = useState({ title: '', message: '' });
   const [pendingAction, setPendingAction] = useState(null);
+  const [invitationInfo, setInvitationInfo] = useState(null);
 
   /** Abre el modal de login como reclutador y guarda la acción a ejecutar al autenticarse. */
   const requireRecruiterAuth = (prompt, action) => {
@@ -76,40 +77,85 @@ export default function App() {
     }
   }, [currentView, currentUser]);
 
-  // Detección de token de invitación (?invitacion=TOKEN o ?invite=TOKEN)
+  // Enlace de invitación (?invitacion=TOKEN o ?invite=TOKEN)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const token = params.get('invitacion') || params.get('invite');
     if (!token) return;
 
+    const clearInviteParam = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('invitacion');
+      url.searchParams.delete('invite');
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    };
+
     const acceptInvitation = async (user) => {
       try {
         const res = await acceptCompanyInvitation(token, user);
+        const updated = { ...user, empresa_nombre: res.company?.nombre, company_name: res.company?.nombre, role: 'recruiter' };
+        setCurrentUser(updated);
+        setStoredUser(updated);
         toast.success(`¡Te has unido exitosamente al equipo de ${res.company?.nombre || 'la empresa'}!`);
         setCurrentView('empresa');
         setEmpresaTab('team');
       } catch (e) {
         console.error(e);
         toast.error(e.message || 'No se pudo aceptar la invitación.');
+      } finally {
+        clearInviteParam();
       }
     };
 
-    const user = currentUser || getStoredUser();
-    if (user) {
-      acceptInvitation(user);
-    } else {
+    (async () => {
+      let info;
+      try {
+        info = await getInvitationByToken(token);
+      } catch (e) {
+        toast.error(e.message || 'Invitación no válida.');
+        clearInviteParam();
+        return;
+      }
+      if (info.expired || info.status !== 'pending') {
+        toast.error(info.status === 'accepted'
+          ? 'Esta invitación ya fue aceptada. Inicia sesión para entrar al portal.'
+          : 'Esta invitación expiró o fue revocada. Pide al administrador que la vuelva a enviar.');
+        clearInviteParam();
+        return;
+      }
+
+      const user = currentUser || getStoredUser();
+      if (user) {
+        if ((user.email || '').toLowerCase() === info.email) {
+          await acceptInvitation(user);
+          return;
+        }
+        const keepSession = await toast.confirm(
+          `Tu sesión actual es de ${user.email}, pero la invitación a ${info.company?.nombre} es para ${info.email}. ` +
+          `¿Quieres unirte con tu cuenta actual (${user.email})? Si eliges Cancelar, cerraremos tu sesión para que entres con ${info.email}.`
+        );
+        if (keepSession) {
+          await acceptInvitation(user);
+          return;
+        }
+        await signOut();
+        setCurrentUser(null);
+      }
+
+      setInvitationInfo(info);
       requireRecruiterAuth(
         {
-          title: 'Invitación a Equipo de Reclutamiento',
-          message: 'Has recibido una invitación para unirte a una empresa en Chambachat. Inicia sesión o regístrate para aceptarla.'
+          title: `Invitación de ${info.inviter_name || info.inviter_email}`,
+          message: `Te invitaron a colaborar en ${info.company?.nombre}. Confirma tu correo ${info.email} para aceptar.`
         },
         async () => {
           const freshUser = getStoredUser();
           if (freshUser) await acceptInvitation(freshUser);
+          setInvitationInfo(null);
         }
       );
-    }
+    })();
   }, []);
 
   return (
@@ -170,8 +216,10 @@ export default function App() {
           setIsAuthModalOpen(false);
           setAuthPrompt({ title: '', message: '' });
           setPendingAction(null);
+          setInvitationInfo(null);
         }}
         initialRole={authInitialRole}
+        invitation={invitationInfo}
         promptTitle={authPrompt.title}
         promptMessage={authPrompt.message}
         onAuthenticated={(user) => {

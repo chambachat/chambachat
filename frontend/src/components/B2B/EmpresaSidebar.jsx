@@ -46,7 +46,7 @@ export default function EmpresaSidebar({ open, onClose, currentUser, tabs, activ
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 md:static md:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 md:static md:h-screen md:shrink-0 md:translate-x-0 ${
         open ? 'translate-x-0' : '-translate-x-full'
       }`}
     >

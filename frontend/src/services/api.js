@@ -254,6 +254,15 @@ export async function inviteTeamMember(companyId, data) {
   return res.json();
 }
 
+export async function getInvitationByToken(token) {
+  const res = await fetch(`${API_BASE}/companies/invitations/${encodeURIComponent(token)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Invitación no válida' }));
+    throw new Error(err.detail || 'Invitación no válida');
+  }
+  return res.json();
+}
+
 export async function acceptCompanyInvitation(token, userData = {}) {
   const res = await fetch(`${API_BASE}/companies/accept-invitation`, {
     method: 'POST',

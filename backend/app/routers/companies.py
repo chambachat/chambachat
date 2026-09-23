@@ -27,6 +27,7 @@ from app.schemas import (
     CompanyUpdate,
     CsfUploadResponse,
     InviteMemberRequest,
+    InvitationLookupResponse,
     InviteMemberResponse,
     StatusMessageResponse,
 )
@@ -310,6 +311,34 @@ def invite_team_member(company_id: int, payload: InviteMemberRequest, db: Sessio
         email_sent=bool(email_res.get("sent", False)),
         email_provider=email_res.get("provider"),
         email_error=email_res.get("error"),
+    )
+
+
+@router.get("/invitations/{token}", response_model=InvitationLookupResponse)
+def lookup_invitation(token: str, db: Session = Depends(get_db)):
+    """
+    Consulta pública de una invitación por su token (antes de iniciar sesión).
+    Permite prellenar el correo del invitado y mostrar a qué empresa se une.
+    """
+    invitation = db.query(CompanyInvitation).filter(CompanyInvitation.token == token.strip()).first()
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitación no válida. Pide al administrador que la vuelva a enviar.")
+
+    company = _get_company_or_404(db, invitation.company_id)
+    expired = bool(invitation.expires_at and invitation.expires_at < datetime.utcnow())
+    inviter = db.query(User).filter(User.email == invitation.invited_by_email).first()
+    has_account = db.query(User.id).filter(User.email == invitation.email).first() is not None
+
+    return InvitationLookupResponse(
+        email=invitation.email,
+        nombre=invitation.nombre,
+        role=invitation.role or "recruiter",
+        status="expired" if expired and invitation.status == "pending" else invitation.status,
+        expired=expired,
+        has_account=has_account,
+        company=CompanyBriefResponse.model_validate(company),
+        inviter_name=inviter.nombre if inviter else None,
+        inviter_email=invitation.invited_by_email,
     )
 
 

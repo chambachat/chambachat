@@ -21,7 +21,7 @@ export default function MessageList({ messages, isTyping }) {
       {isTyping && (
         <div className="flex items-center gap-2.5 sm:gap-3">
           <img
-            src="/chambot.png"
+            src="/chambot-redondo.png"
             alt="Chambot"
             className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 p-0.5 border border-emerald-300/80 object-contain shadow-xs shrink-0"
           />
