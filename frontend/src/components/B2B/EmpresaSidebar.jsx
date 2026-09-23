@@ -52,9 +52,9 @@ export default function EmpresaSidebar({ open, onClose, currentUser, tabs, activ
     >
       <div className="p-4 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <img src="/logo-chambachat.png" alt="ChambaChat Logo" className="h-8 w-auto object-contain rounded-lg shadow-xs border border-slate-900/10" />
+          <img src="/globoch.png" alt="ChambaChat" className="h-9 w-9 object-contain" />
           <div>
-            <span className="text-sm font-black text-slate-900 block leading-tight">Chambachat</span>
+            <span className="font-brand text-base brand-navy block leading-tight">Chamba<span className="brand-green">Chat</span></span>
             <span className="text-[10px] text-emerald-700 font-extrabold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
               B2B Reclutamiento
             </span>

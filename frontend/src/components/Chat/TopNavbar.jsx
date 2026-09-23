@@ -21,12 +21,12 @@ export default function TopNavbar({
 
         <div className="flex items-center gap-2 truncate">
           <img
-            src="/logo-chambachat.png"
-            alt="ChambaChat Logo"
-            className="h-8 sm:h-9 w-auto object-contain rounded-lg shadow-xs border border-slate-900/10 shrink-0"
+            src="/globoch.png"
+            alt="ChambaChat"
+            className="h-8 sm:h-9 w-8 sm:w-9 object-contain shrink-0"
           />
-          <span className="text-base font-extrabold tracking-tight text-slate-900 truncate">
-            Chamba<span className="text-emerald-600">chat</span>
+          <span className="font-brand text-lg brand-navy truncate">
+            Chamba<span className="brand-green">Chat</span>
           </span>
         </div>
       </div>

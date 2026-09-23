@@ -59,3 +59,12 @@ body {
 .animate-slide-out {
   animation: slideOut 0.3s ease-in forwards;
 }
+
+/* Marca: logotipo "ChambaChat" en Quicksand SemiBold, azul marca + verde acento */
+.font-brand {
+  font-family: 'Quicksand', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.brand-navy { color: #052B52; }
+.brand-green { color: #65A30D; } /* verde de la marca oscurecido para legibilidad sobre blanco */
