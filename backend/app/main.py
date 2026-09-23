@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import BotFlowConfig
 from app.services.chatbot_engine import DEFAULT_PROMPTS
-from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes
+from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents
 
 import logging
 
@@ -88,6 +88,7 @@ app.include_router(auth.router)
 app.include_router(applications.router)
 app.include_router(companies.router)
 app.include_router(routes.router)
+app.include_router(documents.router)
 
 
 @app.get("/api/health")
@@ -99,10 +100,7 @@ def health_check():
         "database": settings.DATABASE_URL.split("://")[0]
     }
 
-# Servir archivos subidos como Constancias de Situación Fiscal (CSF)
-uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads")
-os.makedirs(uploads_dir, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+# Los archivos subidos (CSF) se sirven desde la base de datos en routers/documents.py
 
 # Si existe el build del frontend, servirlo estáticamente
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")

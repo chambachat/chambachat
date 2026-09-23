@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, Date, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, Date, DateTime, ForeignKey, LargeBinary
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -272,3 +272,21 @@ class EmailVerificationCode(Base):
     verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
+
+
+class CompanyDocument(Base):
+    """
+    Archivo subido por una empresa (Constancia de Situación Fiscal u Opinión 32-D).
+    Se guarda en la base de datos porque el disco de Render es efímero y se
+    borraba en cada deploy. Se sirve en /uploads/csf/{filename}.
+    """
+    __tablename__ = "company_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String(255), unique=True, index=True, nullable=False)
+    original_name = Column(String(255), nullable=True)
+    content_type = Column(String(100), nullable=False, default="application/octet-stream")
+    size_bytes = Column(Integer, nullable=False, default=0)
+    data = Column(LargeBinary, nullable=False)
+    uploaded_by_email = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

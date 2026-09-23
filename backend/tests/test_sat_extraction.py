@@ -95,6 +95,15 @@ def test_api_upload_csf_and_create_company(client):
     assert data["sat_data"]["rfc"] == "CME830831LJ2"
     assert data["sat_data"]["idcif"] == "18060383187"
 
+    # 2b. El archivo se sirve desde la base de datos (sobrevive a redeploys)
+    dl = client.get(data["file_url"])
+    assert dl.status_code == 200
+    assert dl.headers["content-type"].startswith("application/pdf")
+    assert dl.content == pdf_bytes
+    missing = client.get("/uploads/csf/csf_inexistente.pdf")
+    assert missing.status_code == 404
+    assert "Vuelve a cargar" in missing.json()["detail"]
+
     # 3. Crear empresa con los datos oficiales extraídos del SAT
     comp_payload = {
         "nombre": "Carrier México S. de R.L. de C.V.",

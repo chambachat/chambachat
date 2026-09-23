@@ -1,6 +1,5 @@
 import os
 import secrets
-import shutil
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -9,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_current_user_optional, require_company_member
-from app.models import Company, CompanyInvitation, CompanyMember, CompanyShift, User
+from app.models import Company, CompanyDocument, CompanyInvitation, CompanyMember, CompanyShift, User
 from app.schemas import (
     AcceptInvitationRequest,
     AcceptInvitationResponse,
@@ -64,21 +63,45 @@ def company_to_response(db: Session, company: Company) -> CompanyResponse:
 
 # --- ENDPOINTS ---
 
+_MAX_CSF_BYTES = 10 * 1024 * 1024  # 10 MB
+_ALLOWED_CSF_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
+
+
 @router.post("/upload-csf", response_model=CsfUploadResponse)
-def upload_constancia_fiscal(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
+def upload_constancia_fiscal(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     Recibe y procesa la Constancia de Situación Fiscal (CSF) emitida por el SAT (PDF o Imagen).
     Extrae y decodifica el código QR para validar con el portal del SAT (siat.sat.gob.mx),
     y analiza la capa de texto del PDF para extraer todos los datos fiscales.
+    El archivo se guarda en la base de datos (el disco del servidor es efímero).
     """
-    upload_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "csf")
-    os.makedirs(upload_dir, exist_ok=True)
-    clean_filename = f"csf_{secrets.token_hex(4)}_{file.filename.replace(' ', '_')}"
-    filepath = os.path.join(upload_dir, clean_filename)
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="El archivo está vacío.")
+    if len(content) > _MAX_CSF_BYTES:
+        raise HTTPException(status_code=413, detail="El archivo supera el límite de 10 MB.")
 
-    sat_data = process_csf_document(filepath, filename=file.filename)
+    original_name = os.path.basename(file.filename or "documento.pdf")
+    content_type = file.content_type or "application/octet-stream"
+    if content_type not in _ALLOWED_CSF_TYPES and not original_name.lower().endswith((".pdf", ".jpg", ".jpeg", ".png", ".webp")):
+        raise HTTPException(status_code=400, detail="Formato no permitido. Sube un PDF o una imagen (JPG, PNG, WEBP).")
+
+    stored_name = f"csf_{secrets.token_hex(12)}_{original_name.replace(' ', '_')}"
+    db.add(CompanyDocument(
+        filename=stored_name,
+        original_name=original_name,
+        content_type=content_type,
+        size_bytes=len(content),
+        data=content,
+        uploaded_by_email=current_user.email,
+    ))
+    db.commit()
+
+    sat_data = process_csf_document(content, filename=original_name)
 
     label = sat_data.get("tipo_documento_label", "Constancia Fiscal")
     msg = (
@@ -88,8 +111,8 @@ def upload_constancia_fiscal(file: UploadFile = File(...), current_user: User = 
     )
 
     return CsfUploadResponse(
-        filename=file.filename,
-        file_url=f"/uploads/csf/{clean_filename}",
+        filename=original_name,
+        file_url=f"/uploads/csf/{stored_name}",
         sat_validado=bool(sat_data.get("sat_validado", False)),
         qr_detectado=bool(sat_data.get("qr_detectado", False)),
         sat_data=sat_data,

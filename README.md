@@ -124,6 +124,7 @@ chambachat/
 │   │   │   ├── jobs.py                # Vacantes
 │   │   │   ├── applications.py        # Postulaciones + chat recruiter
 │   │   │   ├── analytics.py           # People Analytics
+│   │   │   ├── documents.py           # CSF servidas desde la DB (/uploads/csf)
 │   │   │   └── ...
 │   │   └── services/
 │   │       ├── chatbot_engine.py      # Lógica del chatbot
