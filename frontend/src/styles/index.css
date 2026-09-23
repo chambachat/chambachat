@@ -11,6 +11,20 @@ body {
   min-height: 100vh;
   background-color: #fcfdfd;
   color: #1e293b;
+  font-family: 'Quicksand', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 500;
+}
+
+/* Quicksand no tiene pesos 800/900: los encabezados que antes eran extrabold/black
+   ganan presencia con un tracking más cerrado en lugar de más peso. */
+.font-extrabold,
+.font-black {
+  letter-spacing: -0.02em;
+}
+
+/* Campos de formulario y controles heredan la tipografía de marca */
+input, select, textarea, button {
+  font-family: inherit;
 }
 
 /* Custom scrollbar */
