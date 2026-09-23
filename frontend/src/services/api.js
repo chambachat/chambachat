@@ -264,9 +264,10 @@ export async function acceptCompanyInvitation(token, userData = {}) {
   return res.json();
 }
 
-export async function removeTeamMember(companyId, memberId) {
-  const res = await fetch(`${API_BASE}/companies/${companyId}/members/${memberId}`, {
+export async function removeTeamMember(companyId, memberId, type = 'member') {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/members/${memberId}?type=${type}`, {
     method: 'DELETE',
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error('Error al remover miembro del equipo');
   return res.json();

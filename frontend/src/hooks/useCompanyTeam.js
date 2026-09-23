@@ -34,10 +34,10 @@ export function useCompanyTeam(companyId) {
     }
   };
 
-  const removeMember = async (memberId) => {
+  const removeMember = async (memberId, type = 'member') => {
     if (!companyId) return;
     try {
-      await removeTeamMember(companyId, memberId);
+      await removeTeamMember(companyId, memberId, type);
       await loadTeam(companyId);
     } catch (err) {
       throw err;

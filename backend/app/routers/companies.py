@@ -349,29 +349,38 @@ def accept_team_invitation(payload: AcceptInvitationRequest, db: Session = Depen
 
 
 @router.delete("/{company_id}/members/{member_id}", response_model=StatusMessageResponse)
-def remove_team_member(company_id: int, member_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def remove_team_member(
+    company_id: int, 
+    member_id: int, 
+    type: Optional[str] = "member", 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
     """Elimina a un miembro del equipo o cancela una invitación."""
     require_company_member(company_id, current_user, db)
 
-    member = db.query(CompanyMember).filter(
-        CompanyMember.id == member_id,
-        CompanyMember.company_id == company_id,
-    ).first()
-    if member:
-        db.delete(member)
-        db.commit()
-        return StatusMessageResponse(message="Miembro eliminado del equipo")
-
-    invitation = db.query(CompanyInvitation).filter(
-        CompanyInvitation.id == member_id,
-        CompanyInvitation.company_id == company_id,
-    ).first()
-    if invitation:
-        db.delete(invitation)
-        db.commit()
-        return StatusMessageResponse(message="Invitación revocada")
-
-    raise HTTPException(status_code=404, detail="Miembro o invitación no encontrada")
+    if type == "invitation":
+        invitation = db.query(CompanyInvitation).filter(
+            CompanyInvitation.id == member_id,
+            CompanyInvitation.company_id == company_id,
+        ).first()
+        if invitation:
+            db.delete(invitation)
+            db.commit()
+            return StatusMessageResponse(message="Invitación revocada")
+        raise HTTPException(status_code=404, detail="Invitación no encontrada")
+    else:
+        member = db.query(CompanyMember).filter(
+            CompanyMember.id == member_id,
+            CompanyMember.company_id == company_id,
+        ).first()
+        if member:
+            if member.user_id == current_user.id:
+                raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo del equipo. Contacta a soporte.")
+            db.delete(member)
+            db.commit()
+            return StatusMessageResponse(message="Miembro eliminado del equipo")
+        raise HTTPException(status_code=404, detail="Miembro no encontrado")
 
 
 # --- GESTIÓN DE TURNOS LABORALES DE PLANTA ---

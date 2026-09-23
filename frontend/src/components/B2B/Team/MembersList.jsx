@@ -80,7 +80,7 @@ export default function MembersList({
                     type="button"
                     onClick={async () => {
                       if (await toast.confirm(`¿Seguro que deseas remover a "${member.nombre || member.email}" del equipo?`)) {
-                        onRemoveMember(member.id);
+                        onRemoveMember(member.id, 'member');
                       }
                     }}
                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
@@ -131,7 +131,7 @@ export default function MembersList({
                     type="button"
                     onClick={async () => {
                       if (await toast.confirm(`¿Seguro que deseas remover a "${inv.email}" del equipo?`)) {
-                        onRemoveMember(inv.id);
+                        onRemoveMember(inv.id, 'invitation');
                       }
                     }}
                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
