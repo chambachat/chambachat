@@ -129,6 +129,8 @@ export async function getJobs(filters = {}) {
   const params = new URLSearchParams();
   if (filters.municipio) params.append('municipio', filters.municipio);
   if (filters.empresa) params.append('empresa', filters.empresa);
+  if (filters.company_id) params.append('company_id', filters.company_id);
+  if (filters.mine) params.append('mine', 'true');
   if (filters.apoyo_inea !== undefined && filters.apoyo_inea !== null && filters.apoyo_inea !== '') {
     params.append('apoyo_inea', filters.apoyo_inea);
   }
@@ -144,7 +146,10 @@ export async function createJob(jobData) {
     headers: authHeaders(),
     body: JSON.stringify(jobData),
   });
-  if (!res.ok) throw new Error('Error al crear vacante');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al crear vacante' }));
+    throw new Error(err.detail || 'Error al crear vacante');
+  }
   return res.json();
 }
 

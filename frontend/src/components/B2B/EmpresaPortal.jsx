@@ -19,7 +19,7 @@ export const B2B_TABS = [
   { id: 'analytics', label: 'People Analytics', icon: BarChart3, desc: 'Métricas de planta' },
 ];
 
-function PortalContent({ tab, currentUser, activeCompany, onCompanyChanged }) {
+function PortalContent({ tab, currentUser, activeCompany, onCompanyChanged, onSelectTab }) {
   switch (tab) {
     case 'applications':
       return <CandidateApplications currentUser={currentUser} />;
@@ -28,7 +28,7 @@ function PortalContent({ tab, currentUser, activeCompany, onCompanyChanged }) {
     case 'routes':
       return <TransportRoutesManager currentUser={currentUser} selectedCompany={activeCompany} onCompanyChanged={onCompanyChanged} />;
     case 'jobs':
-      return <JobsManager />;
+      return <JobsManager currentUser={currentUser} activeCompany={activeCompany} onGoToTeam={() => onSelectTab('team')} />;
     case 'predictor':
       return <RetentionPredictor />;
     case 'candidates':
@@ -77,7 +77,7 @@ export default function EmpresaPortal({ currentUser, activeTab, onSelectTab, act
         </div>
 
         <div className="flex-1 pb-16">
-          <PortalContent tab={activeTab} currentUser={currentUser} activeCompany={activeCompany} onCompanyChanged={onCompanyChanged} />
+          <PortalContent tab={activeTab} currentUser={currentUser} activeCompany={activeCompany} onCompanyChanged={onCompanyChanged} onSelectTab={onSelectTab} />
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Job, Company
+from app.models import Job, Company, CompanyMember
 from app.schemas import JobCreate, JobResponse
 from app.services.geo import MUNICIPIOS_NL_COORDS
 from app.dependencies import get_current_user, get_current_user_optional, require_company_member
@@ -18,13 +18,28 @@ def get_jobs(
     apoyo_inea: Optional[bool] = None,
     empresa: Optional[str] = None,
     company_id: Optional[int] = None,
+    mine: bool = Query(False, description="Solo vacantes de las empresas donde el usuario autenticado es miembro"),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_optional),
 ):
     """
     Retorna la lista de vacantes operativas disponibles con filtros opcionales.
-    Endpoints GET son públicos para que los candidatos puedan ver vacantes.
+    Endpoints GET son públicos para que los candidatos puedan ver vacantes;
+    `mine=true` requiere sesión y limita a las empresas del usuario.
     """
     query = db.query(Job)
+    if mine:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Inicia sesión para ver las vacantes de tus empresas")
+        member_ids = [
+            row[0] for row in db.query(CompanyMember.company_id).filter(
+                CompanyMember.email == current_user.email,
+                CompanyMember.status == "active",
+            ).all()
+        ]
+        if not member_ids:
+            return []
+        query = query.filter(Job.empresa_id.in_(member_ids))
     if municipio:
         query = query.filter(Job.municipio.ilike(f"%{municipio}%"))
     if apoyo_inea is not None:

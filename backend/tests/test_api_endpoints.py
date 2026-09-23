@@ -287,6 +287,32 @@ def test_company_shifts_defaults_and_crud(client):
     assert len(client.get(f"/api/v1/companies/{company['id']}/shifts").json()) == 5
 
 
+def test_jobs_mine_scope_and_company_combobox(client):
+    headers = make_auth_header("jobs_owner@test.com", nombre="Jobs Owner")
+    company = _create_company(client, headers, "Planta Vacantes")
+
+    # Sin sesión, mine=true → 401; con sesión y sin vacantes propias → lista vacía
+    assert client.get("/api/v1/jobs?mine=true").status_code == 401
+    assert client.get("/api/v1/jobs?mine=true", headers=headers).json() == []
+
+    payload = {
+        "company_id": company["id"], "empresa_nombre": company["nombre"], "titulo": "Operador de Prensa",
+        "sueldo_semanal_libre": 2800, "municipio": "Apodaca", "latitud": 25.78, "longitud": -100.19,
+    }
+    created = client.post("/api/v1/jobs", json=payload, headers=headers)
+    assert created.status_code == 200, created.text
+    assert created.json()["empresa_id"] == company["id"]
+    assert created.json()["empresa_nombre"] == "Planta Vacantes"
+
+    mine = client.get("/api/v1/jobs?mine=true", headers=headers).json()
+    assert [j["titulo"] for j in mine] == ["Operador de Prensa"]
+    assert len(client.get("/api/v1/jobs").json()) > len(mine)  # "todas" incluye las del seed
+
+    # Otro usuario no puede publicar a nombre de una empresa ajena
+    intruso = make_auth_header("jobs_intruso@test.com", nombre="Intruso")
+    assert client.post("/api/v1/jobs", json=payload, headers=intruso).status_code == 403
+
+
 def test_applications_scoped_to_member_companies(client):
     headers = make_auth_header("apps_owner@test.com", nombre="Apps Owner")
     res = client.get("/api/v1/applications", headers=headers)
