@@ -31,7 +31,7 @@ function MessageBubble({ message, candidateName }) {
     <div className={`flex flex-col ${isRecruiter ? 'items-end' : 'items-start'}`}>
       <div className="flex items-center gap-1.5 mb-1 px-1">
         {isBot && (
-          <img src="/chambot.png" alt="Chambot" className="w-4 h-4 rounded-full object-contain p-0.5 bg-emerald-100 border border-emerald-300" />
+          <img src="/chambot-v2.png" alt="Chambot" className="w-4 h-4 rounded-full object-contain p-0.5 bg-emerald-100 border border-emerald-300" />
         )}
         <span className={`text-[10px] font-bold ${isBot ? 'text-emerald-700' : 'text-slate-400'}`}>{senderLabel}</span>
       </div>

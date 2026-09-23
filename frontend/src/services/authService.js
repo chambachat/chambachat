@@ -106,6 +106,39 @@ export async function verifyCode(email, code) {
   return data;
 }
 
+// ─── Google Sign-In ──────────────────────────────────────────────────
+
+let _authConfigCache = null;
+
+/** Configuración pública de acceso (si hay GOOGLE_CLIENT_ID en el servidor). */
+export async function getAuthConfig() {
+  if (_authConfigCache) return _authConfigCache;
+  try {
+    const res = await fetch('/api/v1/auth/config');
+    _authConfigCache = res.ok ? await res.json() : { google_client_id: null };
+  } catch (e) {
+    _authConfigCache = { google_client_id: null };
+  }
+  return _authConfigCache;
+}
+
+/** Envía el ID token de Google al backend; si es válido devuelve JWT + usuario y los guarda. */
+export async function signInWithGoogle(credential, role = 'candidate') {
+  const res = await fetch('/api/v1/auth/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential, role }),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Error de red' }));
+    throw new Error(error.detail || `Error ${res.status}`);
+  }
+  const data = await res.json();
+  if (data.token) setStoredToken(data.token);
+  if (data.user) setStoredUser(data.user);
+  return data;
+}
+
 // ─── Sesión ──────────────────────────────────────────────────────────
 
 export async function signOut() {

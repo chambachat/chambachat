@@ -430,6 +430,21 @@ class VerifyCodeResponse(BaseModel):
     user: AuthUserResponse
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(..., min_length=20, description="ID token (JWT) emitido por Google Identity Services")
+    role: Optional[str] = "candidate"  # rol deseado solo para usuarios nuevos: candidate | recruiter
+
+    @field_validator("role")
+    @classmethod
+    def _valid_role(cls, v: Optional[str]) -> str:
+        v = (v or "candidate").strip().lower()
+        return v if v in {"candidate", "recruiter"} else "candidate"
+
+
+class AuthConfigResponse(BaseModel):
+    google_client_id: Optional[str] = None
+
+
 class ProfileSyncResponse(AuthUserResponse):
     status: str = "success"
     user_id: int

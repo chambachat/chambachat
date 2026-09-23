@@ -6,14 +6,16 @@ Flujo de autenticación por correo:
 2. POST /verify-code → valida código contra DB, emite JWT
 3. Todas las demás llamadas usan el JWT en header Authorization: Bearer <token>
 
-Flujo Google OAuth (futuro):
-- Se integrará con Supabase Auth cuando esté configurado.
+Flujo Google Sign-In:
+1. El frontend obtiene un ID token con Google Identity Services (GOOGLE_CLIENT_ID)
+2. POST /google → el backend verifica el token contra Google y emite el mismo JWT propio
 """
 import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta
 import jwt
+import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -37,7 +39,9 @@ _MAX_VERIFICATION_ATTEMPTS = 5
 
 from app.schemas import (
     VERIFICATION_CODE_LENGTH as _CODE_LENGTH,
+    AuthConfigResponse,
     AuthUserResponse,
+    GoogleAuthRequest,
     ProfileSyncRequest,
     ProfileSyncResponse,
     RefreshTokenResponse,
@@ -227,6 +231,79 @@ def verify_code(req: VerifyCodeRequest, db: Session = Depends(get_db)):
     logger.info("Usuario autenticado exitosamente: %s (id=%d)", email, user.id)
 
     return VerifyCodeResponse(status="verified", token=token, user=AuthUserResponse.model_validate(user))
+
+
+# ─── Google Sign-In ──────────────────────────────────────────────────
+
+_GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+_GOOGLE_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
+
+
+def _verify_google_id_token(credential: str) -> dict:
+    """
+    Valida el ID token con el endpoint tokeninfo de Google y comprueba que fue emitido
+    para nuestro GOOGLE_CLIENT_ID. Lanza ValueError si no es válido.
+    """
+    res = requests.get(_GOOGLE_TOKENINFO_URL, params={"id_token": credential}, timeout=8)
+    if res.status_code != 200:
+        raise ValueError("Google no reconoce este token de acceso.")
+    payload = res.json()
+    if payload.get("aud") != settings.GOOGLE_CLIENT_ID:
+        raise ValueError("El token de Google no corresponde a esta aplicación.")
+    if payload.get("iss") not in _GOOGLE_ISSUERS:
+        raise ValueError("Emisor del token de Google no válido.")
+    return payload
+
+
+@router.get("/config", response_model=AuthConfigResponse)
+def auth_config():
+    """Configuración pública de acceso: el frontend la usa para saber si mostrar el botón de Google."""
+    return AuthConfigResponse(google_client_id=settings.GOOGLE_CLIENT_ID or None)
+
+
+@router.post("/google", response_model=VerifyCodeResponse)
+def login_with_google(req: GoogleAuthRequest, db: Session = Depends(get_db)):
+    """Inicia sesión (o crea la cuenta) con una cuenta de Google verificada y emite el JWT propio."""
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="El acceso con Google no está habilitado en este servidor.")
+    try:
+        info = _verify_google_id_token(req.credential)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001 - red / timeout
+        logger.error("[Google Sign-In] error verificando token: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail="No se pudo validar tu cuenta con Google. Intenta de nuevo.")
+
+    email = (info.get("email") or "").strip().lower()
+    verified = info.get("email_verified") in (True, "true", "1")
+    if not email or not verified:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Tu cuenta de Google no tiene un correo verificado.")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            nombre=(info.get("name") or email.split("@")[0].replace(".", " ").title()).strip(),
+            email=email,
+            role=req.role or "candidate",
+            municipio="Monterrey",
+            nivel_educativo="Secundaria",
+            activo=True,
+        )
+        db.add(user)
+        logger.info("Nuevo usuario creado via Google: %s", email)
+
+    user.google_id = info.get("sub") or user.google_id
+    if info.get("picture"):
+        user.avatar_url = info["picture"]
+    if not user.nombre and info.get("name"):
+        user.nombre = info["name"]
+    db.commit()
+    db.refresh(user)
+
+    return VerifyCodeResponse(status="verified", token=_create_jwt(user), user=AuthUserResponse.model_validate(user))
 
 
 @router.post("/sync-google-profile", response_model=ProfileSyncResponse)

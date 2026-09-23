@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Lock } from 'lucide-react';
-import { verifyCode, sendVerificationCode } from '../../services/authService';
+import { verifyCode, sendVerificationCode, signInWithGoogle } from '../../services/authService';
 import RoleSelector from './RoleSelector';
 import GoogleAuthPanel from './GoogleAuthPanel';
 import EmailLoginForm from './EmailLoginForm';
@@ -63,14 +63,20 @@ export default function AuthModal({
     }
   };
 
-  const handleGoogleAuth = async ({ name, email, phone }) => {
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setError('Ingresa un correo electrónico válido.');
-      return;
+  /** Google ya verificó la identidad: el backend valida el token y emite nuestro JWT. */
+  const handleGoogleCredential = async (credential) => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await signInWithGoogle(credential, role);
+      onAuthenticated({ ...data.user, name: data.user?.nombre, role: data.user?.role || role, provider: 'google' });
+      onClose();
+    } catch (err) {
+      console.error('Error con Google Sign-In:', err);
+      setError(err.message || 'No se pudo iniciar sesión con Google.');
+    } finally {
+      setLoading(false);
     }
-    const finalName = name.trim() || cleanEmail.split('@')[0].replace('.', ' ');
-    await handleSendCodeRequest(cleanEmail, { name: finalName, phone });
   };
 
   const handleRegister = async ({ name, email, phone }) => {
@@ -166,7 +172,7 @@ export default function AuthModal({
         <div className="text-center space-y-1 pt-1">
           <div className="flex justify-center mb-1">
             <img 
-              src="/chambot.png" 
+              src="/chambot-v2.png" 
               alt="Chambot" 
               className="w-14 h-14 object-contain drop-shadow-sm rounded-2xl" 
             />
@@ -201,11 +207,12 @@ export default function AuthModal({
             <AuthMethodTabs activeTab={activeTab} onChange={(t) => { setActiveTab(t); setError(''); }} />
 
             {activeTab === 'google' && (
-              <GoogleAuthPanel 
-                onGoogleAuth={handleGoogleAuth} 
-                loading={loading} 
-                role={role} 
-                error={error} 
+              <GoogleAuthPanel
+                onGoogleCredential={handleGoogleCredential}
+                onUseEmail={() => { setActiveTab('email'); setError(''); }}
+                loading={loading}
+                role={role}
+                error={error}
               />
             )}
 

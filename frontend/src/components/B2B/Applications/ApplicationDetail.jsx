@@ -59,7 +59,7 @@ function BotControls({ app, loading, onToggleBot, onForceBotFallback }) {
   return (
     <div className="p-3 rounded-xl bg-slate-100/90 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
       <div className="flex items-center gap-2">
-        <img src="/chambot.png" alt="Chambot" className="w-5 h-5 rounded-full object-contain p-0.5 bg-emerald-100 border border-emerald-300 shrink-0" />
+        <img src="/chambot-v2.png" alt="Chambot" className="w-5 h-5 rounded-full object-contain p-0.5 bg-emerald-100 border border-emerald-300 shrink-0" />
         <div>
           <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
             <span>Chat Grupal: Candidato + Reclutador + Chambot</span>

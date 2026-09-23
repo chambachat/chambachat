@@ -1,97 +1,102 @@
-import React, { useState } from 'react';
-import { User, Mail, Phone } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ShieldCheck, Mail } from 'lucide-react';
+import { getAuthConfig } from '../../services/authService';
 
-export default function GoogleAuthPanel({ onGoogleAuth, loading, role, error }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+const GSI_SRC = 'https://accounts.google.com/gsi/client';
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onGoogleAuth({ name, email, phone });
-  };
+/** Espera a que el script de Google Identity Services esté disponible en window.google. */
+function waitForGoogle(timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const tick = () => {
+      if (window.google?.accounts?.id) return resolve(window.google.accounts.id);
+      if (Date.now() - started > timeoutMs) return reject(new Error('No se pudo cargar Google Sign-In.'));
+      setTimeout(tick, 100);
+    };
+    if (!document.querySelector(`script[src="${GSI_SRC}"]`)) {
+      const s = document.createElement('script');
+      s.src = GSI_SRC; s.async = true; s.defer = true;
+      document.head.appendChild(s);
+    }
+    tick();
+  });
+}
+
+/**
+ * Acceso con Google real: el usuario solo elige su cuenta en la ventana de Google.
+ * El backend verifica el token de Google y emite el JWT de ChambaChat.
+ */
+export default function GoogleAuthPanel({ onGoogleCredential, onUseEmail, loading, role, error }) {
+  const buttonRef = useRef(null);
+  const [status, setStatus] = useState('loading'); // loading | ready | disabled | failed
+  const [localError, setLocalError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await getAuthConfig();
+        if (cancelled) return;
+        if (!cfg?.google_client_id) { setStatus('disabled'); return; }
+        const google = await waitForGoogle();
+        if (cancelled) return;
+        google.initialize({
+          client_id: cfg.google_client_id,
+          callback: (resp) => { if (resp?.credential) onGoogleCredential(resp.credential); },
+          ux_mode: 'popup',
+          auto_select: false,
+        });
+        if (buttonRef.current) {
+          buttonRef.current.innerHTML = '';
+          google.renderButton(buttonRef.current, {
+            type: 'standard', theme: 'outline', size: 'large', shape: 'pill',
+            text: 'continue_with', logo_alignment: 'left', locale: 'es',
+            width: Math.min(buttonRef.current.offsetWidth || 360, 400),
+          });
+        }
+        setStatus('ready');
+      } catch (e) {
+        if (!cancelled) { setStatus('failed'); setLocalError(e.message); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [onGoogleCredential]);
+
+  const shownError = error || localError;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 pt-1">
-      <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-1">
-          Tu Nombre Completo *
-        </label>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
-          <User className="w-4 h-4 text-slate-400 shrink-0" />
-          <input
-            type="text"
-            placeholder={role === 'recruiter' ? 'Ej. Lic. Laura Sánchez' : 'Ej. Juan Pérez Garza'}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full bg-transparent focus:outline-none text-slate-800"
-          />
-        </div>
+    <div className="space-y-3 pt-1">
+      <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-start gap-2 text-[11px] text-slate-600 leading-relaxed">
+        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+        <span>
+          Se abrirá la ventana de Google para que elijas tu cuenta. No necesitas escribir nada:
+          tomamos tu nombre y correo directamente de Google.
+          {role === 'recruiter' ? ' Entrarás como Empresa / Reclutador.' : ''}
+        </span>
       </div>
 
-      <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-1">
-          Tu Correo de Google / Gmail *
-        </label>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
-          <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-          <input
-            type="email"
-            placeholder="tucorreo@gmail.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full bg-transparent focus:outline-none text-slate-800"
-          />
+      {status === 'disabled' ? (
+        <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-2">
+          <p>El acceso con Google aún no está habilitado en este servidor. Usa tu correo electrónico: te enviaremos un código de 6 dígitos.</p>
+          <button type="button" onClick={onUseEmail} className="flex items-center gap-1.5 font-bold text-emerald-700 hover:underline">
+            <Mail className="w-3.5 h-3.5" />
+            <span>Continuar con correo electrónico</span>
+          </button>
         </div>
-      </div>
-
-      <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-1">
-          WhatsApp o Teléfono (Opcional)
-        </label>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white transition text-xs">
-          <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
-          <input
-            type="tel"
-            placeholder="Ej. 81-1234-5678"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full bg-transparent focus:outline-none text-slate-800"
-          />
-        </div>
-      </div>
-
-      {error && (
-        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
-          ⚠️ {error}
+      ) : (
+        <div className="flex justify-center min-h-[44px]">
+          {status === 'loading' && <span className="text-xs text-slate-400 self-center">Cargando Google...</span>}
+          <div ref={buttonRef} className={`w-full flex justify-center ${loading ? 'opacity-50 pointer-events-none' : ''}`} />
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className={`w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl text-white text-xs font-bold transition shadow-sm ${
-          role === 'recruiter' 
-            ? 'bg-blue-600 hover:bg-blue-700' 
-            : 'bg-emerald-600 hover:bg-emerald-700'
-        }`}
-      >
-        <svg className="w-4 h-4" viewBox="0 0 24 24">
-          <path fill="#ffffff" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-          <path fill="#ffffff" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
-          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-        </svg>
-        <span>
-          {loading 
-            ? 'Accediendo...' 
-            : role === 'recruiter' 
-              ? 'Conectar como Empresa con Google' 
-              : 'Conectar como Candidato con Google'}
-        </span>
-      </button>
-    </form>
+      {loading && <p className="text-xs text-center text-slate-500">Verificando tu cuenta de Google...</p>}
+
+      {shownError && (
+        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+          ⚠️ {shownError}
+        </div>
+      )}
+    </div>
   );
 }

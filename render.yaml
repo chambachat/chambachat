@@ -13,3 +13,5 @@ services:
         sync: false # Configurar con la URL de Supabase en el Dashboard de Render
       - key: DEEPSEEK_API_KEY
         sync: false # Clave sk-... de DeepSeek en el Dashboard de Render
+      - key: GOOGLE_CLIENT_ID
+        sync: false # ID de cliente OAuth de Google Cloud (Sign in with Google)

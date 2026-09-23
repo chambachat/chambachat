@@ -28,7 +28,7 @@ export default function ChatWelcome({ onPrompt }) {
   return (
     <div className="py-8 sm:py-16 text-center space-y-6 sm:space-y-8 animate-fadeIn">
       <div className="flex justify-center">
-        <img src="/chambot-redondo.png" alt="Chambot" className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-md hover:scale-105 transition-transform" />
+        <img src="/chambot-v2.png" alt="Chambot" className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-md hover:scale-105 transition-transform" />
       </div>
       <div className="space-y-1.5 sm:space-y-2 px-2">
         <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">¡Qué onda! ¿Buscamos una chambita?</h1>
