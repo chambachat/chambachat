@@ -171,7 +171,7 @@ async def process_chat_message(
             target_muni or puesto_kw or is_location_event
             or any(w in input_text.lower() for w in ["vacante", "jale", "chamba", "montacarguista", "apodaca", "pesquer"])
         )
-        all_jobs = db.query(Job).all() if wants_jobs else []
+        all_jobs = db.query(Job).filter(Job.activa.is_(True)).all() if wants_jobs else []
 
         if all_jobs:
             matched_jobs = match_jobs_for_candidate(

@@ -46,8 +46,11 @@ def match_jobs_for_candidate(
         if puesto_clean:
             title_lower = job.titulo.lower()
             desc_lower = (job.descripcion or "").lower()
+            categoria_lower = (getattr(job, "categoria", None) or "").lower()
             if puesto_clean in title_lower or any(w in title_lower for w in puesto_clean.split()):
                 score += 50.0  # Gran bonificación por coincidencia de puesto
+            elif puesto_clean in categoria_lower or any(w in categoria_lower for w in puesto_clean.split() if len(w) > 3):
+                score += 40.0  # Coincidencia por categoría estructurada
             elif puesto_clean in desc_lower:
                 score += 25.0
 
@@ -63,6 +66,17 @@ def match_jobs_for_candidate(
             "municipio": job.municipio,
             "latitud": job.latitud,
             "longitud": job.longitud,
+            "categoria": getattr(job, "categoria", None),
+            "tipo_turno": getattr(job, "tipo_turno", None),
+            "hora_entrada": getattr(job, "hora_entrada", None),
+            "hora_salida": getattr(job, "hora_salida", None),
+            "dias_laborales": getattr(job, "dias_laborales", None),
+            "escolaridad_minima": getattr(job, "escolaridad_minima", None),
+            "experiencia_minima": getattr(job, "experiencia_minima", None),
+            "prestaciones": getattr(job, "prestaciones", None) or [],
+            "bono_semanal": getattr(job, "bono_semanal", 0) or 0,
+            "vales_despensa_semanal": getattr(job, "vales_despensa_semanal", 0) or 0,
+            "vacantes_disponibles": getattr(job, "vacantes_disponibles", 1) or 1,
             "distancia_km": dist_km,
             "tiempo_traslado_min": est_min,
             "match_score": round(max(10.0, min(100.0, score)), 1)

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Briefcase, Plus, Search, Filter, Building2, Globe2 } from 'lucide-react';
 import { useToast } from '../ui/Toast';
-import { getJobs, createJob, getUserCompanies } from '../../services/api';
+import { getJobs, createJob, updateJob, getUserCompanies } from '../../services/api';
 import JobCard from '../Jobs/JobCard';
 import NewJobModal from '../Jobs/NewJobModal';
 
@@ -35,8 +35,9 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
     try {
       const filters = { municipio: filterMuni };
       if (scope === 'mine') {
+        filters.mine = true;
+        filters.include_inactive = true;
         if (scopeCompanyId) filters.company_id = scopeCompanyId;
-        else filters.mine = true;
       }
       setJobs(await getJobs(filters));
     } catch (err) {
@@ -60,6 +61,19 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
     } catch (err) {
       toast.error('Error al publicar vacante: ' + err.message);
       return false;
+    }
+  };
+
+  const ownCompanyIds = new Set(companies.map(c => c.id));
+  const handleToggleActive = async (job) => {
+    const next = job.activa === false;
+    if (!next && !(await toast.confirm(`¿Desactivar "${job.titulo}"? Dejará de mostrarse a candidatos y a la IA del chat.`))) return;
+    try {
+      await updateJob(job.id, { activa: next });
+      toast.success(next ? 'Vacante activada' : 'Vacante desactivada');
+      loadJobs();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo cambiar el estado');
     }
   };
 
@@ -128,7 +142,12 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
             className="bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
           />
         </div>
-        <span className="text-xs text-slate-400 ml-auto font-medium">{jobs.length} vacante{jobs.length === 1 ? '' : 's'} activa{jobs.length === 1 ? '' : 's'}</span>
+        <span className="text-xs text-slate-400 ml-auto font-medium">
+          {jobs.length} vacante{jobs.length === 1 ? '' : 's'}
+          {scope === 'mine'
+            ? ` (${jobs.filter(j => j.activa !== false).length} activa${jobs.filter(j => j.activa !== false).length === 1 ? '' : 's'})`
+            : ` activa${jobs.length === 1 ? '' : 's'}`}
+        </span>
       </div>
 
       {loading ? (
@@ -141,7 +160,9 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {jobs.map((job) => <JobCard key={job.id} job={job} />)}
+          {jobs.map((job) => (
+            <JobCard key={job.id} job={job} onToggleActive={job.empresa_id && ownCompanyIds.has(job.empresa_id) ? handleToggleActive : undefined} />
+          ))}
         </div>
       )}
 

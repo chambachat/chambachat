@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, Date, DateTime, ForeignKey, LargeBinary
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, Date, DateTime, ForeignKey, LargeBinary, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -43,6 +43,25 @@ class Job(Base):
     latitud = Column(Float, nullable=False)
     longitud = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Campos estructurados (catálogo en app/constants/job_catalog.py) para el emparejamiento de la IA
+    categoria = Column(String(100), nullable=True, index=True)
+    tipo_turno = Column(String(50), nullable=True)
+    shift_id = Column(Integer, nullable=True)  # CompanyShift de la planta del que se tomó el horario
+    hora_entrada = Column(String(20), nullable=True)
+    hora_salida = Column(String(20), nullable=True)
+    dias_laborales = Column(String(50), nullable=True)
+    tipo_contrato = Column(String(60), nullable=True)
+    vacantes_disponibles = Column(Integer, nullable=False, default=1, server_default="1")
+    escolaridad_minima = Column(String(60), nullable=True)
+    experiencia_minima = Column(String(40), nullable=True)
+    certificaciones = Column(JSON, nullable=True)
+    prestaciones = Column(JSON, nullable=True)
+    requisitos_fisicos = Column(JSON, nullable=True)
+    bono_semanal = Column(Float, nullable=False, default=0.0, server_default="0")
+    vales_despensa_semanal = Column(Float, nullable=False, default=0.0, server_default="0")
+    direccion = Column(Text, nullable=True)  # dirección de la planta al momento de publicar
+    activa = Column(Boolean, nullable=False, default=True, server_default="1")
 
     company = relationship("Company", backref="jobs", foreign_keys=[empresa_id])
     hiring_records = relationship("HiringHistory", back_populates="job", cascade="all, delete-orphan")

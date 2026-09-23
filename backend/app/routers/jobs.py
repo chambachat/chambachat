@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Job, Company, CompanyMember
-from app.schemas import JobCreate, JobResponse
+from app.models import Job, Company, CompanyMember, CompanyShift
+from app.schemas import JobCreate, JobResponse, JobUpdate, JobCatalogResponse
+from app.constants import job_catalog
 from app.services.geo import MUNICIPIOS_NL_COORDS
 from app.dependencies import get_current_user, get_current_user_optional, require_company_member
 
@@ -19,6 +20,7 @@ def get_jobs(
     empresa: Optional[str] = None,
     company_id: Optional[int] = None,
     mine: bool = Query(False, description="Solo vacantes de las empresas donde el usuario autenticado es miembro"),
+    include_inactive: bool = Query(False, description="Incluir vacantes inactivas (solo tiene sentido con mine=true)"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user_optional),
 ):
@@ -28,6 +30,8 @@ def get_jobs(
     `mine=true` requiere sesión y limita a las empresas del usuario.
     """
     query = db.query(Job)
+    if not (mine and include_inactive):
+        query = query.filter(Job.activa.is_(True))
     if mine:
         if not current_user:
             raise HTTPException(status_code=401, detail="Inicia sesión para ver las vacantes de tus empresas")
@@ -52,6 +56,12 @@ def get_jobs(
     return query.order_by(Job.id.desc()).all()
 
 
+@router.get("/catalogo", response_model=JobCatalogResponse)
+def get_job_catalog():
+    """Opciones válidas para los campos estructurados de una vacante (misma fuente que valida el backend)."""
+    return JobCatalogResponse(**job_catalog.CATALOGO)
+
+
 @router.post("", response_model=JobResponse)
 def create_job(
     job_in: JobCreate,
@@ -63,8 +73,7 @@ def create_job(
     Requiere autenticación. Si se provee company_id, valida membresía.
     """
     empresa_id = job_in.company_id
-
-    # Si se especifica company_id, validar que la empresa exista y que el usuario sea miembro
+    company = None
     if empresa_id:
         company = db.query(Company).filter(Company.id == empresa_id).first()
         if not company:
@@ -74,29 +83,85 @@ def create_job(
     else:
         empresa_nombre = job_in.empresa_nombre
 
-    # Si no se proveen lat/long precisas, asignar coordenadas por municipio
-    lat = job_in.latitud
-    lon = job_in.longitud
-    if (lat == 0 and lon == 0) or (lat is None):
-        coords = MUNICIPIOS_NL_COORDS.get(
-            job_in.municipio.lower(), (25.6866, -100.3161)
-        )
-        lat, lon = coords
+    # Ubicación: SIEMPRE la de la planta que publica (municipio, dirección y coordenadas)
+    if company:
+        municipio = company.municipio or job_in.municipio
+        direccion = ", ".join(p for p in [company.direccion, company.colonia, company.codigo_postal and f"CP {company.codigo_postal}"] if p) or None
+        if company.latitud is not None and company.longitud is not None:
+            lat, lon = company.latitud, company.longitud
+        else:
+            lat, lon = MUNICIPIOS_NL_COORDS.get(municipio.lower(), (25.6866, -100.3161))
+    else:
+        municipio, direccion = job_in.municipio, job_in.direccion
+        lat, lon = job_in.latitud, job_in.longitud
+        if (lat == 0 and lon == 0) or lat is None:
+            lat, lon = MUNICIPIOS_NL_COORDS.get(municipio.lower(), (25.6866, -100.3161))
+
+    # Horario: si se eligió un turno de la planta, sus datos mandan sobre los capturados
+    data = job_in.model_dump()
+    if job_in.shift_id:
+        shift = db.query(CompanyShift).filter(CompanyShift.id == job_in.shift_id).first()
+        if not shift or (company and shift.company_id != company.id):
+            raise HTTPException(status_code=400, detail="El turno seleccionado no pertenece a la planta que publica")
+        data["hora_entrada"] = shift.hora_entrada
+        data["hora_salida"] = shift.hora_salida
+        if shift.dias in job_catalog.DIAS_LABORALES:
+            data["dias_laborales"] = shift.dias
+        data["tipo_turno"] = data.get("tipo_turno") or job_catalog.tipo_turno_desde_horario(shift.hora_entrada, shift.tipo)
+
+    # Banderas históricas sincronizadas con los campos estructurados (las usa el emparejamiento)
+    prestaciones = data.get("prestaciones") or []
+    transporte = job_in.transporte_incluido or job_catalog.PRESTACION_TRANSPORTE in prestaciones
+    apoyo_inea = job_in.apoyo_inea or job_catalog.PRESTACION_INEA in prestaciones
+    turnos_fijos = job_in.turnos_fijos or str(data.get("tipo_turno") or "").startswith("Fijo")
 
     job = Job(
         empresa_id=empresa_id,
         empresa_nombre=empresa_nombre,
-        titulo=job_in.titulo,
+        titulo=job_in.titulo.strip(),
         descripcion=job_in.descripcion,
         sueldo_semanal_libre=job_in.sueldo_semanal_libre,
-        turnos_fijos=job_in.turnos_fijos,
-        apoyo_inea=job_in.apoyo_inea,
-        transporte_incluido=job_in.transporte_incluido,
-        municipio=job_in.municipio,
+        turnos_fijos=turnos_fijos,
+        apoyo_inea=apoyo_inea,
+        transporte_incluido=transporte,
+        municipio=municipio,
         latitud=lat,
         longitud=lon,
+        direccion=direccion,
+        categoria=data.get("categoria"),
+        tipo_turno=data.get("tipo_turno"),
+        shift_id=job_in.shift_id,
+        hora_entrada=data.get("hora_entrada"),
+        hora_salida=data.get("hora_salida"),
+        dias_laborales=data.get("dias_laborales"),
+        tipo_contrato=data.get("tipo_contrato"),
+        vacantes_disponibles=job_in.vacantes_disponibles,
+        escolaridad_minima=data.get("escolaridad_minima"),
+        experiencia_minima=data.get("experiencia_minima"),
+        certificaciones=data.get("certificaciones") or [],
+        prestaciones=prestaciones,
+        requisitos_fisicos=data.get("requisitos_fisicos") or [],
+        bono_semanal=job_in.bono_semanal,
+        vales_despensa_semanal=job_in.vales_despensa_semanal,
+        activa=job_in.activa,
     )
     db.add(job)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+@router.put("/{job_id}", response_model=JobResponse)
+def update_job(job_id: int, payload: JobUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Edición parcial de una vacante (activar/desactivar, título, sueldo...). Solo miembros de la empresa."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Vacante no encontrada")
+    if not job.empresa_id:
+        raise HTTPException(status_code=403, detail="Esta vacante no está ligada a una empresa administrable")
+    require_company_member(job.empresa_id, current_user, db)
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(job, field, value)
     db.commit()
     db.refresh(job)
     return job

@@ -2,6 +2,8 @@ from datetime import datetime, date
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.constants import job_catalog
+
 # Longitud del código de verificación por correo. Fuente única de verdad:
 # la usan el router de auth (generación) y VerifyCodeRequest (validación).
 VERIFICATION_CODE_LENGTH = 6
@@ -111,7 +113,80 @@ class ApplicationResponse(BaseModel):
 # ==========================================
 # JOBS SCHEMAS
 # ==========================================
-class JobBase(BaseModel):
+def _in_catalog(value: Optional[str], options: List[str], field: str) -> Optional[str]:
+    if value is None or value == "":
+        return None
+    if value not in options:
+        raise ValueError(f"{field} no válido: '{value}'. Opciones: {', '.join(options)}")
+    return value
+
+
+def _subset_of_catalog(values: Optional[List[str]], options: List[str], field: str) -> List[str]:
+    values = values or []
+    bad = [v for v in values if v not in options]
+    if bad:
+        raise ValueError(f"{field} con valores no válidos: {', '.join(bad)}")
+    return list(dict.fromkeys(values))  # sin duplicados, orden estable
+
+
+class JobStructuredFields(BaseModel):
+    """Campos cerrados de la vacante (ver app/constants/job_catalog.py)."""
+    categoria: Optional[str] = None
+    tipo_turno: Optional[str] = None
+    shift_id: Optional[int] = None
+    hora_entrada: Optional[str] = None
+    hora_salida: Optional[str] = None
+    dias_laborales: Optional[str] = None
+    tipo_contrato: Optional[str] = None
+    vacantes_disponibles: int = Field(1, ge=1, le=500)
+    escolaridad_minima: Optional[str] = None
+    experiencia_minima: Optional[str] = None
+    certificaciones: List[str] = []
+    prestaciones: List[str] = []
+    requisitos_fisicos: List[str] = []
+    bono_semanal: float = Field(0, ge=0)
+    vales_despensa_semanal: float = Field(0, ge=0)
+    direccion: Optional[str] = None
+    activa: bool = True
+
+    @field_validator("categoria")
+    @classmethod
+    def _v_categoria(cls, v): return _in_catalog(v, job_catalog.CATEGORIAS, "categoria")
+
+    @field_validator("tipo_turno")
+    @classmethod
+    def _v_turno(cls, v): return _in_catalog(v, job_catalog.TIPOS_TURNO, "tipo_turno")
+
+    @field_validator("dias_laborales")
+    @classmethod
+    def _v_dias(cls, v): return _in_catalog(v, job_catalog.DIAS_LABORALES, "dias_laborales")
+
+    @field_validator("tipo_contrato")
+    @classmethod
+    def _v_contrato(cls, v): return _in_catalog(v, job_catalog.TIPOS_CONTRATO, "tipo_contrato")
+
+    @field_validator("escolaridad_minima")
+    @classmethod
+    def _v_escolaridad(cls, v): return _in_catalog(v, job_catalog.ESCOLARIDADES, "escolaridad_minima")
+
+    @field_validator("experiencia_minima")
+    @classmethod
+    def _v_experiencia(cls, v): return _in_catalog(v, job_catalog.EXPERIENCIAS, "experiencia_minima")
+
+    @field_validator("certificaciones")
+    @classmethod
+    def _v_cert(cls, v): return _subset_of_catalog(v, job_catalog.CERTIFICACIONES, "certificaciones")
+
+    @field_validator("prestaciones")
+    @classmethod
+    def _v_prest(cls, v): return _subset_of_catalog(v, job_catalog.PRESTACIONES, "prestaciones")
+
+    @field_validator("requisitos_fisicos")
+    @classmethod
+    def _v_fis(cls, v): return _subset_of_catalog(v, job_catalog.REQUISITOS_FISICOS, "requisitos_fisicos")
+
+
+class JobBase(JobStructuredFields):
     empresa_nombre: str = "Manufactura Monterrey"
     company_id: Optional[int] = None
     titulo: str
@@ -124,8 +199,30 @@ class JobBase(BaseModel):
     latitud: float
     longitud: float
 
+
 class JobCreate(JobBase):
     pass
+
+
+class JobUpdate(BaseModel):
+    """Edición parcial: hoy se usa para activar/desactivar y ajustar datos puntuales."""
+    activa: Optional[bool] = None
+    titulo: Optional[str] = None
+    descripcion: Optional[str] = None
+    sueldo_semanal_libre: Optional[float] = None
+    vacantes_disponibles: Optional[int] = Field(None, ge=1, le=500)
+
+
+class JobCatalogResponse(BaseModel):
+    categorias: List[str]
+    tipos_turno: List[str]
+    dias_laborales: List[str]
+    tipos_contrato: List[str]
+    escolaridades: List[str]
+    experiencias: List[str]
+    prestaciones: List[str]
+    certificaciones: List[str]
+    requisitos_fisicos: List[str]
 
 class JobResponse(JobBase):
     id: int
@@ -133,6 +230,17 @@ class JobResponse(JobBase):
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("certificaciones", "prestaciones", "requisitos_fisicos", mode="before")
+    @classmethod
+    def _none_to_list(cls, v):
+        return v or []
+
+    @field_validator("categoria", "tipo_turno", "dias_laborales", "tipo_contrato", "escolaridad_minima", "experiencia_minima", mode="before")
+    @classmethod
+    def _legacy_values_pass(cls, v):
+        # Filas históricas (seed) pueden tener valores fuera de catálogo o None: no romper la respuesta
+        return v if v else None
 
 # ==========================================
 # CANDIDATES SCHEMAS

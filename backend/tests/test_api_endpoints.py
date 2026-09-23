@@ -313,6 +313,61 @@ def test_jobs_mine_scope_and_company_combobox(client):
     assert client.post("/api/v1/jobs", json=payload, headers=intruso).status_code == 403
 
 
+def test_jobs_structured_fields_location_from_plant_and_status(client):
+    headers = make_auth_header("jobs_struct@test.com", nombre="Struct Owner")
+    company = _create_company(client, headers, "Planta Estructurada")  # municipio Apodaca
+    shifts = client.get(f"/api/v1/companies/{company['id']}/shifts").json()
+    shift = shifts[0]
+
+    catalogo = client.get("/api/v1/jobs/catalogo").json()
+    assert "Montacarguista" in catalogo["categorias"]
+    assert "Transporte de personal" in catalogo["prestaciones"]
+
+    payload = {
+        "company_id": company["id"], "titulo": "Montacarguista Reach", "sueldo_semanal_libre": 3200,
+        "categoria": "Montacarguista", "tipo_contrato": "Planta (tiempo indeterminado)", "vacantes_disponibles": 3,
+        "shift_id": shift["id"], "tipo_turno": "Fijo matutino", "dias_laborales": "Lunes a Sábado",
+        "escolaridad_minima": "Secundaria", "experiencia_minima": "1 año",
+        "certificaciones": ["Licencia de montacargas (DC-3)"],
+        "prestaciones": ["Transporte de personal", "Vales de despensa", "Apoyo para terminar estudios (INEA)"],
+        "requisitos_fisicos": ["Trabajo de pie prolongado"],
+        "bono_semanal": 300, "vales_despensa_semanal": 250, "activa": False,
+        # El cliente manda otra ubicación: debe ignorarse a favor de la planta
+        "municipio": "Monterrey", "latitud": 0, "longitud": 0, "transporte_incluido": False, "apoyo_inea": False,
+    }
+    created = client.post("/api/v1/jobs", json=payload, headers=headers)
+    assert created.status_code == 200, created.text
+    job = created.json()
+    assert job["municipio"] == "Apodaca"                      # ubicación de la planta
+    assert job["hora_entrada"] == shift["hora_entrada"]       # horario del turno de la planta
+    assert job["transporte_incluido"] is True                 # sincronizado desde prestaciones
+    assert job["apoyo_inea"] is True
+    assert job["turnos_fijos"] is True
+    assert job["certificaciones"] == ["Licencia de montacargas (DC-3)"]
+    assert job["vacantes_disponibles"] == 3
+    assert job["activa"] is False
+
+    # Inactiva: no aparece en el listado público ni en "mis vacantes" por defecto, sí con include_inactive
+    assert all(j["id"] != job["id"] for j in client.get("/api/v1/jobs").json())
+    assert client.get("/api/v1/jobs?mine=true", headers=headers).json() == []
+    propias = client.get("/api/v1/jobs?mine=true&include_inactive=true", headers=headers).json()
+    assert [j["id"] for j in propias] == [job["id"]]
+
+    # Activar con PUT y verificar que ya se lista
+    upd = client.put(f"/api/v1/jobs/{job['id']}", json={"activa": True}, headers=headers)
+    assert upd.status_code == 200 and upd.json()["activa"] is True
+    assert any(j["id"] == job["id"] for j in client.get("/api/v1/jobs").json())
+
+    # Valor fuera de catálogo → 422; turno de otra planta → 400; PUT de intruso → 403
+    bad = dict(payload, escolaridad_minima="Doctorado", shift_id=None)
+    assert client.post("/api/v1/jobs", json=bad, headers=headers).status_code == 422
+    otra = _create_company(client, make_auth_header("jobs_otra@test.com"), "Planta Ajena")
+    otro_turno = client.get(f"/api/v1/companies/{otra['id']}/shifts").json()[0]
+    assert client.post("/api/v1/jobs", json=dict(payload, shift_id=otro_turno["id"]), headers=headers).status_code == 400
+    intruso = make_auth_header("jobs_intruso2@test.com")
+    assert client.put(f"/api/v1/jobs/{job['id']}", json={"activa": False}, headers=intruso).status_code == 403
+
+
 def test_applications_scoped_to_member_companies(client):
     headers = make_auth_header("apps_owner@test.com", nombre="Apps Owner")
     res = client.get("/api/v1/applications", headers=headers)
