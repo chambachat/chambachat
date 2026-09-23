@@ -269,7 +269,10 @@ export async function removeTeamMember(companyId, memberId, type = 'member') {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Error al remover miembro del equipo');
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.detail || 'Error al remover miembro del equipo');
+  }
   return res.json();
 }
 

@@ -273,3 +273,24 @@ def test_applications_scoped_to_member_companies(client):
     assert res.status_code == 200
     # Este usuario no es miembro de ninguna empresa con vacantes → no ve postulaciones ajenas
     assert res.json() == []
+
+
+def test_revoke_invitation_when_ids_collide(client):
+    """Miembro id=N e invitación id=N en la misma empresa: revocar la invitación no debe tocar al miembro."""
+    headers = make_auth_header("collide@test.com", nombre="Collide")
+    company = _create_company(client, headers, "Planta Colisión")
+    client.post(f"/api/v1/companies/{company['id']}/invite", json={"email": "pend@test.com"}, headers=headers)
+    team = client.get(f"/api/v1/companies/{company['id']}/members", headers=headers).json()
+    inv_id = team["pending_invitations"][0]["id"]
+
+    res = client.delete(f"/api/v1/companies/{company['id']}/members/{inv_id}?type=invitation", headers=headers)
+    assert res.status_code == 200
+
+    after = client.get(f"/api/v1/companies/{company['id']}/members", headers=headers).json()
+    assert after["total_pending"] == 0
+    assert after["total_members"] == 1  # el propio admin sigue en el equipo
+
+    # Un miembro no puede eliminarse a sí mismo
+    me_id = after["active_members"][0]["id"]
+    self_delete = client.delete(f"/api/v1/companies/{company['id']}/members/{me_id}?type=member", headers=headers)
+    assert self_delete.status_code == 400

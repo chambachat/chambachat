@@ -98,9 +98,9 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
       <MembersList
         teamData={teamData}
         currentUser={currentUser}
-        onRemoveMember={async (id) => {
+        onRemoveMember={async (id, type) => {
           try {
-            await removeMember(id);
+            await removeMember(id, type);
           } catch (err) {
             toast.error(err.message || 'Error al remover miembro');
           }
