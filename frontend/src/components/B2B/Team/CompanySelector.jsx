@@ -1,12 +1,11 @@
 import React from 'react';
-import { Building2, Plus, UserPlus, Settings, ShieldCheck, FileText, ExternalLink } from 'lucide-react';
+import { Building2, Plus, Settings, ShieldCheck, FileText, ExternalLink } from 'lucide-react';
 
 export default function CompanySelector({
   companies,
   selectedCompany,
   onSelectCompany,
   onNewCompany,
-  onInvite,
   onEditCompany
 }) {
   return (
@@ -33,14 +32,6 @@ export default function CompanySelector({
           >
             <Plus className="w-4 h-4 text-emerald-400" />
             <span>Nueva Planta / Empresa</span>
-          </button>
-          <button
-            type="button"
-            onClick={onInvite}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Invitar Reclutador</span>
           </button>
         </div>
       </div>

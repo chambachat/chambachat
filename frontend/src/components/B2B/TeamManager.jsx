@@ -82,10 +82,6 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
         selectedCompany={selectedCompany}
         onSelectCompany={selectCompany}
         onNewCompany={() => setIsNewCompanyModalOpen(true)}
-        onInvite={() => {
-          setInviteResult(null);
-          setIsInviteModalOpen(true);
-        }}
         onEditCompany={() => setIsEditCompanyModalOpen(true)}
       />
 
@@ -98,6 +94,10 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
       <MembersList
         teamData={teamData}
         currentUser={currentUser}
+        onInvite={() => {
+          setInviteResult(null);
+          setIsInviteModalOpen(true);
+        }}
         onRemoveMember={async (id, type) => {
           try {
             await removeMember(id, type);

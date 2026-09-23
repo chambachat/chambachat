@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Trash2, Clock, Copy, X } from 'lucide-react';
+import { CheckCircle2, Trash2, Clock, Copy, X, UserPlus } from 'lucide-react';
 import { useToast } from '../../ui/Toast';
 
 export default function MembersList({
   teamData,
   currentUser,
   onRemoveMember,
+  onInvite,
   originUrl = 'https://chambachat.onrender.com'
 }) {
   const toast = useToast();
@@ -22,14 +23,26 @@ export default function MembersList({
   return (
     <div className="space-y-6">
       <div className="bg-white border border-slate-200 rounded-3xl shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-black text-slate-900">Equipo de Reclutadores</h2>
             <p className="text-xs text-slate-500">Colegas con acceso a vacantes y atención de postulantes de esta empresa.</p>
           </div>
-          <span className="text-xs font-bold text-slate-400">
-            {teamData?.active_members?.length || 0} integrante{(teamData?.active_members?.length || 0) === 1 ? '' : 's'}
-          </span>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs font-bold text-slate-400">
+              {teamData?.active_members?.length || 0} integrante{(teamData?.active_members?.length || 0) === 1 ? '' : 's'}
+            </span>
+            {onInvite && (
+              <button
+                type="button"
+                onClick={onInvite}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Invitar Reclutador</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="divide-y divide-slate-100">
