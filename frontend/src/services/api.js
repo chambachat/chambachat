@@ -119,6 +119,7 @@ export async function toggleBotState(applicationId, silenced = null) {
 export async function checkBotFallback(applicationId, force = false) {
   const res = await fetch(`${API_BASE}/applications/${applicationId}/check-bot-fallback?force=${force}`, {
     method: 'POST',
+    headers: authHeaders(),
   });
   if (!res.ok) return { triggered: false };
   return res.json();
@@ -194,12 +195,18 @@ export async function getUserCompanies() {
 export async function uploadConstanciaFiscal(file) {
   const formData = new FormData();
   formData.append('file', file);
+  // Solo Authorization: el navegador debe fijar el Content-Type multipart con su boundary.
+  const headers = {};
+  const token = getStoredToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API_BASE}/companies/upload-csf`, {
     method: 'POST',
+    headers,
     body: formData,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Error al subir archivo de constancia' }));
+    if (res.status === 401) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión para subir la constancia.');
     throw new Error(err.detail || 'Error al subir archivo de constancia');
   }
   return res.json();
@@ -313,8 +320,12 @@ export async function updateCompanyRoute(companyId, routeId, routeData) {
 export async function deleteCompanyRoute(companyId, routeId) {
   const res = await fetch(`${API_BASE}/companies/${companyId}/routes/${routeId}`, {
     method: 'DELETE',
+    headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Error al eliminar ruta de transporte');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al eliminar ruta de transporte' }));
+    throw new Error(err.detail || 'Error al eliminar ruta de transporte');
+  }
   return res.json();
 }
 
@@ -387,6 +398,7 @@ export async function deleteCompanyShift(companyId, shiftId) {
   if (!companyId || !shiftId) throw new Error('Se requiere el ID de la empresa y del turno');
   const res = await fetch(`${API_BASE}/companies/${companyId}/shifts/${shiftId}`, {
     method: 'DELETE',
+    headers: authHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Error al eliminar turno' }));

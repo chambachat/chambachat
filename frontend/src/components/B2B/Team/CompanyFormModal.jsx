@@ -98,6 +98,7 @@ export default function CompanyFormModal({
               companyData={companyData}
               csfUploadedUrl={csf.csfUploadedUrl}
               csfUploading={csf.csfUploading}
+              csfError={csf.csfError}
               onFile={handleFile}
             />
           )}
