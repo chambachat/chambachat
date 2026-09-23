@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, UserPlus, CheckCircle2, Send } from 'lucide-react';
+import { X, UserPlus, Send } from 'lucide-react';
+import InviteResultCard from './InviteResultCard';
 
 export default function InviteMemberModal({
   isOpen,
@@ -12,7 +13,6 @@ export default function InviteMemberModal({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState('recruiter');
-  const [copiedToken, setCopiedToken] = useState(false);
 
   if (!isOpen) return null;
 
@@ -23,14 +23,6 @@ export default function InviteMemberModal({
       nombre: inviteName.trim() || undefined,
       role: inviteRole
     });
-  };
-
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2500);
-    } catch (e) {}
   };
 
   return (
@@ -54,38 +46,7 @@ export default function InviteMemberModal({
         </div>
 
         {inviteResult ? (
-          <div className="space-y-4 pt-2">
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
-              <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>¡Invitación despachada!</span>
-              </div>
-              <p className="text-xs text-emerald-700">
-                Se envió la notificación a <strong>{inviteEmail}</strong> con las instrucciones de acceso.
-              </p>
-              <div className="p-2.5 bg-white border border-emerald-200 rounded-xl space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold block">Enlace directo de invitación:</span>
-                <div className="flex items-center justify-between gap-2 text-xs font-mono text-emerald-900 break-all">
-                  <span className="truncate">{inviteResult.invite_url}</span>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(inviteResult.invite_url)}
-                    className="text-emerald-700 hover:text-emerald-800 bg-emerald-100 px-2 py-1 rounded-lg text-[10px] font-bold shrink-0"
-                  >
-                    {copiedToken ? 'Copiado' : 'Copiar'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition"
-            >
-              Listo
-            </button>
-          </div>
+          <InviteResultCard inviteResult={inviteResult} inviteEmail={inviteEmail} onClose={onClose} />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
             <div>

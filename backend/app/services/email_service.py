@@ -55,7 +55,25 @@ def _send_via_resend(to_email: str, subject: str, html_content: str, api_key: st
     )
     if res.status_code in (200, 201):
         return {"sent": True, "provider": "resend", "detail": res.json()}
-    return {"sent": False, "error": f"Resend HTTP {res.status_code}: {res.text}"}
+    return {"sent": False, "error": _friendly_resend_error(res.status_code, res.text, from_sender)}
+
+
+def _friendly_resend_error(status: int, body: str, from_sender: str) -> str:
+    """Convierte los errores frecuentes de Resend en un mensaje que el usuario pueda accionar."""
+    lower = body.lower()
+    if "resend.dev" in from_sender and ("own email" in lower or "verify a domain" in lower or status == 403):
+        return (
+            "El remitente de pruebas de Resend (onboarding@resend.dev) solo puede enviar al correo del dueño "
+            "de la cuenta. Verifica tu dominio en resend.com/domains y configura RESEND_FROM "
+            "(ej. 'ChambaChat <hola@tudominio.com>') en Render."
+        )
+    if status in (401, 403):
+        return "Resend rechazó la API key (RESEND_API_KEY inválida o sin permisos de envío)."
+    if status == 422:
+        return f"Resend rechazó el mensaje: {body[:200]}"
+    if status == 429:
+        return "Resend: límite de envíos alcanzado, intenta más tarde."
+    return f"Resend HTTP {status}: {body[:200]}"
 
 
 def _send_via_smtp(to_email: str, subject: str, html_content: str) -> dict:
