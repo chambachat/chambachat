@@ -124,6 +124,10 @@ class ApplicationResponse(BaseModel):
     match_breakdown: Optional[List[Dict[str, Any]]] = None
     match_level: Optional[str] = None
     screening_completed_at: Optional[datetime] = None
+    # Preferidos y bloqueos (ver routers/favorites.py y routers/blocks.py)
+    favorite_id: Optional[int] = None
+    blocked_by_company: bool = False
+    blocked_by_candidate: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -649,6 +653,7 @@ class CompanyResponse(BaseModel):
     created_by_email: Optional[str] = None
     created_at: Optional[datetime] = None
     members_count: int = 1
+    smart_code: Optional[str] = None  # código verificador del Smart Link
     # Metadatos oficiales del SAT / CSF
     idcif: Optional[str] = None
     curp: Optional[str] = None
@@ -755,6 +760,7 @@ class CompanyBriefResponse(BaseModel):
     nombre: str
     municipio: Optional[str] = None
     industria: Optional[str] = None
+    smart_code: Optional[str] = None
 
 
 class AcceptInvitationResponse(StatusMessageResponse):
@@ -880,3 +886,62 @@ class RouteMutationResponse(StatusMessageResponse):
 class NearbyStopsResponse(BaseModel):
     total_encontradas: int
     stops_cercanas: List[Dict[str, Any]]
+
+
+# ==========================================
+# CANDIDATOS PREFERIDOS Y BLOQUEOS
+# ==========================================
+class FavoriteCreate(BaseModel):
+    candidate_email: str
+    candidate_name: Optional[str] = None
+    application_id: Optional[int] = None
+    nota: Optional[str] = Field(None, max_length=500)
+
+
+class FavoriteApplicationBrief(BaseModel):
+    id: int
+    job_titulo: Optional[str] = None
+    status: Optional[str] = None
+    match_score: Optional[int] = None
+    match_level: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+
+
+class FavoriteResponse(BaseModel):
+    id: int
+    company_id: int
+    candidate_email: str
+    candidate_name: Optional[str] = None
+    candidate_phone: Optional[str] = None
+    nota: Optional[str] = None
+    added_by_email: Optional[str] = None
+    created_at: Optional[datetime] = None
+    application: Optional[FavoriteApplicationBrief] = None  # última postulación: para retomar el chat
+    blocked: bool = False
+
+
+class BlockCreate(BaseModel):
+    blocker_type: str  # 'company' (empresa bloquea candidato) | 'candidate' (candidato bloquea empresa)
+    company_id: int
+    candidate_email: Optional[str] = None  # solo para blocker_type=company
+    reason: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("blocker_type")
+    @classmethod
+    def _valid_type(cls, v: str) -> str:
+        v = (v or "").strip().lower()
+        if v not in {"company", "candidate"}:
+            raise ValueError("blocker_type debe ser 'company' o 'candidate'")
+        return v
+
+
+class BlockResponse(BaseModel):
+    id: int
+    blocker_type: str
+    company_id: int
+    company_nombre: Optional[str] = None
+    candidate_email: str
+    candidate_name: Optional[str] = None
+    reason: Optional[str] = None
+    created_at: Optional[datetime] = None
+    mine: bool = True  # lo hizo mi lado: puedo quitarlo

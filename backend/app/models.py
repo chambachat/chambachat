@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, Date, DateTime, ForeignKey, LargeBinary, JSON
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, Date, DateTime, ForeignKey, LargeBinary, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -192,6 +192,7 @@ class Company(Base):
     sat_url_validacion = Column(String(500), nullable=True)
     sat_validado = Column(Boolean, default=False)
     sat_raw_data = Column(Text, nullable=True)  # JSON con metadatos completos
+    smart_code = Column(String(12), nullable=True, unique=True, index=True)  # código verificador del Smart Link
 
     created_by_email = Column(String(255), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -320,4 +321,33 @@ class CompanyDocument(Base):
     size_bytes = Column(Integer, nullable=False, default=0)
     data = Column(LargeBinary, nullable=False)
     uploaded_by_email = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CandidateFavorite(Base):
+    """Candidato preferido de una empresa: se marca desde el chat y se retoma desde 'Candidatos preferidos'."""
+    __tablename__ = "candidate_favorites"
+    __table_args__ = (UniqueConstraint("company_id", "candidate_email", name="uq_favorite_company_candidate"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    candidate_email = Column(String(255), nullable=False, index=True)
+    candidate_name = Column(String(255), nullable=True)
+    application_id = Column(Integer, ForeignKey("job_applications.id", ondelete="SET NULL"), nullable=True)
+    nota = Column(Text, nullable=True)
+    added_by_email = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ChatBlock(Base):
+    """Bloqueo entre una empresa y un candidato. blocker_type indica quién bloqueó: 'company' | 'candidate'."""
+    __tablename__ = "chat_blocks"
+    __table_args__ = (UniqueConstraint("blocker_type", "company_id", "candidate_email", name="uq_block_side_company_candidate"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    blocker_type = Column(String(20), nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    candidate_email = Column(String(255), nullable=False, index=True)
+    reason = Column(Text, nullable=True)
+    created_by_email = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Search, Building2, User, ChevronRight, Settings, Headset, MessageSquare } from 'lucide-react';
+import { X, Search, Building2, User, ChevronRight, Settings, Headset, MessageSquare, Star, Ban } from 'lucide-react';
 import { unreadCount, lastMessage, initials } from '../../../services/recruiterChat';
 import { formatBackendTime } from '../../../services/directChat';
 
@@ -26,7 +26,11 @@ function CandidateRow({ app, isActive, onSelect }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-xs truncate ${unread ? 'font-black text-slate-900' : 'font-bold text-slate-800'}`}>{app.candidate_name}</span>
+          <span className={`flex items-center gap-1 min-w-0 text-xs ${unread ? 'font-black text-slate-900' : 'font-bold text-slate-800'}`}>
+            <span className="truncate">{app.candidate_name}</span>
+            {app.favorite_id && <Star className="w-3 h-3 text-amber-500 shrink-0" fill="currentColor" />}
+            {app.blocked_by_company && <Ban className="w-3 h-3 text-rose-500 shrink-0" title="Bloqueado por tu empresa" />}
+          </span>
           <span className="text-[10px] text-slate-400 shrink-0">{last ? formatBackendTime(last.created_at) : ''}</span>
         </div>
         <span className="text-[11px] text-emerald-700 font-semibold block truncate">{app.job_titulo}</span>
@@ -62,10 +66,13 @@ export default function RecruiterSidebar({
   onSwitchToCandidate
 }) {
   const [q, setQ] = useState('');
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
   const term = q.trim().toLowerCase();
   const filtered = applications.filter(a =>
-    !term || a.candidate_name?.toLowerCase().includes(term) || a.job_titulo?.toLowerCase().includes(term) || a.empresa_nombre?.toLowerCase().includes(term)
+    (!onlyFavorites || a.favorite_id) &&
+    (!term || a.candidate_name?.toLowerCase().includes(term) || a.job_titulo?.toLowerCase().includes(term) || a.empresa_nombre?.toLowerCase().includes(term))
   );
+  const favoritesCount = applications.filter(a => a.favorite_id).length;
   const totalUnread = applications.reduce((n, a) => n + unreadCount(a), 0);
   const closeOnMobile = () => { if (typeof window !== 'undefined' && window.innerWidth < 768) onToggleSidebar(); };
 
@@ -105,6 +112,16 @@ export default function RecruiterSidebar({
           </div>
         </div>
 
+        <div className="px-3 pt-2 flex items-center gap-1.5">
+          <button type="button" onClick={() => setOnlyFavorites(false)} className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${!onlyFavorites ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+            Todos
+          </button>
+          <button type="button" onClick={() => setOnlyFavorites(true)} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${onlyFavorites ? 'bg-amber-400 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-amber-50'}`}>
+            <Star className="w-3 h-3" fill={onlyFavorites ? 'currentColor' : 'none'} />
+            <span>Preferidos{favoritesCount ? ` (${favoritesCount})` : ''}</span>
+          </button>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1.5 block">Tus conversaciones</span>
           {loading ? (
@@ -112,7 +129,7 @@ export default function RecruiterSidebar({
           ) : filtered.length === 0 ? (
             <div className="py-10 text-center text-xs text-slate-400 space-y-2 px-4">
               <MessageSquare className="w-8 h-8 text-slate-300 mx-auto" />
-              <p>{applications.length === 0 ? 'Aún no hay postulaciones. Cuando un candidato abra el chat directo de tu vacante aparecerá aquí.' : 'Sin coincidencias.'}</p>
+              <p>{applications.length === 0 ? 'Aún no hay postulaciones. Cuando un candidato abra el chat directo de tu vacante aparecerá aquí.' : onlyFavorites ? 'Aún no marcas candidatos preferidos: usa la ⭐ en su chat.' : 'Sin coincidencias.'}</p>
             </div>
           ) : (
             filtered.map(app => (

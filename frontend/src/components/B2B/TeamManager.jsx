@@ -8,6 +8,7 @@ import { useCompanyShifts } from '../../hooks/useCompanyShifts';
 import CompanyLocationModal from './CompanyLocationModal';
 import CompanyOnboarding from './Team/CompanyOnboarding';
 import CompanySelector from './Team/CompanySelector';
+import SmartLinkCard from './Applications/SmartLinkCard';
 import CompanyMetrics from './Team/CompanyMetrics';
 import MembersList from './Team/MembersList';
 import InviteMemberModal from './Team/InviteMemberModal';
@@ -84,6 +85,8 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
         onNewCompany={() => setIsNewCompanyModalOpen(true)}
         onEditCompany={() => setIsEditCompanyModalOpen(true)}
       />
+
+      <SmartLinkCard company={selectedCompany} />
 
       <CompanyMetrics
         teamData={teamData}

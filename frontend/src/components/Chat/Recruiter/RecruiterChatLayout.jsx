@@ -5,7 +5,7 @@ import RecruiterSidebar from './RecruiterSidebar';
 import RecruiterConversation from './RecruiterConversation';
 import { useApplicationsInbox } from '../../../hooks/useApplicationsInbox';
 import { useToast } from '../../ui/Toast';
-import { deriveRecruiterName, markSeen } from '../../../services/recruiterChat';
+import { deriveRecruiterName, markSeen, takeFocusApplication } from '../../../services/recruiterChat';
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -47,8 +47,9 @@ function EmptyState({ loading, total, onOpenEmpresa, onOpenList }) {
  */
 export default function RecruiterChatLayout({ currentUser, onOpenEmpresa, onOpenPerfil, onOpenAdmin, onSwitchToCandidate }) {
   const toast = useToast();
-  const inbox = useApplicationsInbox();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [focusId] = useState(() => takeFocusApplication());  // "Retomar chat" desde Candidatos preferidos
+  const inbox = useApplicationsInbox(4000, focusId);
+  const [sidebarOpen, setSidebarOpen] = useState(() => !focusId);
   const recruiterName = deriveRecruiterName(currentUser);
   const selected = inbox.selectedApp;
 
@@ -65,6 +66,26 @@ export default function RecruiterChatLayout({ currentUser, onOpenEmpresa, onOpen
   const handleSend = async (text) => {
     const ok = await inbox.sendMessage(text, recruiterName);
     if (!ok) toast.error('No se pudo enviar el mensaje. Revisa tu conexión e inténtalo de nuevo.');
+  };
+
+  const handleToggleFavorite = async (app) => {
+    try {
+      const added = await inbox.toggleFavorite(app);
+      toast.success(added ? `${app.candidate_name} quedó en tus candidatos preferidos` : 'Quitado de candidatos preferidos');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo actualizar');
+    }
+  };
+
+  const handleToggleBlock = async (app) => {
+    const blocking = !app.blocked_by_company;
+    if (blocking && !(await toast.confirm(`¿Bloquear a ${app.candidate_name}? No podrá escribirte ni postularse a tus vacantes. Puedes quitar el bloqueo después.`))) return;
+    try {
+      await inbox.toggleBlock(app);
+      toast.success(blocking ? 'Candidato bloqueado' : 'Bloqueo retirado');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo actualizar el bloqueo');
+    }
   };
 
   const handleDelete = async (app) => {
@@ -115,6 +136,9 @@ export default function RecruiterChatLayout({ currentUser, onOpenEmpresa, onOpen
             onToggleBot={inbox.toggleBot}
             botActionLoading={inbox.botActionLoading}
             onDelete={handleDelete}
+            onToggleFavorite={handleToggleFavorite}
+            onToggleBlock={handleToggleBlock}
+            actionLoading={inbox.actionLoading}
           />
         ) : (
           <EmptyState loading={inbox.loading} total={inbox.applications.length} onOpenEmpresa={onOpenEmpresa} onOpenList={() => setSidebarOpen(true)} />

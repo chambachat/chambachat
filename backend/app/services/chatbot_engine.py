@@ -12,6 +12,7 @@ from app.services.deepseek_engine import query_deepseek_chat
 from app.services.geo import get_municipio_coords
 from app.services.matchmaking import match_jobs_for_candidate
 from app.services.routes_service import find_nearby_stops
+from app.services.blocks_service import blocked_company_ids_for_candidate
 
 logger = logging.getLogger(__name__)
 
@@ -362,6 +363,10 @@ async def process_chat_message(
         )
         if wants_jobs:
             all_jobs = db.query(Job).filter(Job.activa.is_(True)).all()
+            if data.get("email"):
+                excluded = blocked_company_ids_for_candidate(db, data["email"])
+                if excluded:
+                    all_jobs = [j for j in all_jobs if j.empresa_id not in excluded]
             matched_jobs = match_jobs_for_candidate(
                 candidate_lat=c_lat,
                 candidate_lon=c_lon,

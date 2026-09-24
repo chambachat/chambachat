@@ -3,7 +3,6 @@ import { MessageSquare } from 'lucide-react';
 import { useApplicationsInbox } from '../../hooks/useApplicationsInbox';
 import { useToast } from '../ui/Toast';
 import { deriveRecruiterName } from '../../services/recruiterChat';
-import SmartLinkCard from './Applications/SmartLinkCard';
 import ApplicationsList from './Applications/ApplicationsList';
 import ApplicationDetail from './Applications/ApplicationDetail';
 import ApplicationChat from './Applications/ApplicationChat';
@@ -51,8 +50,6 @@ export default function CandidateApplications({ currentUser }) {
           <span className="text-xl font-black text-emerald-600">{inbox.applications.length}</span>
         </div>
       </div>
-
-      <SmartLinkCard currentUser={currentUser} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm min-h-[580px]">
         <ApplicationsList

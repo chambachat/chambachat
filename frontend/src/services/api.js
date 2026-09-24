@@ -171,6 +171,7 @@ export async function getJobs(filters = {}) {
   if (filters.q) params.append('q', filters.q);
   if (filters.empresa) params.append('empresa', filters.empresa);
   if (filters.company_id) params.append('company_id', filters.company_id);
+  if (filters.company_code) params.append('company_code', filters.company_code);
   if (filters.mine) params.append('mine', 'true');
   if (filters.include_inactive) params.append('include_inactive', 'true');
   if (filters.apoyo_inea !== undefined && filters.apoyo_inea !== null && filters.apoyo_inea !== '') {
@@ -207,6 +208,47 @@ export async function updateMyLocation({ lat, lon, colonia, municipio }) {
     throw new Error(err.detail || 'No se pudo guardar tu ubicación');
   }
   return res.json();
+}
+
+/** Planta del Smart Link por su código verificador (público). */
+export async function getCompanyByCode(code) {
+  const res = await fetch(`${API_BASE}/companies/by-code/${encodeURIComponent(code)}`);
+  if (!res.ok) throw new Error('Código de empresa no válido');
+  return res.json();
+}
+
+// ─── Candidatos preferidos ───────────────────────────────────────────
+async function _json(res, fallback) {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: fallback }));
+    throw new Error(err.detail || fallback);
+  }
+  return res.json();
+}
+
+export async function getFavorites(companyId) {
+  return _json(await fetch(`${API_BASE}/companies/${companyId}/favorites`, { headers: authHeaders() }), 'No se pudieron cargar los preferidos');
+}
+
+export async function addFavorite(companyId, data) {
+  return _json(await fetch(`${API_BASE}/companies/${companyId}/favorites`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) }), 'No se pudo agregar a preferidos');
+}
+
+export async function removeFavorite(companyId, favoriteId) {
+  return _json(await fetch(`${API_BASE}/companies/${companyId}/favorites/${favoriteId}`, { method: 'DELETE', headers: authHeaders() }), 'No se pudo quitar de preferidos');
+}
+
+// ─── Bloqueos (empresa ↔ candidato) ──────────────────────────────────
+export async function getMyBlocks() {
+  return _json(await fetch(`${API_BASE}/blocks/mine`, { headers: authHeaders() }), 'No se pudieron cargar los bloqueos');
+}
+
+export async function createBlock(data) {
+  return _json(await fetch(`${API_BASE}/blocks`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) }), 'No se pudo registrar el bloqueo');
+}
+
+export async function removeBlock(blockId) {
+  return _json(await fetch(`${API_BASE}/blocks/${blockId}`, { method: 'DELETE', headers: authHeaders() }), 'No se pudo quitar el bloqueo');
 }
 
 export async function getJobCatalog() {

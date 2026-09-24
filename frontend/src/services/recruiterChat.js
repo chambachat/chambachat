@@ -82,3 +82,20 @@ export function mapRecruiterMessage(m, candidateName) {
     time: formatBackendTime(m.created_at),
   };
 }
+
+const FOCUS_KEY = 'chambachat_focus_application';
+
+/** "Retomar chat" desde Candidatos preferidos: la conversación que debe abrirse al entrar al chat de empresa. */
+export function setFocusApplication(applicationId) {
+  try { localStorage.setItem(FOCUS_KEY, String(applicationId)); } catch (e) {}
+}
+
+export function takeFocusApplication() {
+  try {
+    const value = localStorage.getItem(FOCUS_KEY);
+    if (value) localStorage.removeItem(FOCUS_KEY);
+    return value ? Number(value) : null;
+  } catch (e) {
+    return null;
+  }
+}

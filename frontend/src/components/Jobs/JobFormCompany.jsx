@@ -13,9 +13,9 @@ export default function JobFormCompany({ job, companies, selectedCompany, onChan
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
           <span>Aún no tienes una empresa dada de alta</span>
         </div>
-        <p>Registra tu planta con su Constancia de Situación Fiscal en <strong>Mi Equipo</strong> para poder publicar vacantes a su nombre.</p>
+        <p>Registra tu planta con su Constancia de Situación Fiscal en <strong>Equipo y Empresa</strong> para poder publicar vacantes a su nombre.</p>
         {onGoToTeam && (
-          <button type="button" onClick={onGoToTeam} className="font-bold text-emerald-700 hover:underline">Ir a Mi Equipo</button>
+          <button type="button" onClick={onGoToTeam} className="font-bold text-emerald-700 hover:underline">Ir a Equipo y Empresa</button>
         )}
       </div>
     );
@@ -44,7 +44,7 @@ export default function JobFormCompany({ job, companies, selectedCompany, onChan
           <MapPin className="w-3.5 h-3.5 text-sky-500 shrink-0 mt-0.5" />
           <span>
             <strong className="text-slate-700">Ubicación de la vacante:</strong> {ubicacion}.
-            {' '}Se toma de la planta seleccionada; edítala en Mi Equipo si cambió.
+            {' '}Se toma de la planta seleccionada; edítala en Equipo y Empresa si cambió.
           </span>
         </div>
       </div>

@@ -64,6 +64,7 @@ export default function GeminiChatLayout({
   const screeningActive = screening?.status === 'in_progress';
   const screeningOptions = screeningActive && screening.options?.length ? screening.options.map(o => ({ label: o, value: o })) : [];
   const askingLocationInDirect = isDirect && screeningActive && screening.step_key === 'ubicacion';
+  const directLocked = isDirect && (activeSession?.closed || activeSession?.blockedByCompany || activeSession?.blockedByCandidate);
 
   useEffect(() => {
     if (propCurrentUser !== undefined) setCurrentUser(propCurrentUser);
@@ -224,7 +225,15 @@ export default function GeminiChatLayout({
             <ChatWelcome onPrompt={handleSendMessage} />
           ) : (
             <div className="space-y-4 sm:space-y-6 min-w-0">
-              {isDirect && <DirectChatBanner session={activeSession} />}
+              {isDirect && (
+                <DirectChatBanner
+                  session={activeSession}
+                  onMetaChange={(changes) => {
+                    setActiveSession(prev => ({ ...prev, ...changes }));
+                    updateSession(activeSession.id, changes);
+                  }}
+                />
+              )}
 
               <MessageList messages={activeSession.messages} isTyping={!isDirect && isTyping} />
 
@@ -261,9 +270,11 @@ export default function GeminiChatLayout({
           onSend={() => handleSendMessage()}
           options={isDirect ? screeningOptions : options}
           onSelectOption={handleOptionSelect}
-          disabled={Boolean(isDirect && activeSession?.closed)}
+          disabled={Boolean(directLocked)}
           placeholder={isDirect
             ? (activeSession?.closed ? 'Conversación cerrada por el reclutador'
+              : activeSession?.blockedByCandidate ? 'Bloqueaste a esta empresa'
+              : activeSession?.blockedByCompany ? 'La empresa cerró esta conversación'
               : screeningActive ? 'Responde a Chambot o elige una opción arriba...'
               : `Escribe a Reclutamiento ${activeSession.companyName}...`)
             : undefined}

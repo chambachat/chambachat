@@ -45,6 +45,8 @@ export function metaFromApplication(application) {
     botSilenced: Boolean(application.bot_silenced),
     screening: application.screening || null,
     screeningStatus: application.screening_status || 'none',
+    blockedByCompany: Boolean(application.blocked_by_company),
+    blockedByCandidate: Boolean(application.blocked_by_candidate),
   };
 }
 

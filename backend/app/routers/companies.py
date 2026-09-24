@@ -56,7 +56,26 @@ def _active_members_count(db: Session, company_id: int) -> int:
     ).count()
 
 
+_SMART_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # sin 0/O ni 1/I para dictarlo sin confusiones
+
+
+def _generate_smart_code(db: Session) -> str:
+    while True:
+        code = "".join(secrets.choice(_SMART_ALPHABET) for _ in range(6))
+        if not db.query(Company.id).filter(Company.smart_code == code).first():
+            return code
+
+
+def ensure_smart_code(db: Session, company: Company) -> str:
+    """Empresas previas al código verificador lo reciben la primera vez que se consultan."""
+    if not company.smart_code:
+        company.smart_code = _generate_smart_code(db)
+        db.commit()
+    return company.smart_code
+
+
 def company_to_response(db: Session, company: Company) -> CompanyResponse:
+    ensure_smart_code(db, company)
     resp = CompanyResponse.model_validate(company)
     resp.members_count = max(_active_members_count(db, company.id), 1)
     return resp
@@ -121,6 +140,15 @@ def upload_constancia_fiscal(
     )
 
 
+@router.get("/by-code/{code}", response_model=CompanyBriefResponse)
+def get_company_by_code(code: str, db: Session = Depends(get_db)):
+    """Resuelve la planta de un Smart Link por su código verificador (público, solo datos básicos)."""
+    company = db.query(Company).filter(Company.smart_code == code.strip().upper()).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Código de empresa no válido")
+    return CompanyBriefResponse.model_validate(company)
+
+
 @router.get("", response_model=List[CompanyResponse])
 def list_user_companies(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
@@ -149,6 +177,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db), curren
     company = Company(
         nombre=clean_name,
         created_by_email=creator_email,
+        smart_code=_generate_smart_code(db),
         estado_verificacion="verificada" if (payload.constancia_fiscal_url or payload.sat_validado) else "pendiente_revision",
         **{
             **fields,

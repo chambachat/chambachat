@@ -20,7 +20,7 @@ export default function App() {
 
   // 'chat' es la pantalla principal por defecto
   const [currentView, setCurrentView] = useState('chat');
-  const [empresaTab, setEmpresaTab] = useState('applications');
+  const [empresaTab, setEmpresaTab] = useState('team');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(getStoredUser());
   const [activeCompany, setActiveCompany] = useState(null);

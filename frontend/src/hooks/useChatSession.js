@@ -8,7 +8,8 @@ import {
   updateSession,
   clearAllSessions
 } from '../services/chatStorage';
-import { startChat, sendChatMessage, getJobs, submitApplication, sendCandidateMessage, getApplicationById } from '../services/api';
+import { startChat, sendChatMessage, submitApplication, sendCandidateMessage, getApplicationById } from '../services/api';
+import { readSmartLinkParams, loadSmartLink, smartWelcomeText } from '../services/smartLink';
 import { createDirectSession, findDirectSession, mapApplicationMessage, formatBackendTime, missingMessages, metaFromApplication } from '../services/directChat';
 import { useDirectChatsPolling } from './useDirectChatsPolling';
 
@@ -30,37 +31,54 @@ export function useChatSession(currentUser) {
 
   useEffect(() => {
     const loaded = loadAllSessions();
-    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const empresaParam = urlParams?.get('empresa');
+    const smartParams = typeof window !== 'undefined' ? readSmartLinkParams(window.location.search) : { empresa: null, codigo: null };
 
-    if (empresaParam) {
-      const smartTitle = `Bolsa ${empresaParam}`;
-      const existingSmart = loaded.find(s => s.title === smartTitle);
-      if (existingSmart) {
+    if (smartParams.empresa || smartParams.codigo) {
+      // Smart Link: mientras se resuelve la planta (por código verificador), mostrar lo guardado
+      if (loaded.length > 0) {
         setSessions(loaded);
-        setActiveSession(existingSmart);
-        setActiveSessionId(existingSmart.id);
-      } else {
-        getJobs({ empresa: empresaParam }).then(jobs => {
-          const freshSmart = createNewSession();
-          freshSmart.title = smartTitle;
-          freshSmart.matchedJobs = jobs || [];
-          freshSmart.messages = [{
-            id: 'smart_welcome_' + Date.now(),
-            sender: 'bot',
-            text: `¡Qué onda! 🤠 Bienvenido a la bolsa de trabajo oficial de **${empresaParam}** en Nuevo León.\n\nAquí tienes las vacantes activas y verificadas de la planta. Puedes revisarlas y darle clic a **"Postularme de Volada"** para apartar tu lugar, o preguntarme sobre transporte, turnos fijos o sueldos libres.`,
-            time: nowTime()
-          }];
-          freshSmart.candidateProfile = { empresa_interes: empresaParam };
-          updateSession(freshSmart.id, { title: freshSmart.title, matchedJobs: freshSmart.matchedJobs, messages: freshSmart.messages, candidateProfile: freshSmart.candidateProfile });
-          setSessions(loadAllSessions());
-          setActiveSession(freshSmart);
-          setActiveSessionId(freshSmart.id);
-          setShowVacancies(true);
-        }).catch(err => {
-          console.error('Error cargando vacantes de Smart Link:', err);
-        });
+        setActiveSession(loaded[0]);
       }
+      loadSmartLink(smartParams).then(info => {
+        if (!info) return;
+        if (info.error) {
+          const fresh = createNewSession();
+          fresh.messages = [{ id: 'smart_error_' + Date.now(), sender: 'bot', text: info.error, time: nowTime() }];
+          updateSession(fresh.id, { messages: fresh.messages });
+          setSessions(loadAllSessions());
+          setActiveSession(fresh);
+          return;
+        }
+        const smartTitle = `Bolsa ${info.nombre}`;
+        const existingSmart = loaded.find(s => s.smartKey === info.key || s.title === smartTitle);
+        if (existingSmart) {
+          const refreshed = { ...existingSmart, smartKey: info.key, matchedJobs: info.jobs.length ? info.jobs : existingSmart.matchedJobs };
+          updateSession(existingSmart.id, { smartKey: info.key, matchedJobs: refreshed.matchedJobs });
+          setSessions(loadAllSessions());
+          setActiveSession(refreshed);
+          setActiveSessionId(existingSmart.id);
+          setShowVacancies(true);
+          return;
+        }
+        const freshSmart = createNewSession();
+        freshSmart.title = smartTitle;
+        freshSmart.smartKey = info.key;
+        freshSmart.matchedJobs = info.jobs;
+        freshSmart.messages = [{ id: 'smart_welcome_' + Date.now(), sender: 'bot', text: smartWelcomeText(info), time: nowTime() }];
+        freshSmart.candidateProfile = { empresa_interes: info.nombre };
+        updateSession(freshSmart.id, { title: freshSmart.title, smartKey: info.key, matchedJobs: freshSmart.matchedJobs, messages: freshSmart.messages, candidateProfile: freshSmart.candidateProfile });
+        setSessions(loadAllSessions());
+        setActiveSession(freshSmart);
+        setActiveSessionId(freshSmart.id);
+        setShowVacancies(true);
+      }).catch(err => {
+        console.error('Error cargando el Smart Link:', err);
+        if (loaded.length === 0) {
+          const fresh = createNewSession();
+          setSessions([fresh]);
+          setActiveSession(fresh);
+        }
+      });
     } else if (loaded.length === 0) {
       const fresh = createNewSession();
       setSessions([fresh]);
@@ -127,7 +145,7 @@ export function useChatSession(currentUser) {
         text: `Reclutamiento ${stored.companyName} cerró esta conversación. Si te sigue interesando la vacante, vuelve a abrir el chat directo desde la vacante.`
       });
     }
-    const metaKeys = (o) => JSON.stringify([o.status, o.botSilenced, o.screeningStatus, o.screening, Boolean(o.closed)]);
+    const metaKeys = (o) => JSON.stringify([o.status, o.botSilenced, o.screeningStatus, o.screening, Boolean(o.closed), Boolean(o.blockedByCompany), Boolean(o.blockedByCandidate)]);
     const metaChanged = Object.keys(meta).length > 0 && metaKeys({ ...stored, ...meta }) !== metaKeys(stored);
     if (fresh.length === 0 && !metaChanged) return;
 
@@ -140,7 +158,9 @@ export function useChatSession(currentUser) {
       botSilenced: meta.botSilenced ?? stored.botSilenced,
       screening: meta.screening !== undefined ? meta.screening : stored.screening,
       screeningStatus: meta.screeningStatus || stored.screeningStatus,
-      closed: meta.closed ?? stored.closed ?? false
+      closed: meta.closed ?? stored.closed ?? false,
+      blockedByCompany: meta.blockedByCompany ?? stored.blockedByCompany ?? false,
+      blockedByCandidate: meta.blockedByCandidate ?? stored.blockedByCandidate ?? false
     };
     updateSession(sessionId, changes);
     setSessions(loadAllSessions());
@@ -216,7 +236,7 @@ export function useChatSession(currentUser) {
   const sendToBot = async ({ textToSend, optionVal = null, location = null }) => {
     if (!activeSession) return;
     if (activeSession.kind === 'direct') {
-      if (activeSession.closed) return;  // el reclutador eliminó la postulación
+      if (activeSession.closed || activeSession.blockedByCompany || activeSession.blockedByCandidate) return;  // cerrada o bloqueada
       const text = (optionVal || textToSend || '').trim();
       if (text) await sendDirectMessage(text);
       return;

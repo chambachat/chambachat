@@ -1,39 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Copy, ExternalLink } from 'lucide-react';
-import { getUserCompanies } from '../../../services/api';
+import React, { useState } from 'react';
+import { CheckCircle2, Copy, ExternalLink, KeyRound } from 'lucide-react';
+import { buildSmartLinkUrl } from '../../../services/smartLink';
 
 /**
- * "Enlace Vivo" (Smart Link) para campañas: URL del chat enfocada en una planta.
- * Las empresas disponibles salen de las membresías reales del usuario autenticado.
+ * "Enlace Vivo" (Smart Link) de la planta activa: URL del chat enfocada en esa empresa.
+ * Lleva la razón social (legible) y un código verificador único que evita confusiones
+ * con empresas de nombre parecido.
  */
-export default function SmartLinkCard({ currentUser }) {
-  const [companiesList, setCompaniesList] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState(
-    currentUser?.empresa_nombre || currentUser?.company_name || ''
-  );
+export default function SmartLinkCard({ company }) {
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (currentUser?.empresa_nombre || currentUser?.company_name) {
-      setSelectedCompany(currentUser.empresa_nombre || currentUser.company_name);
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (!currentUser?.email) return;
-    getUserCompanies()
-      .then((data) => {
-        const names = (Array.isArray(data) ? data : []).map(c => c.nombre);
-        if (names.length > 0) {
-          setCompaniesList(names);
-          setSelectedCompany(prev => (prev && names.includes(prev)) ? prev : names[0]);
-        }
-      })
-      .catch(err => console.error('Error cargando empresas:', err));
-  }, [currentUser?.email]);
+  if (!company) return null;
 
   const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://chambachat.onrender.com';
-  const smartLinkUrl = `${originUrl}/?empresa=${encodeURIComponent(selectedCompany)}`;
+  const smartLinkUrl = buildSmartLinkUrl(originUrl, company);
 
   const handleCopy = async () => {
     try {
@@ -51,27 +30,19 @@ export default function SmartLinkCard({ currentUser }) {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="p-1 rounded-lg bg-emerald-600 text-white text-xs">⚡</span>
-            <h2 className="text-sm font-black text-slate-900">El Enlace Vivo (Smart Link) para Campañas</h2>
+            <h2 className="text-sm font-black text-slate-900">Smart Link de {company.nombre}</h2>
           </div>
           <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
-            Sustituye flyers estáticos de Facebook y Canva. Comparte este enlace único con tus vacantes vigentes. Todo el tráfico de redes sociales entra al chat enfocado en tu planta.
+            Comparte este enlace en Facebook, WhatsApp o volantes con QR. Quien lo abra entra al chat enfocado en las vacantes vigentes de esta planta.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <label className="text-xs font-bold text-slate-700">Empresa:</label>
-          <select
-            value={selectedCompany}
-            onChange={(e) => setSelectedCompany(e.target.value)}
-            className="bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-500 shadow-sm"
-          >
-            {companiesList.length === 0 && selectedCompany && (
-              <option value={selectedCompany}>{selectedCompany}</option>
-            )}
-            {companiesList.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+        <div className="flex items-center gap-2 shrink-0 text-xs" title="Identifica exactamente a tu planta aunque otra empresa tenga un nombre parecido">
+          <KeyRound className="w-4 h-4 text-emerald-600" />
+          <span className="font-bold text-slate-700">Código verificador:</span>
+          <span className="font-mono font-black tracking-widest text-emerald-800 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg">
+            {company.smart_code || '——————'}
+          </span>
         </div>
       </div>
 
@@ -104,10 +75,13 @@ export default function SmartLinkCard({ currentUser }) {
           rel="noreferrer"
           className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-bold transition shadow-sm shrink-0"
         >
-          <span>Ver como Candidato</span>
+          <span>Ver como candidato</span>
           <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
         </a>
       </div>
+      <p className="text-[10px] text-slate-500">
+        El código evita duplicidades: si dos empresas se llaman parecido, el chat abre exactamente la tuya. Los enlaces anteriores sin código siguen funcionando por nombre.
+      </p>
     </div>
   );
 }

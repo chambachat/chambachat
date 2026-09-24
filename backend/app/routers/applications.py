@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_current_user_optional
-from app.models import ApplicationMessage, CompanyMember, Job, JobApplication, User
+from app.models import ApplicationMessage, CandidateFavorite, CompanyMember, Job, JobApplication, User
 from app.schemas import (
     ApplicationCreateRequest,
     ApplicationResponse,
@@ -26,7 +26,7 @@ from app.schemas import (
     MessageResponse,
     ToggleBotRequest,
 )
-from app.services import screening_service
+from app.services import blocks_service, screening_service
 
 router = APIRouter(prefix="/api/v1/applications", tags=["Applications & Recruiter Chat"])
 
@@ -60,7 +60,8 @@ def _message_response(m: ApplicationMessage) -> MessageResponse:
     )
 
 
-def build_app_response(app: JobApplication) -> ApplicationResponse:
+def build_app_response(app: JobApplication, flags: Optional[dict] = None) -> ApplicationResponse:
+    flags = flags or {}
     job = app.job
     score = app.match_score or compute_match_score(job, app.municipio, app.candidate_phone)
     job_details = None
@@ -105,6 +106,9 @@ def build_app_response(app: JobApplication) -> ApplicationResponse:
         match_breakdown=app.match_breakdown,
         match_level=app.match_level,
         screening_completed_at=app.screening_completed_at,
+        favorite_id=flags.get("favorite_id"),
+        blocked_by_company=bool(flags.get("blocked_by_company", False)),
+        blocked_by_candidate=bool(flags.get("blocked_by_candidate", False)),
     )
 
 
@@ -147,6 +151,58 @@ def _ensure_recruiter(app: JobApplication, user: User, db: Session) -> None:
         raise HTTPException(status_code=403, detail="Solo los reclutadores de la empresa pueden hacer esto")
 
 
+def _flags_for(db: Session, apps: List[JobApplication]) -> dict:
+    """Preferido y bloqueos por postulación, resueltos en dos consultas para toda la lista."""
+    pairs = {
+        (a.job.empresa_id, a.candidate_email.lower())
+        for a in apps if a.job and a.job.empresa_id and a.candidate_email
+    }
+    blocks = blocks_service.block_map(db, pairs)
+    favorites = {}
+    if pairs:
+        rows = db.query(CandidateFavorite).filter(
+            CandidateFavorite.company_id.in_({c for c, _ in pairs}),
+            CandidateFavorite.candidate_email.in_({e for _, e in pairs}),
+        ).all()
+        favorites = {(f.company_id, f.candidate_email.lower()): f.id for f in rows}
+    flags = {}
+    for a in apps:
+        key = (a.job.empresa_id if a.job else None, (a.candidate_email or "").lower())
+        b = blocks.get(key, {})
+        flags[a.id] = {
+            "favorite_id": favorites.get(key),
+            "blocked_by_company": b.get("company", False),
+            "blocked_by_candidate": b.get("candidate", False),
+        }
+    return flags
+
+
+def _responses(db: Session, apps: List[JobApplication]) -> List[ApplicationResponse]:
+    flags = _flags_for(db, apps)
+    return [build_app_response(a, flags.get(a.id)) for a in apps]
+
+
+def _response(db: Session, app: JobApplication) -> ApplicationResponse:
+    return _responses(db, [app])[0]
+
+
+def _ensure_not_blocked(db: Session, app: JobApplication, sender_type: str) -> None:
+    """Un bloqueo en cualquier sentido corta la mensajería; el mensaje explica quién puede quitarlo."""
+    if not (app.job and app.job.empresa_id and app.candidate_email):
+        return
+    blocks = blocks_service.blocks_between(db, app.job.empresa_id, app.candidate_email)
+    if sender_type == "candidate":
+        if blocks["company"]:
+            raise HTTPException(status_code=403, detail="Esta conversación fue cerrada por la empresa.")
+        if blocks["candidate"]:
+            raise HTTPException(status_code=403, detail="Bloqueaste a esta empresa. Desbloquéala para volver a escribirle.")
+    else:
+        if blocks["candidate"]:
+            raise HTTPException(status_code=403, detail="El candidato bloqueó a tu empresa; no es posible escribirle.")
+        if blocks["company"]:
+            raise HTTPException(status_code=403, detail="Tu empresa bloqueó a este candidato. Quita el bloqueo para escribirle.")
+
+
 # ─── Endpoints ───────────────────────────────────────────────────────
 
 @router.post("/apply", response_model=ApplicationResponse)
@@ -168,6 +224,13 @@ def apply_to_job(
     candidate_name = (payload.candidate_name or "").strip() or (current_user.nombre if current_user else "") or "Candidato"
     candidate_phone = payload.candidate_phone or (current_user.telefono if current_user else None)
 
+    if candidate_email and job.empresa_id:
+        blocks = blocks_service.blocks_between(db, job.empresa_id, candidate_email)
+        if blocks["company"]:
+            raise HTTPException(status_code=403, detail="Esta empresa no está aceptando tu postulación por ahora.")
+        if blocks["candidate"]:
+            raise HTTPException(status_code=403, detail="Bloqueaste a esta empresa. Desbloquéala desde tu perfil si quieres postularte.")
+
     if candidate_email:
         existing = db.query(JobApplication).filter(
             JobApplication.job_id == job.id,
@@ -181,7 +244,7 @@ def apply_to_job(
                 screening_service.start_screening(db, existing, job, current_user)
             db.commit()
             db.refresh(existing)
-            return build_app_response(existing)
+            return _response(db, existing)
 
     application = JobApplication(
         job_id=job.id,
@@ -209,7 +272,7 @@ def apply_to_job(
     screening_service.start_screening(db, application, job, current_user)
     db.commit()
     db.refresh(application)
-    return build_app_response(application)
+    return _response(db, application)
 
 
 @router.get("", response_model=List[ApplicationResponse])
@@ -220,7 +283,7 @@ def get_all_applications(db: Session = Depends(get_db), current_user: User = Dep
     if current_user.role != "admin":
         query = query.filter(Job.empresa_id.in_(company_ids)) if company_ids else query.filter(sa_false())
     applications = query.order_by(JobApplication.created_at.desc()).all()
-    return [build_app_response(app) for app in applications]
+    return _responses(db, applications)
 
 
 @router.get("/mine", response_model=List[ApplicationResponse])
@@ -231,14 +294,14 @@ def get_my_applications(db: Session = Depends(get_db), current_user: User = Depe
     applications = db.query(JobApplication).filter(
         JobApplication.candidate_email == current_user.email.lower(),
     ).order_by(JobApplication.created_at.desc()).all()
-    return [build_app_response(app) for app in applications]
+    return _responses(db, applications)
 
 
 @router.get("/by-session/{session_id}", response_model=List[ApplicationResponse])
 def get_applications_by_session(session_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Postulaciones ligadas a una sesión de chat del candidato autenticado (compatibilidad)."""
     applications = db.query(JobApplication).filter(JobApplication.session_id == session_id).all()
-    return [build_app_response(app) for app in applications if _is_candidate(app, current_user) or not app.candidate_email]
+    return _responses(db, [app for app in applications if _is_candidate(app, current_user) or not app.candidate_email])
 
 
 @router.get("/{application_id}", response_model=ApplicationResponse)
@@ -246,7 +309,7 @@ def get_application_by_id(application_id: int, db: Session = Depends(get_db), cu
     """Detalle e historial de una postulación (candidato dueño o reclutador de la empresa)."""
     app = _get_app_or_404(db, application_id)
     _ensure_can_view(app, current_user, db)
-    return build_app_response(app)
+    return _response(db, app)
 
 
 @router.post("/{application_id}/messages", response_model=MessageResponse)
@@ -265,6 +328,7 @@ def send_message_to_application(
     mensaje = (payload.mensaje or "").strip()
     if not mensaje:
         raise HTTPException(status_code=422, detail="El mensaje no puede estar vacío")
+    _ensure_not_blocked(db, app, payload.sender_type)
 
     now = datetime.utcnow()
     if payload.sender_type == "candidate":

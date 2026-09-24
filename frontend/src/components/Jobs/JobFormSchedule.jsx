@@ -48,7 +48,7 @@ export default function JobFormSchedule({ job, companyId, onChange, onApplyShift
             ))}
           </select>
         </div>
-        <p className="text-[10px] text-slate-400 mt-1">Los turnos se administran en Mi Equipo. Al elegir uno se llenan horario, días y tipo de turno.</p>
+        <p className="text-[10px] text-slate-400 mt-1">Los turnos se administran en Equipo y Empresa. Al elegir uno se llenan horario, días y tipo de turno.</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3">

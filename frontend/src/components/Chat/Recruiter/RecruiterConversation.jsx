@@ -4,6 +4,7 @@ import MessageList from '../MessageList';
 import ChatScrollArea from '../ChatScrollArea';
 import ChatInput from '../ChatInput';
 import ScreeningSummary from '../../B2B/Applications/ScreeningSummary';
+import CandidateActionButtons from '../../B2B/Applications/CandidateActionButtons';
 import { mapRecruiterMessage, initials } from '../../../services/recruiterChat';
 
 function statusClass(status) {
@@ -13,7 +14,7 @@ function statusClass(status) {
 }
 
 /** Conversación de un candidato en modo empresa: encabezado con compatibilidad, mensajes y respuesta. */
-export default function RecruiterConversation({ app, recruiterName, sending, onSend, onToggleBot, botActionLoading, onDelete }) {
+export default function RecruiterConversation({ app, recruiterName, sending, onSend, onToggleBot, botActionLoading, onDelete, onToggleFavorite, onToggleBlock, actionLoading }) {
   const [text, setText] = useState('');
   const [showDetail, setShowDetail] = useState(false);
   const messages = useMemo(
@@ -22,6 +23,10 @@ export default function RecruiterConversation({ app, recruiterName, sending, onS
   );
   const done = app.screening_status === 'done';
   const inProgress = app.screening_status === 'in_progress';
+  const blocked = Boolean(app.blocked_by_company || app.blocked_by_candidate);
+  const blockedText = app.blocked_by_company
+    ? 'Bloqueaste a este candidato. Quita el bloqueo (escudo) para escribirle.'
+    : 'El candidato bloqueó a tu empresa: no es posible escribirle.';
 
   const handleSend = async () => {
     const t = text.trim();
@@ -60,6 +65,7 @@ export default function RecruiterConversation({ app, recruiterName, sending, onS
               <span>{app.match_score != null ? `${app.match_score}%` : 'N/D'}{done && app.match_level ? ` · ${app.match_level}` : ''}</span>
               {showDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
+            <CandidateActionButtons app={app} onToggleFavorite={onToggleFavorite} onToggleBlock={onToggleBlock} loading={actionLoading} />
             <button
               type="button"
               onClick={() => onToggleBot(!app.bot_silenced)}
@@ -95,9 +101,9 @@ export default function RecruiterConversation({ app, recruiterName, sending, onS
         onSend={handleSend}
         options={[]}
         onSelectOption={() => {}}
-        disabled={sending}
-        placeholder={`Responde a ${app.candidate_name}...`}
-        footer={`Respondes como ${recruiterName}. ${app.bot_silenced ? 'Chambot está silenciado en este chat.' : 'Si tardas más de 2 min, Chambot apoya con los datos de la vacante.'}`}
+        disabled={sending || blocked}
+        placeholder={blocked ? blockedText : `Responde a ${app.candidate_name}...`}
+        footer={blocked ? blockedText : `Respondes como ${recruiterName}. ${app.bot_silenced ? 'Chambot está silenciado en este chat.' : 'Si tardas más de 2 min, Chambot apoya con los datos de la vacante.'}`}
       />
     </>
   );

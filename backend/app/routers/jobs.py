@@ -21,6 +21,7 @@ def get_jobs(
     apoyo_inea: Optional[bool] = None,
     empresa: Optional[str] = None,
     company_id: Optional[int] = None,
+    company_code: Optional[str] = Query(None, max_length=12, description="Código verificador del Smart Link de la empresa"),
     mine: bool = Query(False, description="Solo vacantes de las empresas donde el usuario autenticado es miembro"),
     include_inactive: bool = Query(False, description="Incluir vacantes inactivas (solo tiene sentido con mine=true)"),
     db: Session = Depends(get_db),
@@ -60,7 +61,12 @@ def get_jobs(
             ))
     if apoyo_inea is not None:
         query = query.filter(Job.apoyo_inea == apoyo_inea)
-    if company_id:
+    if company_code:
+        company = db.query(Company).filter(Company.smart_code == company_code.strip().upper()).first()
+        if not company:
+            return []
+        query = query.filter(Job.empresa_id == company.id)
+    elif company_id:
         query = query.filter(Job.empresa_id == company_id)
     elif empresa:
         # Retrocompat: búsqueda por nombre si no se pasa company_id

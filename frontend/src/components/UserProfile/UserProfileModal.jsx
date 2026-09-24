@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, GraduationCap, MapPin, X, Briefcase, LogOut, ShieldCheck, Building2, ExternalLink, Navigation } from 'lucide-react';
 import { readStoredLocation, locationFromUser, formatLocation } from '../../services/candidateLocation';
+import BlockedCompanies from './BlockedCompanies';
 
 export default function UserProfileModal({ 
   isOpen, 
@@ -185,6 +186,8 @@ export default function UserProfileModal({
                 </span>
               </div>
             </div>
+
+            {currentUser && <BlockedCompanies />}
 
             {/* Estatus INEA */}
             <div className={`p-4 rounded-2xl border ${

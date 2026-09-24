@@ -100,9 +100,9 @@ export default function EmpresaSidebar({ open, onClose, currentUser, tabs, activ
         <button onClick={onBackToChat} className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition group">
           <div className="flex items-center gap-2">
             <ArrowLeft className="w-4 h-4 text-emerald-600 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Volver al Chat</span>
+            <span>Chat con candidatos</span>
           </div>
-          <span className="text-[10px] text-slate-400 font-normal">IA & Vacantes</span>
+          <span className="text-[10px] text-slate-400 font-normal">Mensajes y postulaciones</span>
         </button>
 
         {currentUser && (
