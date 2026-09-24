@@ -308,6 +308,12 @@ def test_jobs_mine_scope_and_company_combobox(client):
     assert [j["titulo"] for j in mine] == ["Operador de Prensa"]
     assert len(client.get("/api/v1/jobs").json()) > len(mine)  # "todas" incluye las del seed
 
+    # Búsqueda libre: por título, por nombre de empresa y por municipio; varias palabras se combinan
+    assert any(j["id"] == mine[0]["id"] for j in client.get("/api/v1/jobs?q=prensa").json())
+    assert any(j["id"] == mine[0]["id"] for j in client.get("/api/v1/jobs?q=Planta%20Vacantes").json())
+    assert all(j["municipio"].lower() == "apodaca" for j in client.get("/api/v1/jobs?q=apodaca").json())
+    assert client.get("/api/v1/jobs?q=prensa%20zzzz").json() == []
+
     # Otro usuario no puede publicar a nombre de una empresa ajena
     intruso = make_auth_header("jobs_intruso@test.com", nombre="Intruso")
     assert client.post("/api/v1/jobs", json=payload, headers=intruso).status_code == 403
@@ -357,6 +363,27 @@ def test_jobs_structured_fields_location_from_plant_and_status(client):
     upd = client.put(f"/api/v1/jobs/{job['id']}", json={"activa": True}, headers=headers)
     assert upd.status_code == 200 and upd.json()["activa"] is True
     assert any(j["id"] == job["id"] for j in client.get("/api/v1/jobs").json())
+
+    # Edición completa: cambia título, categoría, prestaciones (quita transporte) y turno de la planta
+    otro_shift = shifts[1]
+    edit = client.put(f"/api/v1/jobs/{job['id']}", json={
+        "titulo": "Montacarguista Reach Turno 2", "categoria": "Almacén y logística",
+        "prestaciones": ["Vales de despensa"], "tipo_turno": "Rotativo (rola turnos)",
+        "shift_id": otro_shift["id"], "sueldo_semanal_libre": 3400, "vacantes_disponibles": 5,
+    }, headers=headers)
+    assert edit.status_code == 200, edit.text
+    edited = edit.json()
+    assert edited["titulo"] == "Montacarguista Reach Turno 2"
+    assert edited["categoria"] == "Almacén y logística"
+    assert edited["hora_entrada"] == otro_shift["hora_entrada"]   # horario del nuevo turno
+    assert edited["transporte_incluido"] is False                 # ya no está en prestaciones
+    assert edited["apoyo_inea"] is False
+    assert edited["turnos_fijos"] is False                        # rotativo
+    assert edited["sueldo_semanal_libre"] == 3400 and edited["vacantes_disponibles"] == 5
+    assert edited["municipio"] == "Apodaca"                       # la ubicación no se toca
+    assert edited["certificaciones"] == ["Licencia de montacargas (DC-3)"]  # campo no enviado: intacto
+    assert client.put(f"/api/v1/jobs/{job['id']}", json={"categoria": "Astronauta"}, headers=headers).status_code == 422
+    assert client.put(f"/api/v1/jobs/{job['id']}", json={"titulo": "   "}, headers=headers).status_code == 422
 
     # Valor fuera de catálogo → 422; turno de otra planta → 400; PUT de intruso → 403
     bad = dict(payload, escolaridad_minima="Doctorado", shift_id=None)

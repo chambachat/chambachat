@@ -128,6 +128,7 @@ export async function checkBotFallback(applicationId, force = false) {
 export async function getJobs(filters = {}) {
   const params = new URLSearchParams();
   if (filters.municipio) params.append('municipio', filters.municipio);
+  if (filters.q) params.append('q', filters.q);
   if (filters.empresa) params.append('empresa', filters.empresa);
   if (filters.company_id) params.append('company_id', filters.company_id);
   if (filters.mine) params.append('mine', 'true');

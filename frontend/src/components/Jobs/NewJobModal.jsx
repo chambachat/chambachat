@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, X } from 'lucide-react';
+import { Briefcase, Pencil, X } from 'lucide-react';
 import { getMunicipioCoords } from '../../constants/municipios';
 import { PRESTACION_TRANSPORTE, PRESTACION_INEA } from '../../constants/jobCatalog';
 import JobFormCompany from './JobFormCompany';
@@ -52,19 +52,39 @@ function locationFromCompany(company) {
   };
 }
 
-/** Alta de vacante operativa con campos estructurados, en 4 secciones. */
-export default function NewJobModal({ isOpen, onClose, onSubmit, companies = [], defaultCompany = null, onGoToTeam }) {
+/** Convierte una vacante guardada al estado del formulario (rellena faltantes con los valores por defecto). */
+function formFromJob(saved) {
+  const form = { ...EMPTY_JOB };
+  for (const key of Object.keys(EMPTY_JOB)) {
+    if (saved[key] !== undefined && saved[key] !== null) form[key] = saved[key];
+  }
+  form.company_id = saved.empresa_id || '';
+  form.shift_id = saved.shift_id || null;
+  form.activa = saved.activa !== false;
+  return form;
+}
+
+/**
+ * Alta y edición de vacante operativa con campos estructurados, en 4 secciones.
+ * `editingJob` (opcional) precarga el formulario y cambia el modo a edición: la empresa no se puede cambiar.
+ */
+export default function NewJobModal({ isOpen, onClose, onSubmit, companies = [], defaultCompany = null, onGoToTeam, editingJob = null }) {
   const [job, setJob] = useState(EMPTY_JOB);
   const [step, setStep] = useState('company');
+  const isEdit = Boolean(editingJob);
 
   useEffect(() => {
     if (!isOpen) return;
-    const initial = defaultCompany || companies[0] || null;
     setStep('company');
+    if (editingJob) {
+      setJob(formFromJob(editingJob));
+      return;
+    }
+    const initial = defaultCompany || companies[0] || null;
     setJob(initial
       ? { ...EMPTY_JOB, company_id: initial.id, empresa_nombre: initial.nombre, ...locationFromCompany(initial) }
       : EMPTY_JOB);
-  }, [isOpen, defaultCompany, companies]);
+  }, [isOpen, defaultCompany, companies, editingJob]);
 
   if (!isOpen) return null;
 
@@ -87,7 +107,7 @@ export default function NewJobModal({ isOpen, onClose, onSubmit, companies = [],
       apoyo_inea: job.prestaciones.includes(PRESTACION_INEA),
       turnos_fijos: job.tipo_turno.startsWith('Fijo'),
     };
-    const ok = await onSubmit(payload);
+    const ok = await onSubmit(payload, editingJob?.id || null);
     if (ok) setJob(EMPTY_JOB);
   };
 
@@ -102,10 +122,14 @@ export default function NewJobModal({ isOpen, onClose, onSubmit, companies = [],
         </button>
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-emerald-600" />
-            Publicar Nueva Vacante
+            {isEdit ? <Pencil className="w-5 h-5 text-emerald-600" /> : <Briefcase className="w-5 h-5 text-emerald-600" />}
+            {isEdit ? `Editar Vacante #${editingJob.id}` : 'Publicar Nueva Vacante'}
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">Campos estructurados para que la IA proponga esta vacante a los candidatos correctos.</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {isEdit
+              ? 'Los cambios aplican de inmediato a lo que ven candidatos y la IA. La empresa y su ubicación no se cambian aquí.'
+              : 'Campos estructurados para que la IA proponga esta vacante a los candidatos correctos.'}
+          </p>
         </div>
 
         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
@@ -120,7 +144,7 @@ export default function NewJobModal({ isOpen, onClose, onSubmit, companies = [],
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           {step === 'company' && (
             <JobFormCompany job={job} companies={companies} selectedCompany={selectedCompany}
-              onChange={change} onChangeCompany={changeCompany} onGoToTeam={onGoToTeam} />
+              onChange={change} onChangeCompany={changeCompany} onGoToTeam={onGoToTeam} lockCompany={isEdit} />
           )}
           {step === 'schedule' && <JobFormSchedule job={job} companyId={job.company_id} onChange={change} onApplyShift={applyShift} />}
           {step === 'pay' && <JobFormPay job={job} onChange={change} />}
@@ -134,7 +158,7 @@ export default function NewJobModal({ isOpen, onClose, onSubmit, companies = [],
             {isLast ? (
               <button type="submit" disabled={companies.length === 0 || !job.company_id || !job.categoria || !job.titulo.trim()}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition font-bold shadow-sm">
-                Guardar Vacante
+                {isEdit ? 'Guardar Cambios' : 'Guardar Vacante'}
               </button>
             ) : (
               <button type="button" disabled={companies.length === 0} onClick={() => setStep(STEPS[stepIndex + 1].id)}

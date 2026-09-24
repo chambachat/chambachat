@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/v1/jobs", tags=["Jobs"])
 @router.get("", response_model=List[JobResponse])
 def get_jobs(
     municipio: Optional[str] = None,
+    q: Optional[str] = Query(None, max_length=120, description="Texto libre: busca en título, empresa, categoría, municipio y descripción"),
     apoyo_inea: Optional[bool] = None,
     empresa: Optional[str] = None,
     company_id: Optional[int] = None,
@@ -46,6 +48,16 @@ def get_jobs(
         query = query.filter(Job.empresa_id.in_(member_ids))
     if municipio:
         query = query.filter(Job.municipio.ilike(f"%{municipio}%"))
+    if q and q.strip():
+        for term in q.strip().split()[:5]:  # cada palabra debe aparecer en algún campo
+            like = f"%{term}%"
+            query = query.filter(or_(
+                Job.titulo.ilike(like),
+                Job.empresa_nombre.ilike(like),
+                Job.categoria.ilike(like),
+                Job.municipio.ilike(like),
+                Job.descripcion.ilike(like),
+            ))
     if apoyo_inea is not None:
         query = query.filter(Job.apoyo_inea == apoyo_inea)
     if company_id:
@@ -153,15 +165,47 @@ def create_job(
 
 @router.put("/{job_id}", response_model=JobResponse)
 def update_job(job_id: int, payload: JobUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    """Edición parcial de una vacante (activar/desactivar, título, sueldo...). Solo miembros de la empresa."""
+    """
+    Edición parcial de una vacante (solo miembros de la empresa).
+    Acepta los mismos campos estructurados que el alta; la empresa y la ubicación no cambian
+    (se heredan de la planta). Si se manda shift_id, el horario del turno de la planta manda.
+    """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Vacante no encontrada")
     if not job.empresa_id:
         raise HTTPException(status_code=403, detail="Esta vacante no está ligada a una empresa administrable")
     require_company_member(job.empresa_id, current_user, db)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+
+    data = payload.model_dump(exclude_unset=True)
+
+    if "shift_id" in data and data["shift_id"]:
+        shift = db.query(CompanyShift).filter(CompanyShift.id == data["shift_id"]).first()
+        if not shift or shift.company_id != job.empresa_id:
+            raise HTTPException(status_code=400, detail="El turno seleccionado no pertenece a la planta de la vacante")
+        data["hora_entrada"] = shift.hora_entrada
+        data["hora_salida"] = shift.hora_salida
+        if shift.dias in job_catalog.DIAS_LABORALES:
+            data["dias_laborales"] = shift.dias
+        data.setdefault("tipo_turno", job_catalog.tipo_turno_desde_horario(shift.hora_entrada, shift.tipo))
+
+    if "titulo" in data and data["titulo"] is not None:
+        data["titulo"] = data["titulo"].strip()
+        if not data["titulo"]:
+            raise HTTPException(status_code=422, detail="El título no puede quedar vacío")
+
+    for field, value in data.items():
         setattr(job, field, value)
+
+    # Derivados sincronizados si cambiaron sus fuentes y el cliente no los fijó explícitamente
+    prestaciones = job.prestaciones or []
+    if "prestaciones" in data and "transporte_incluido" not in data:
+        job.transporte_incluido = job_catalog.PRESTACION_TRANSPORTE in prestaciones
+    if "prestaciones" in data and "apoyo_inea" not in data:
+        job.apoyo_inea = job_catalog.PRESTACION_INEA in prestaciones
+    if "tipo_turno" in data and "turnos_fijos" not in data:
+        job.turnos_fijos = str(job.tipo_turno or "").startswith("Fijo")
+
     db.commit()
     db.refresh(job)
     return job

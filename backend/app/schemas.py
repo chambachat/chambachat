@@ -121,7 +121,9 @@ def _in_catalog(value: Optional[str], options: List[str], field: str) -> Optiona
     return value
 
 
-def _subset_of_catalog(values: Optional[List[str]], options: List[str], field: str) -> List[str]:
+def _subset_of_catalog(values: Optional[List[str]], options: List[str], field: str) -> Optional[List[str]]:
+    if values is None:
+        return None
     values = values or []
     bad = [v for v in values if v not in options]
     if bad:
@@ -204,13 +206,30 @@ class JobCreate(JobBase):
     pass
 
 
-class JobUpdate(BaseModel):
-    """Edición parcial: hoy se usa para activar/desactivar y ajustar datos puntuales."""
-    activa: Optional[bool] = None
+class JobUpdate(JobStructuredFields):
+    """
+    Edición parcial de una vacante. Hereda los campos estructurados (con su validación de
+    catálogo) y añade los básicos; todo opcional: solo se aplica lo que venga en el body.
+    La empresa (company_id) y la ubicación no se editan aquí: se heredan de la planta.
+    """
     titulo: Optional[str] = None
     descripcion: Optional[str] = None
-    sueldo_semanal_libre: Optional[float] = None
+    sueldo_semanal_libre: Optional[float] = Field(None, gt=0)
     vacantes_disponibles: Optional[int] = Field(None, ge=1, le=500)
+    bono_semanal: Optional[float] = Field(None, ge=0)
+    vales_despensa_semanal: Optional[float] = Field(None, ge=0)
+    certificaciones: Optional[List[str]] = None
+    prestaciones: Optional[List[str]] = None
+    requisitos_fisicos: Optional[List[str]] = None
+    activa: Optional[bool] = None
+    transporte_incluido: Optional[bool] = None
+    apoyo_inea: Optional[bool] = None
+    turnos_fijos: Optional[bool] = None
+
+    @field_validator("certificaciones", "prestaciones", "requisitos_fisicos", mode="before")
+    @classmethod
+    def _keep_none(cls, v):
+        return v  # None = no tocar; la validación de catálogo corre solo cuando hay lista
 
 
 class JobCatalogResponse(BaseModel):

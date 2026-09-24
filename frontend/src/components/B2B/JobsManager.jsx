@@ -11,10 +11,11 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
   const [jobs, setJobs] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterMuni, setFilterMuni] = useState('');
+  const [search, setSearch] = useState('');
   const [scope, setScope] = useState('mine'); // 'mine' | 'all'
   const [scopeCompanyId, setScopeCompanyId] = useState(''); // '' = todas mis empresas
   const [showModal, setShowModal] = useState(false);
+  const [editingJob, setEditingJob] = useState(null);
 
   // Empresas del usuario: alimentan el selector del alcance y el combo del modal
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
   const loadJobs = async () => {
     setLoading(true);
     try {
-      const filters = { municipio: filterMuni };
+      const filters = { q: search.trim() };
       if (scope === 'mine') {
         filters.mine = true;
         filters.include_inactive = true;
@@ -49,20 +50,31 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
 
   useEffect(() => {
     loadJobs();
-  }, [filterMuni, scope, scopeCompanyId]);
+  }, [search, scope, scopeCompanyId]);
 
-  const handleCreate = async (newJob) => {
+  const closeModal = () => { setShowModal(false); setEditingJob(null); };
+
+  /** Alta (jobId null) o edición (jobId) desde el mismo formulario. */
+  const handleSave = async (jobData, jobId = null) => {
     try {
-      await createJob(newJob);
-      setShowModal(false);
-      toast.success(`Vacante publicada a nombre de ${newJob.empresa_nombre}`);
+      if (jobId) {
+        const { company_id, empresa_nombre, municipio, latitud, longitud, ...changes } = jobData;
+        await updateJob(jobId, changes);
+        toast.success('Vacante actualizada');
+      } else {
+        await createJob(jobData);
+        toast.success(`Vacante publicada a nombre de ${jobData.empresa_nombre}`);
+      }
+      closeModal();
       loadJobs();
       return true;
     } catch (err) {
-      toast.error('Error al publicar vacante: ' + err.message);
+      toast.error((jobId ? 'Error al actualizar vacante: ' : 'Error al publicar vacante: ') + err.message);
       return false;
     }
   };
+
+  const openEdit = (job) => { setEditingJob(job); setShowModal(true); };
 
   const ownCompanyIds = new Set(companies.map(c => c.id));
   const handleToggleActive = async (job) => {
@@ -96,7 +108,7 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
         </div>
 
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => { setEditingJob(null); setShowModal(true); }}
           className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
         >
           <Plus className="w-4 h-4" />
@@ -132,14 +144,14 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
           </select>
         )}
 
-        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-          <Search className="w-3.5 h-3.5 text-slate-400" />
+        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 min-w-[260px] focus-within:border-emerald-500 focus-within:bg-white transition">
+          <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <input
-            type="text"
-            placeholder="Buscar por municipio..."
-            value={filterMuni}
-            onChange={(e) => setFilterMuni(e.target.value)}
-            className="bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
+            type="search"
+            placeholder="Buscar puesto, empresa, categoría o municipio..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-full"
           />
         </div>
         <span className="text-xs text-slate-400 ml-auto font-medium">
@@ -161,18 +173,24 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {jobs.map((job) => (
-            <JobCard key={job.id} job={job} onToggleActive={job.empresa_id && ownCompanyIds.has(job.empresa_id) ? handleToggleActive : undefined} />
+            <JobCard
+              key={job.id}
+              job={job}
+              onEdit={job.empresa_id && ownCompanyIds.has(job.empresa_id) ? openEdit : undefined}
+              onToggleActive={job.empresa_id && ownCompanyIds.has(job.empresa_id) ? handleToggleActive : undefined}
+            />
           ))}
         </div>
       )}
 
       <NewJobModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        onSubmit={handleCreate}
+        onClose={closeModal}
+        onSubmit={handleSave}
         companies={companies}
         defaultCompany={activeCompany}
-        onGoToTeam={onGoToTeam ? () => { setShowModal(false); onGoToTeam(); } : undefined}
+        editingJob={editingJob}
+        onGoToTeam={onGoToTeam ? () => { closeModal(); onGoToTeam(); } : undefined}
       />
     </div>
   );

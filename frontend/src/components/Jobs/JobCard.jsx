@@ -1,8 +1,8 @@
 import React from 'react';
-import { MapPin, Bus, Clock, GraduationCap, Gift, Users, Power } from 'lucide-react';
+import { MapPin, Bus, Clock, GraduationCap, Gift, Users, Power, Pencil } from 'lucide-react';
 
-/** Tarjeta de vacante. `onToggleActive` solo llega desde el portal B2B (vacantes propias). */
-export default function JobCard({ job, onToggleActive }) {
+/** Tarjeta de vacante. `onEdit` y `onToggleActive` solo llegan desde el portal B2B (vacantes propias). */
+export default function JobCard({ job, onEdit, onToggleActive }) {
   const activa = job.activa !== false;
   const extras = Number(job.bono_semanal || 0) + Number(job.vales_despensa_semanal || 0);
   const horario = job.hora_entrada && job.hora_salida ? `${job.hora_entrada} a ${job.hora_salida}` : null;
@@ -74,6 +74,16 @@ export default function JobCard({ job, onToggleActive }) {
           }`}>
             {activa ? 'Activa' : 'Inactiva'}
           </span>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(job)}
+              title="Editar vacante"
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200 transition"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
           {onToggleActive && (
             <button
               type="button"
