@@ -75,13 +75,43 @@ export async function submitApplication({ jobId, sessionId, candidateName, candi
       municipio: municipio || 'Apodaca'
     }),
   });
-  if (!res.ok) throw new Error('Error al enviar postulación');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al enviar postulación' }));
+    throw new Error(err.detail || 'Error al enviar postulación');
+  }
   return res.json();
 }
 
 export async function getApplications() {
   const res = await fetch(`${API_BASE}/applications`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Error al obtener postulaciones');
+  return res.json();
+}
+
+/** Chats directos (postulaciones) del candidato autenticado, con historial. */
+export async function getMyApplications() {
+  const res = await fetch(`${API_BASE}/applications/mine`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Error al obtener tus chats directos');
+  return res.json();
+}
+
+export async function getApplicationById(applicationId) {
+  const res = await fetch(`${API_BASE}/applications/${applicationId}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Error al obtener la postulación');
+  return res.json();
+}
+
+/** Mensaje del candidato hacia los reclutadores de la vacante (el nombre lo pone el backend). */
+export async function sendCandidateMessage(applicationId, mensaje) {
+  const res = await fetch(`${API_BASE}/applications/${applicationId}/messages`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ sender_type: 'candidate', mensaje }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error al enviar mensaje' }));
+    throw new Error(err.detail || 'Error al enviar mensaje');
+  }
   return res.json();
 }
 

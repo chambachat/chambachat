@@ -1,5 +1,34 @@
 import React from 'react';
-import { ShieldCheck, User, MapPin, Navigation } from 'lucide-react';
+import { ShieldCheck, User, MapPin, Navigation, Building2, Bot } from 'lucide-react';
+
+/** Encabezado fijo de una conversación directa con los reclutadores de una planta. */
+export function DirectChatBanner({ session }) {
+  const contacted = session?.status && session.status !== 'Pendiente';
+  return (
+    <div className="pl-0 sm:pl-10 pb-1 w-full min-w-0 animate-fadeIn">
+      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-sky-50 border border-blue-200/80 shadow-sm space-y-1.5">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-xs font-extrabold text-blue-950 min-w-0">
+            <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="truncate">Línea directa con Reclutamiento {session.companyName}</span>
+          </div>
+          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+            contacted ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-amber-100 text-amber-800 border-amber-300'
+          }`}>
+            {contacted ? 'Reclutador en el chat' : 'Esperando al reclutador'}
+          </span>
+        </div>
+        <p className="text-[11px] text-blue-900/80 leading-snug">
+          Vacante: <strong>{session.jobTitle}</strong>. Lo que escribas aquí lo reciben los reclutadores de la planta.
+        </p>
+        <p className="text-[10px] text-blue-800/70 flex items-center gap-1">
+          <Bot className="w-3 h-3 shrink-0" />
+          <span>Si tardan más de 2 minutos, Chambot te contesta con los datos de la vacante.</span>
+        </p>
+      </div>
+    </div>
+  );
+}
 
 /** Invitación a vincular cuenta cuando el bot lo sugiere y no hay sesión. */
 export function LoginPromptCard({ onLogin }) {

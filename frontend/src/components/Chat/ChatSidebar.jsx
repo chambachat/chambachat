@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X, MessageSquare, Trash2, Building2, User, ChevronRight, Settings } from 'lucide-react';
+import { Plus, X, MessageSquare, Trash2, Building2, User, ChevronRight, Settings, Headset } from 'lucide-react';
 import { useToast } from '../ui/Toast';
 
 export default function ChatSidebar({
@@ -71,9 +71,23 @@ export default function ChatSidebar({
                     : 'text-slate-600 hover:bg-slate-200/40 hover:text-slate-900'
                 }`}
               >
-                <div className="flex items-center gap-2.5 truncate flex-1 mr-1">
-                  <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <span className="truncate">{sess.title}</span>
+                <div className="flex items-center gap-2.5 truncate flex-1 mr-1 min-w-0">
+                  {sess.kind === 'direct' ? (
+                    <Headset className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-600' : 'text-blue-400'}`} title="Chat directo con reclutadores" />
+                  ) : (
+                    <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  )}
+                  <div className="min-w-0 truncate">
+                    <span className="truncate block">{sess.title}</span>
+                    {sess.kind === 'direct' && (
+                      <span className="text-[9px] uppercase tracking-wider font-extrabold text-blue-600 block leading-none mt-0.5">Directo con reclutador</span>
+                    )}
+                  </div>
+                  {sess.unread > 0 && (
+                    <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[10px] font-extrabold flex items-center justify-center">
+                      {sess.unread > 9 ? '9+' : sess.unread}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={(e) => onDeleteSession(e, sess.id)}

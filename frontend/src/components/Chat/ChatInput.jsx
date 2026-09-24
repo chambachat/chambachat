@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { ArrowUp } from 'lucide-react';
 
-export default function ChatInput({ value, onChange, onSend, options, onSelectOption, disabled }) {
+export default function ChatInput({ value, onChange, onSend, options, onSelectOption, disabled, placeholder, footer }) {
   const inputRef = useRef(null);
 
   const handleSubmit = (e) => {
@@ -39,7 +39,7 @@ export default function ChatInput({ value, onChange, onSend, options, onSelectOp
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
-            placeholder="Pregunta sobre vacantes, montacargas, sueldos..."
+            placeholder={placeholder || 'Pregunta sobre vacantes, montacargas, sueldos...'}
             className="w-full py-3 sm:py-3.5 pl-3.5 sm:pl-4 pr-11 sm:pr-12 text-base sm:text-sm text-slate-800 bg-transparent focus:outline-none placeholder-slate-400"
           />
 
@@ -53,7 +53,7 @@ export default function ChatInput({ value, onChange, onSend, options, onSelectOp
         </form>
 
         <p className="text-[10px] sm:text-[11px] text-center text-slate-400 mt-1.5 sm:mt-2 font-medium">
-          Chambachat te orienta sobre oportunidades industriales y vacantes operativas en Nuevo León.
+          {footer || 'Chambachat te orienta sobre oportunidades industriales y vacantes operativas en Nuevo León.'}
         </p>
       </div>
     </div>

@@ -85,7 +85,7 @@ class ToggleBotRequest(BaseModel):
 
 class MessageCreateRequest(BaseModel):
     sender_type: str = "recruiter"  # 'recruiter' | 'candidate' | 'bot' | 'system'
-    sender_name: str
+    sender_name: Optional[str] = None  # si falta, se usa el nombre del usuario autenticado
     mensaje: str
 
 class MessageResponse(BaseModel):

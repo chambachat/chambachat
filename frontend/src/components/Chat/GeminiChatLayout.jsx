@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getStoredUser, setStoredUser, signOut, syncUserWithBackend } from '../../services/authService';
-import { submitApplication, updateMyLocation } from '../../services/api';
+import { updateMyLocation } from '../../services/api';
 import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
 import { loadAllSessions, updateSession } from '../../services/chatStorage';
 
@@ -15,8 +15,9 @@ import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import VacanciesCarousel from './VacanciesCarousel';
 import ChatWelcome from './ChatWelcome';
-import { LoginPromptCard, LocationCard } from './ChatCards';
-import { buildApplicationIntroMessages, buildAuthConfirmMessage, isShareLocationIntent } from './chatMessages';
+import { LoginPromptCard, LocationCard, DirectChatBanner } from './ChatCards';
+import { buildAuthConfirmMessage, isShareLocationIntent } from './chatMessages';
+import { useToast } from '../ui/Toast';
 
 export default function GeminiChatLayout({
   onOpenEmpresa,
@@ -26,10 +27,10 @@ export default function GeminiChatLayout({
   onLogout: propOnLogout,
   onUserAuthenticated: propOnUserAuthenticated
 }) {
+  const toast = useToast();
   const [currentUser, setCurrentUser] = useState(propCurrentUser || getStoredUser());
   const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 768 : false));
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [appliedJobIds, setAppliedJobIds] = useState(new Set());
   const [selectedDetailJob, setSelectedDetailJob] = useState(null);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [candidateLocation, setCandidateLocation] = useState(readStoredLocation);
@@ -48,9 +49,14 @@ export default function GeminiChatLayout({
     handleDeleteSession,
     handleClearAll,
     sendToBot,
+    startDirectChat,
     setActiveSession,
     setSessions
   } = useChatSession(currentUser);
+
+  // Vacantes con chat directo ya abierto (una conversación por postulación)
+  const appliedJobIds = new Set(sessions.filter(s => s.kind === 'direct').map(s => s.jobId));
+  const isDirect = activeSession?.kind === 'direct';
 
   useEffect(() => {
     if (propCurrentUser !== undefined) setCurrentUser(propCurrentUser);
@@ -91,25 +97,23 @@ export default function GeminiChatLayout({
     updateSession(activeSession.id, { messages: finalMsgs, ...extra });
   };
 
+  /** "Chat directo con el reclutador": abre una conversación nueva y separada para esa planta y vacante. */
   const handleApplyJob = async (job) => {
     if (!currentUser) {
       setIsAuthModalOpen(true);
       return;
     }
     try {
-      await submitApplication({
-        jobId: job.id,
-        sessionId: activeSession?.backendSessionId,
-        candidateName: currentUser.name || 'Operario de NL',
-        candidateEmail: currentUser.email,
-        candidatePhone: currentUser.phone || '',
-        municipio: job.municipio
-      });
-      setAppliedJobIds(prev => new Set(prev).add(job.id));
-      appendToActiveSession(buildApplicationIntroMessages(job, currentUser.name));
-      setSessions(loadAllSessions());
+      const alreadyOpen = appliedJobIds.has(job.id);
+      await startDirectChat(job);
+      setSelectedDetailJob(null);
+      if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false);
+      toast.success(alreadyOpen
+        ? `Abrí tu chat con Reclutamiento ${job.empresa_nombre}`
+        : `Listo: chat directo con Reclutamiento ${job.empresa_nombre} para ${job.titulo}`);
     } catch (err) {
-      console.error('Error al postularse a la vacante:', err);
+      console.error('Error al abrir chat directo:', err);
+      toast.error(err.message || 'No se pudo abrir el chat con el reclutador');
     }
   };
 
@@ -136,7 +140,7 @@ export default function GeminiChatLayout({
   const handleSendMessage = (text = inputMessage) => {
     if (!text.trim()) return;
     setInputMessage('');
-    if (isShareLocationIntent(text)) {
+    if (!isDirect && isShareLocationIntent(text)) {
       setIsLocationModalOpen(true);
       return;
     }
@@ -207,13 +211,15 @@ export default function GeminiChatLayout({
             <ChatWelcome onPrompt={handleSendMessage} />
           ) : (
             <div className="space-y-4 sm:space-y-6 min-w-0">
-              <MessageList messages={activeSession.messages} isTyping={isTyping} />
+              {isDirect && <DirectChatBanner session={activeSession} />}
 
-              {!currentUser && activeSession?.shouldAskLogin && (
+              <MessageList messages={activeSession.messages} isTyping={!isDirect && isTyping} />
+
+              {!isDirect && !currentUser && activeSession?.shouldAskLogin && (
                 <LoginPromptCard onLogin={() => setIsAuthModalOpen(true)} />
               )}
 
-              {(!candidateLocation || activeSession?.askLocation) && (
+              {!isDirect && (!candidateLocation || activeSession?.askLocation) && (
                 <LocationCard
                   location={candidateLocation}
                   asking={Boolean(activeSession?.askLocation)}
@@ -221,15 +227,17 @@ export default function GeminiChatLayout({
                 />
               )}
 
-              <VacanciesCarousel
-                jobs={activeSession?.matchedJobs}
-                nearbyRoutes={activeSession?.nearbyRoutes}
-                appliedJobIds={appliedJobIds}
-                onViewDetail={setSelectedDetailJob}
-                showVacancies={showVacancies}
-                setShowVacancies={setShowVacancies}
-                currentUser={currentUser}
-              />
+              {!isDirect && (
+                <VacanciesCarousel
+                  jobs={activeSession?.matchedJobs}
+                  nearbyRoutes={activeSession?.nearbyRoutes}
+                  appliedJobIds={appliedJobIds}
+                  onViewDetail={setSelectedDetailJob}
+                  showVacancies={showVacancies}
+                  setShowVacancies={setShowVacancies}
+                  currentUser={currentUser}
+                />
+              )}
             </div>
           )}
         </div>
@@ -238,8 +246,10 @@ export default function GeminiChatLayout({
           value={inputMessage}
           onChange={setInputMessage}
           onSend={() => handleSendMessage()}
-          options={options}
+          options={isDirect ? [] : options}
           onSelectOption={handleOptionSelect}
+          placeholder={isDirect ? `Escribe a Reclutamiento ${activeSession.companyName}...` : undefined}
+          footer={isDirect ? 'Tus mensajes llegan a los reclutadores de la planta; si tardan, Chambot te apoya con los datos de la vacante.' : undefined}
         />
       </main>
 

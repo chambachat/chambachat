@@ -60,6 +60,7 @@ export function createNewSession() {
   const newId = 'chat_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   const newSession = {
     id: newId,
+    kind: 'bot',  // 'bot' = Chambot | 'direct' = línea directa con reclutadores (ver services/directChat.js)
     title: 'Nueva conversación',
     createdAt: new Date().toISOString(),
     messages: [],

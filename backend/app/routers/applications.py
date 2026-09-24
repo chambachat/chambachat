@@ -1,30 +1,43 @@
+"""
+Postulaciones y chat directo candidato ↔ reclutadores de la planta (con Chambot de respaldo).
+
+Cada postulación abre un hilo propio (ApplicationMessage). El candidato lo ve como una
+conversación aparte en su chat; los reclutadores de la empresa lo atienden desde el portal.
+
+Permisos:
+- Candidato: solo sus postulaciones (por el correo de su sesión).
+- Reclutador: solo postulaciones a vacantes de empresas donde es miembro activo.
+- Admin: todo.
+"""
 from datetime import datetime
 from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Session
+
 from app.database import get_db
-from app.models import JobApplication, ApplicationMessage, Job, CompanyMember, User
 from app.dependencies import get_current_user, get_current_user_optional
+from app.models import ApplicationMessage, CompanyMember, Job, JobApplication, User
 from app.schemas import (
-    ApplicationCreateRequest, 
-    ApplicationResponse, 
-    MessageCreateRequest, 
+    ApplicationCreateRequest,
+    ApplicationResponse,
+    MessageCreateRequest,
     MessageResponse,
-    ToggleBotRequest
+    ToggleBotRequest,
 )
 
 router = APIRouter(prefix="/api/v1/applications", tags=["Applications & Recruiter Chat"])
 
+RECRUITER_TIMEOUT_SECONDS = 120
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────
+
 def compute_match_score(job: Optional[Job], candidate_muni: Optional[str], candidate_phone: Optional[str]) -> int:
     """
-    Estima la compatibilidad (match_score) entre el candidato y la vacante.
-    Metodología:
-    - Base de 70 puntos.
-    - +18 si el municipio coincide exactamente.
-    - +12 si es un municipio del área metropolitana.
-    - +8 si el candidato proporcionó teléfono válido.
-    - +2 si la vacante tiene turnos fijos.
-    El resultado está delimitado entre 72 y 98.
+    Compatibilidad estimada candidato ↔ vacante (72-98):
+    base 70, +18 mismo municipio (+12 si es del área metropolitana), +8 teléfono válido, +2 turno fijo.
     """
     score = 70
     if job and candidate_muni:
@@ -38,6 +51,14 @@ def compute_match_score(job: Optional[Job], candidate_muni: Optional[str], candi
         score += 2
     return min(98, max(72, score))
 
+
+def _message_response(m: ApplicationMessage) -> MessageResponse:
+    return MessageResponse(
+        id=m.id, application_id=m.application_id, sender_type=m.sender_type,
+        sender_name=m.sender_name, mensaje=m.mensaje, leido=m.leido, created_at=m.created_at,
+    )
+
+
 def build_app_response(app: JobApplication) -> ApplicationResponse:
     job = app.job
     score = app.match_score or compute_match_score(job, app.municipio, app.candidate_phone)
@@ -47,15 +68,18 @@ def build_app_response(app: JobApplication) -> ApplicationResponse:
             "id": job.id,
             "titulo": job.titulo,
             "empresa_nombre": job.empresa_nombre,
+            "empresa_id": job.empresa_id,
             "descripcion": job.descripcion,
             "sueldo_semanal_libre": job.sueldo_semanal_libre,
             "sueldo_mensual_aprox": round(job.sueldo_semanal_libre * 4.33, 2),
             "turnos_fijos": job.turnos_fijos,
             "apoyo_inea": job.apoyo_inea,
             "transporte_incluido": job.transporte_incluido,
-            "municipio": job.municipio
+            "municipio": job.municipio,
+            "tipo_turno": job.tipo_turno,
+            "hora_entrada": job.hora_entrada,
+            "hora_salida": job.hora_salida,
         }
-
     return ApplicationResponse(
         id=app.id,
         job_id=app.job_id,
@@ -73,236 +97,280 @@ def build_app_response(app: JobApplication) -> ApplicationResponse:
         job_titulo=job.titulo if job else "Vacante",
         empresa_nombre=job.empresa_nombre if job else "Empresa",
         job_details=job_details,
-        messages=[
-            MessageResponse(
-                id=m.id,
-                application_id=m.application_id,
-                sender_type=m.sender_type,
-                sender_name=m.sender_name,
-                mensaje=m.mensaje,
-                leido=m.leido,
-                created_at=m.created_at
-            ) for m in app.messages
-        ]
+        messages=[_message_response(m) for m in sorted(app.messages, key=lambda m: (m.created_at, m.id))],
     )
 
+
+def _get_app_or_404(db: Session, application_id: int) -> JobApplication:
+    app = db.query(JobApplication).filter(JobApplication.id == application_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Postulación no encontrada")
+    return app
+
+
+def _member_company_ids(db: Session, user: User) -> List[int]:
+    return [
+        m.company_id for m in db.query(CompanyMember).filter(
+            CompanyMember.email == user.email, CompanyMember.status == "active",
+        ).all()
+    ]
+
+
+def _is_candidate(app: JobApplication, user: User) -> bool:
+    return bool(app.candidate_email and user.email and app.candidate_email.lower() == user.email.lower())
+
+
+def _is_recruiter_of(app: JobApplication, user: User, db: Session) -> bool:
+    if user.role == "admin":
+        return True
+    job = app.job
+    if job and job.empresa_id:
+        return job.empresa_id in _member_company_ids(db, user)
+    # Vacantes históricas sin empresa ligada: cualquier reclutador puede atenderlas
+    return user.role == "recruiter"
+
+
+def _ensure_can_view(app: JobApplication, user: User, db: Session) -> None:
+    if not (_is_candidate(app, user) or _is_recruiter_of(app, user, db)):
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta postulación")
+
+
+def _ensure_recruiter(app: JobApplication, user: User, db: Session) -> None:
+    if not _is_recruiter_of(app, user, db):
+        raise HTTPException(status_code=403, detail="Solo los reclutadores de la empresa pueden hacer esto")
+
+
+# ─── Endpoints ───────────────────────────────────────────────────────
+
 @router.post("/apply", response_model=ApplicationResponse)
-def apply_to_job(payload: ApplicationCreateRequest, db: Session = Depends(get_db)):
+def apply_to_job(
+    payload: ApplicationCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
     """
-    Registra la postulación de un candidato a una vacante y crea el chat grupal tripartito:
-    Candidato + Reclutador de la Empresa + Chambot (IA).
+    Registra la postulación y abre el chat directo con los reclutadores de la planta.
+    Con sesión, el correo del candidato es el del token. Es idempotente: si ya existe una
+    postulación del mismo candidato a la misma vacante, devuelve esa (con su historial).
     """
     job = db.query(Job).filter(Job.id == payload.job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="La vacante especificada no existe")
 
-    calculated_score = compute_match_score(job, payload.municipio or job.municipio, payload.candidate_phone)
+    candidate_email = (current_user.email if current_user and current_user.email else payload.candidate_email or "").strip().lower() or None
+    candidate_name = (payload.candidate_name or "").strip() or (current_user.nombre if current_user else "") or "Candidato"
+    candidate_phone = payload.candidate_phone or (current_user.telefono if current_user else None)
+
+    if candidate_email:
+        existing = db.query(JobApplication).filter(
+            JobApplication.job_id == job.id,
+            JobApplication.candidate_email == candidate_email,
+        ).order_by(JobApplication.created_at.desc()).first()
+        if existing:
+            if payload.session_id and not existing.session_id:
+                existing.session_id = payload.session_id
+                db.commit()
+            return build_app_response(existing)
 
     application = JobApplication(
-        job_id=payload.job_id,
+        job_id=job.id,
         session_id=payload.session_id,
-        candidate_name=payload.candidate_name,
-        candidate_email=payload.candidate_email,
-        candidate_phone=payload.candidate_phone,
+        candidate_name=candidate_name,
+        candidate_email=candidate_email,
+        candidate_phone=candidate_phone,
         municipio=payload.municipio or job.municipio,
         status="Pendiente",
-        match_score=calculated_score,
-        bot_silenced=False
+        match_score=compute_match_score(job, payload.municipio or job.municipio, candidate_phone),
+        bot_silenced=False,
     )
     db.add(application)
-    db.commit()
-    db.refresh(application)
+    db.flush()
 
-    # 1. Mensaje de bienvenida del reclutador
-    recruiter_greeting = ApplicationMessage(
+    db.add(ApplicationMessage(
         application_id=application.id,
         sender_type="recruiter",
         sender_name=f"Reclutamiento {job.empresa_nombre}",
-        mensaje=f"¡Hola {payload.candidate_name}! Recibimos con gusto tu interés en la vacante de {job.titulo}. En breve un reclutador de nuestra planta revisará tus datos aquí mismo."
-    )
-    db.add(recruiter_greeting)
-
-    # 2. Mensaje inicial de Chambot en el chat grupal
-    bot_greeting = ApplicationMessage(
+        mensaje=(
+            f"¡Hola {candidate_name}! Recibimos con gusto tu interés en la vacante de {job.titulo}. "
+            "En breve un reclutador de nuestra planta revisará tus datos y te responderá aquí mismo."
+        ),
+    ))
+    db.add(ApplicationMessage(
         application_id=application.id,
         sender_type="bot",
         sender_name="Chambot (IA)",
-        mensaje=f"🤖 ¡Qué onda {payload.candidate_name}! Conecté este chat directo con el equipo de {job.empresa_nombre}. Si el reclutador tarda más de 2 minutos en responder, con gusto te apoyo con dudas sobre turnos, sueldo o transporte de esta vacante."
-    )
-    db.add(bot_greeting)
-
+        mensaje=(
+            f"🤖 ¡Qué onda {candidate_name}! Este es tu chat directo con el equipo de {job.empresa_nombre}. "
+            f"Si el reclutador tarda más de {RECRUITER_TIMEOUT_SECONDS // 60} minutos en responder, con gusto te apoyo "
+            "con dudas sobre turnos, sueldo o transporte de esta vacante."
+        ),
+    ))
     db.commit()
     db.refresh(application)
-
     return build_app_response(application)
+
 
 @router.get("", response_model=List[ApplicationResponse])
 def get_all_applications(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Retorna la lista de todas las postulaciones recibidas para el Portal Empresa."""
-    member_company_ids = [m.company_id for m in db.query(CompanyMember).filter(CompanyMember.email == current_user.email, CompanyMember.status == "active").all()]
-    applications = db.query(JobApplication).join(Job).filter(Job.empresa_id.in_(member_company_ids)).order_by(JobApplication.created_at.desc()).all()
+    """Bandeja del Portal Empresa: postulaciones a vacantes de las empresas donde el usuario es miembro."""
+    company_ids = _member_company_ids(db, current_user)
+    query = db.query(JobApplication).join(Job)
+    if current_user.role != "admin":
+        query = query.filter(Job.empresa_id.in_(company_ids)) if company_ids else query.filter(sa_false())
+    applications = query.order_by(JobApplication.created_at.desc()).all()
     return [build_app_response(app) for app in applications]
+
+
+@router.get("/mine", response_model=List[ApplicationResponse])
+def get_my_applications(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Chats directos del candidato autenticado (sus postulaciones con todo el historial)."""
+    if not current_user.email:
+        return []
+    applications = db.query(JobApplication).filter(
+        JobApplication.candidate_email == current_user.email.lower(),
+    ).order_by(JobApplication.created_at.desc()).all()
+    return [build_app_response(app) for app in applications]
+
 
 @router.get("/by-session/{session_id}", response_model=List[ApplicationResponse])
-def get_applications_by_session(session_id: str, db: Session = Depends(get_db)):
-    """
-    Retorna las postulaciones y mensajes asociados a una sesión específica del chat del candidato.
-    """
+def get_applications_by_session(session_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Postulaciones ligadas a una sesión de chat del candidato autenticado (compatibilidad)."""
     applications = db.query(JobApplication).filter(JobApplication.session_id == session_id).all()
-    return [build_app_response(app) for app in applications]
+    return [build_app_response(app) for app in applications if _is_candidate(app, current_user) or not app.candidate_email]
+
 
 @router.get("/{application_id}", response_model=ApplicationResponse)
-def get_application_by_id(application_id: int, db: Session = Depends(get_db)):
-    """
-    Retorna una postulación específica por ID.
-    """
-    app = db.query(JobApplication).filter(JobApplication.id == application_id).first()
-    if not app:
-        raise HTTPException(status_code=404, detail="Postulación no encontrada")
+def get_application_by_id(application_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Detalle e historial de una postulación (candidato dueño o reclutador de la empresa)."""
+    app = _get_app_or_404(db, application_id)
+    _ensure_can_view(app, current_user, db)
     return build_app_response(app)
 
+
 @router.post("/{application_id}/messages", response_model=MessageResponse)
-def send_message_to_application(application_id: int, payload: MessageCreateRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def send_message_to_application(
+    application_id: int,
+    payload: MessageCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Envía un mensaje en el chat grupal:
-    - Si el reclutador responde ('recruiter'): Chambot se silencia en automático (bot_silenced = True).
-    - Si el candidato responde ('candidate'): Se actualiza last_candidate_message_at para el timer de 2 min.
+    Mensaje en el chat directo.
+    - 'candidate': solo el candidato dueño; su nombre sale de la sesión. Arranca el timer de respaldo de Chambot.
+    - 'recruiter': solo reclutadores de la empresa; al responder, Chambot se silencia en automático.
     """
-    app = db.query(JobApplication).filter(JobApplication.id == application_id).first()
-    if not app:
-        raise HTTPException(status_code=404, detail="Postulación no encontrada")
+    app = _get_app_or_404(db, application_id)
+    mensaje = (payload.mensaje or "").strip()
+    if not mensaje:
+        raise HTTPException(status_code=422, detail="El mensaje no puede estar vacío")
 
     now = datetime.utcnow()
-    msg = ApplicationMessage(
-        application_id=application_id,
-        sender_type=payload.sender_type,
-        sender_name=payload.sender_name,
-        mensaje=payload.mensaje
-    )
-    db.add(msg)
-
-    if payload.sender_type == "recruiter":
-        app.status = "Contactado"
-        app.last_recruiter_message_at = now
-        # Regla: Si el reclutador responde, el bot se silencia automáticamente
-        app.bot_silenced = True
-    elif payload.sender_type == "candidate":
+    if payload.sender_type == "candidate":
+        if not _is_candidate(app, current_user):
+            raise HTTPException(status_code=403, detail="Solo el candidato de esta postulación puede escribir aquí")
+        sender_name = current_user.nombre or app.candidate_name
         app.last_candidate_message_at = now
+    elif payload.sender_type == "recruiter":
+        _ensure_recruiter(app, current_user, db)
+        sender_name = (payload.sender_name or "").strip() or current_user.nombre or "Reclutador"
+        app.status = "Contactado" if app.status == "Pendiente" else app.status
+        app.last_recruiter_message_at = now
+        app.bot_silenced = True  # el humano tomó la conversación
+    else:
+        _ensure_recruiter(app, current_user, db)
+        sender_name = (payload.sender_name or "").strip() or ("Chambot (IA)" if payload.sender_type == "bot" else "Sistema ChambaChat")
 
+    msg = ApplicationMessage(application_id=application_id, sender_type=payload.sender_type, sender_name=sender_name, mensaje=mensaje)
+    db.add(msg)
     db.commit()
     db.refresh(msg)
+    return _message_response(msg)
 
-    return MessageResponse(
-        id=msg.id,
-        application_id=msg.application_id,
-        sender_type=msg.sender_type,
-        sender_name=msg.sender_name,
-        mensaje=msg.mensaje,
-        leido=msg.leido,
-        created_at=msg.created_at
-    )
 
 @router.post("/{application_id}/toggle-bot")
-def toggle_bot_state(application_id: int, payload: ToggleBotRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """
-    Permite al reclutador reactivar o silenciar manualmente a Chambot en el chat grupal.
-    """
-    app = db.query(JobApplication).filter(JobApplication.id == application_id).first()
-    if not app:
-        raise HTTPException(status_code=404, detail="Postulación no encontrada")
+def toggle_bot_state(
+    application_id: int,
+    payload: ToggleBotRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """El reclutador silencia o reactiva a Chambot en este chat."""
+    app = _get_app_or_404(db, application_id)
+    _ensure_recruiter(app, current_user, db)
 
     new_state = payload.silenced if payload.silenced is not None else not bool(app.bot_silenced)
     app.bot_silenced = new_state
-
     sys_text = "🤫 El reclutador ha silenciado a Chambot en este chat." if new_state else "🤖 El reclutador ha reactivado a Chambot para apoyar con respuestas."
-    sys_msg = ApplicationMessage(
-        application_id=application_id,
-        sender_type="system",
-        sender_name="Sistema ChambaChat",
-        mensaje=sys_text
-    )
-    db.add(sys_msg)
+    db.add(ApplicationMessage(application_id=application_id, sender_type="system", sender_name="Sistema ChambaChat", mensaje=sys_text))
     db.commit()
+    return {"status": "success", "bot_silenced": app.bot_silenced, "message": sys_text}
 
-    return {
-        "status": "success",
-        "bot_silenced": app.bot_silenced,
-        "message": sys_text
-    }
+
+def _bot_fallback_reply(job: Job, question: str) -> str:
+    q = question.lower()
+    if any(w in q for w in ["sueldo", "pagan", "cuanto", "cuánto", "dinero", "semanal", "salario"]):
+        return (
+            f"Para la vacante de {job.titulo} en {job.empresa_nombre}, el sueldo es de ${job.sueldo_semanal_libre:,.0f} semanales libres "
+            f"(~${round(job.sueldo_semanal_libre * 4.33):,.0f} al mes), más prestaciones de ley. En breve el reclutador te dará más pormenores de nómina."
+        )
+    if any(w in q for w in ["turno", "horario", "hora", "rolar", "fijo"]):
+        if job.hora_entrada and job.hora_salida:
+            horario = f" de {job.hora_entrada} a {job.hora_salida}"
+        else:
+            horario = ""
+        turnos_txt = f"{job.tipo_turno or 'turno fijo'}{horario}" if job.turnos_fijos else "turnos que pueden ser rotativos según la línea de producción"
+        return f"Sobre los horarios en {job.empresa_nombre}: esta posición cuenta con {turnos_txt}. El reclutador confirmará contigo la disponibilidad exacta."
+    if any(w in q for w in ["camion", "camión", "transporte", "ruta", "parada", "llegar"]):
+        trans_txt = "cuenta con rutas de transporte de personal incluidas" if job.transporte_incluido else "no cuenta con transporte directo, pero tiene acceso rápido a rutas urbanas"
+        return f"Para la planta en {job.municipio}, la empresa {trans_txt}. Cuando el reclutador responda te indicará la ruta y parada más cercana a tu domicilio."
+    if any(w in q for w in ["estudio", "secundaria", "prepa", "inea", "certificado"]):
+        inea_txt = "cuenta con aula y facilidades del programa INEA en planta para certificar tu educación básica" if job.apoyo_inea else f"solicita {job.escolaridad_minima or 'educación básica'}"
+        return f"Respecto a los estudios: para {job.titulo}, {job.empresa_nombre} {inea_txt}."
+    if any(w in q for w in ["donde", "dónde", "ubicacion", "ubicación", "direccion", "dirección", "planta"]):
+        return f"La planta está ubicada en el municipio de {job.municipio}, Nuevo León. El equipo de reclutamiento te proporcionará la dirección exacta y referencias para tu entrevista."
+    return (
+        f"¡Hola! El reclutador de {job.empresa_nombre} se encuentra atendiendo operaciones en planta, pero tu mensaje quedó registrado. "
+        f"Mientras tanto, si tienes dudas sobre sueldos (${job.sueldo_semanal_libre:,.0f}/sem), turnos o rutas de transporte, ¡aquí sigo con gusto para ayudarte!"
+    )
+
 
 @router.post("/{application_id}/check-bot-fallback")
-def check_bot_fallback(application_id: int, force: bool = False, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def check_bot_fallback(
+    application_id: int,
+    force: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Evalúa la regla de 2 minutos:
-    Si el candidato envió un mensaje y el reclutador no ha respondido en 120 segundos,
-    Chambot responde con la información y conocimiento de la vacante.
+    Regla de respaldo: si el último mensaje es del candidato y el reclutador no ha respondido
+    en 2 minutos (o force=True por el reclutador), Chambot contesta con datos de la vacante.
     """
-    app = db.query(JobApplication).filter(JobApplication.id == application_id).first()
-    if not app:
-        raise HTTPException(status_code=404, detail="Postulación no encontrada")
+    app = _get_app_or_404(db, application_id)
+    _ensure_can_view(app, current_user, db)
+    if force:
+        _ensure_recruiter(app, current_user, db)
 
     if app.bot_silenced:
         return {"triggered": False, "reason": "BOT_SILENCED"}
 
-    # Obtener el último mensaje del hilo
     last_msg = db.query(ApplicationMessage).filter(
         ApplicationMessage.application_id == application_id
-    ).order_by(ApplicationMessage.created_at.desc()).first()
-
+    ).order_by(ApplicationMessage.created_at.desc(), ApplicationMessage.id.desc()).first()
     if not last_msg or last_msg.sender_type != "candidate":
         return {"triggered": False, "reason": "LAST_MSG_NOT_CANDIDATE"}
 
-    now = datetime.utcnow()
     ref_time = app.last_candidate_message_at or last_msg.created_at
-    elapsed_seconds = (now - ref_time).total_seconds() if ref_time else 0
-
-    if not force and elapsed_seconds < 120:
-        return {
-            "triggered": False,
-            "reason": "WAITING_RECRUITER",
-            "remaining_seconds": max(0, int(120 - elapsed_seconds))
-        }
-
-    job = app.job
-    q_text = last_msg.mensaje.lower()
-
-    if any(w in q_text for w in ["sueldo", "pagan", "cuanto", "dinero", "semanal", "salario"]):
-        bot_reply = f"Para la vacante de {job.titulo} en {job.empresa_nombre}, el sueldo es de ${job.sueldo_semanal_libre:,.0f} semanales libres (~${round(job.sueldo_semanal_libre * 4.33):,.0f} al mes), más prestaciones de ley. En breve el reclutador te dará más pormenores de nómina."
-    elif any(w in q_text for w in ["turno", "horario", "hora", "rolar", "fijo"]):
-        turnos_txt = "turnos fijos sin rolación" if job.turnos_fijos else "turnos que pueden ser rotativos según la línea de producción"
-        bot_reply = f"Sobre los horarios en {job.empresa_nombre}: esta posición cuenta con {turnos_txt}. El reclutador confirmará la disponibilidad exacta del turno contigo."
-    elif any(w in q_text for w in ["camion", "transporte", "ruta", "parada", "llegar"]):
-        trans_txt = "cuenta con rutas de transporte de personal incluidas" if job.transporte_incluido else "no cuenta con transporte directo, pero tiene acceso rápido a rutas urbanas"
-        bot_reply = f"Para la planta en {job.municipio}, la empresa {trans_txt}. Cuando el reclutador responda te indicará la ruta y parada más cercana a tu domicilio."
-    elif any(w in q_text for w in ["estudio", "secundaria", "prepa", "inea", "certificado"]):
-        inea_txt = "cuenta con aula y facilidades del programa INEA en planta para certificar tu educación básica" if job.apoyo_inea else "solicita secundaria o educación básica"
-        bot_reply = f"Respecto a los estudios: para {job.titulo}, {job.empresa_nombre} {inea_txt}."
-    elif any(w in q_text for w in ["donde", "ubicacion", "direccion", "planta"]):
-        bot_reply = f"La planta está ubicada en el municipio de {job.municipio}, Nuevo León. El equipo de reclutamiento te proporcionará la dirección exacta y referencias para tu entrevista."
-    else:
-        bot_reply = f"¡Hola! El reclutador de {job.empresa_nombre} se encuentra atendiendo operaciones en planta, pero tu mensaje quedó registrado. Mientras tanto, si tienes dudas sobre sueldos (${job.sueldo_semanal_libre:,.0f}/sem), turnos o rutas de transporte, ¡aquí sigo con gusto para ayudarte!"
+    elapsed = (datetime.utcnow() - ref_time).total_seconds() if ref_time else 0
+    if not force and elapsed < RECRUITER_TIMEOUT_SECONDS:
+        return {"triggered": False, "reason": "WAITING_RECRUITER", "remaining_seconds": max(0, int(RECRUITER_TIMEOUT_SECONDS - elapsed))}
 
     bot_msg = ApplicationMessage(
         application_id=application_id,
         sender_type="bot",
         sender_name="Chambot (IA)",
-        mensaje=f"🤖 {bot_reply}"
+        mensaje=f"🤖 {_bot_fallback_reply(app.job, last_msg.mensaje)}",
     )
     db.add(bot_msg)
     db.commit()
     db.refresh(bot_msg)
-
-    return {
-        "triggered": True,
-        "reason": "RECRUITER_TIMEOUT_REPLIED",
-        "message": {
-            "id": bot_msg.id,
-            "application_id": bot_msg.application_id,
-            "sender_type": bot_msg.sender_type,
-            "sender_name": bot_msg.sender_name,
-            "mensaje": bot_msg.mensaje,
-            "leido": bot_msg.leido,
-            "created_at": bot_msg.created_at
-        }
-    }
-
+    return {"triggered": True, "reason": "RECRUITER_TIMEOUT_REPLIED", "message": _message_response(bot_msg).model_dump()}

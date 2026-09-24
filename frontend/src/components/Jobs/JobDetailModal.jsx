@@ -181,7 +181,7 @@ export default function JobDetailModal({
           >
             <MessageSquare className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
             <span>
-              {isApplied ? 'Ir al Chat Grupal con Reclutador' : 'Iniciar Chat Grupal con Reclutador'}
+              {isApplied ? 'Ir a mi chat con el reclutador' : 'Abrir chat directo con el reclutador'}
             </span>
             <ArrowRight className="w-3.5 h-3.5 text-emerald-200 group-hover:translate-x-0.5 transition-transform" />
           </button>
