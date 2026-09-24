@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Trash2, ChevronDown, ChevronUp, Bot, BellOff, Sparkles } from 'lucide-react';
+import { Trash2, Bot, BellOff } from 'lucide-react';
 import MessageList from '../MessageList';
 import ChatScrollArea from '../ChatScrollArea';
 import ChatInput from '../ChatInput';
@@ -27,6 +27,13 @@ export default function RecruiterConversation({ app, recruiterName, sending, onS
   const blockedText = app.blocked_by_company
     ? 'Bloqueaste a este candidato. Quita el bloqueo (escudo) para escribirle.'
     : 'El candidato bloqueó a tu empresa: no es posible escribirle.';
+  // Botón cuadrado solo con el porcentaje; el color indica el nivel (el detalle se despliega al tocarlo)
+  const scoreText = app.match_score != null ? `${app.match_score}%` : 'N/D';
+  const scoreClass = !done
+    ? (inProgress ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200')
+    : app.match_level === 'Alta' ? 'bg-emerald-600 text-white border-emerald-600'
+    : app.match_level === 'Media' ? 'bg-amber-500 text-white border-amber-500'
+    : 'bg-rose-500 text-white border-rose-500';
 
   const handleSend = async () => {
     const t = text.trim();
@@ -56,14 +63,11 @@ export default function RecruiterConversation({ app, recruiterName, sending, onS
             <button
               type="button"
               onClick={() => setShowDetail(v => !v)}
-              title="Compatibilidad y respuestas de la entrevista"
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-black border transition ${
-                done ? 'bg-emerald-600 text-white border-emerald-600' : inProgress ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'
-              }`}
+              aria-expanded={showDetail}
+              title={`Compatibilidad ${scoreText}${done && app.match_level ? ` · ${app.match_level}` : inProgress ? ' · entrevista en curso' : ' · estimada'}. Toca para ver el desglose y las respuestas.`}
+              className={`h-7 min-w-[2.5rem] px-1.5 rounded-lg text-[11px] font-black border transition ${scoreClass} ${showDetail ? 'ring-2 ring-offset-1 ring-emerald-300' : ''}`}
             >
-              <Sparkles className="w-3 h-3" />
-              <span>{app.match_score != null ? `${app.match_score}%` : 'N/D'}{done && app.match_level ? ` · ${app.match_level}` : ''}</span>
-              {showDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {scoreText}
             </button>
             <CandidateActionButtons app={app} onToggleFavorite={onToggleFavorite} onToggleBlock={onToggleBlock} loading={actionLoading} />
             <button
