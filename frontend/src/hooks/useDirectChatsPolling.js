@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { getMyApplications, checkBotFallback } from '../services/api';
-import { missingMessages } from '../services/directChat';
+import { missingMessages, metaFromApplication } from '../services/directChat';
 
 const POLL_MS = 4000;
 
@@ -38,8 +38,8 @@ export function useDirectChatsPolling(sessions, currentUser, onNewMessages) {
             checkBotFallback(app.id, false).catch(() => {});
           }
 
-          const fresh = missingMessages(session, app);
-          if (fresh.length > 0) onNewRef.current(session.id, fresh, { status: app.status, botSilenced: app.bot_silenced });
+          // Siempre se avisa: aunque no haya mensajes nuevos puede cambiar el estado de la entrevista
+          onNewRef.current(session.id, missingMessages(session, app), metaFromApplication(app));
         }
       } catch (e) {
         // Silencioso: el sondeo reintenta en el siguiente ciclo

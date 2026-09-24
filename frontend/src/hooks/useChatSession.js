@@ -8,8 +8,8 @@ import {
   updateSession,
   clearAllSessions
 } from '../services/chatStorage';
-import { startChat, sendChatMessage, getJobs, submitApplication, sendCandidateMessage } from '../services/api';
-import { createDirectSession, findDirectSession, mapApplicationMessage, formatBackendTime } from '../services/directChat';
+import { startChat, sendChatMessage, getJobs, submitApplication, sendCandidateMessage, getApplicationById } from '../services/api';
+import { createDirectSession, findDirectSession, mapApplicationMessage, formatBackendTime, missingMessages, metaFromApplication } from '../services/directChat';
 import { useDirectChatsPolling } from './useDirectChatsPolling';
 
 const nowTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -121,7 +121,9 @@ export function useChatSession(currentUser) {
     if (!stored) return;
     const known = new Set((stored.messages || []).map(m => m.id));
     const fresh = newMsgs.filter(m => !known.has(m.id));
-    if (fresh.length === 0) return;
+    const metaKeys = (o) => JSON.stringify([o.status, o.botSilenced, o.screeningStatus, o.screening]);
+    const metaChanged = Object.keys(meta).length > 0 && metaKeys(meta) !== metaKeys(stored);
+    if (fresh.length === 0 && !metaChanged) return;
 
     const isActive = activeIdRef.current === sessionId;
     const unread = isActive ? 0 : (stored.unread || 0) + fresh.filter(m => m.sender !== 'user').length;
@@ -129,7 +131,9 @@ export function useChatSession(currentUser) {
       messages: [...(stored.messages || []), ...fresh],
       unread,
       status: meta.status || stored.status,
-      botSilenced: meta.botSilenced ?? stored.botSilenced
+      botSilenced: meta.botSilenced ?? stored.botSilenced,
+      screening: meta.screening !== undefined ? meta.screening : stored.screening,
+      screeningStatus: meta.screeningStatus || stored.screeningStatus
     };
     updateSession(sessionId, changes);
     setSessions(loadAllSessions());
@@ -180,6 +184,16 @@ export function useChatSession(currentUser) {
         : m));
       setActiveSession(prev => ({ ...prev, messages: confirmed }));
       updateSession(activeSession.id, { messages: confirmed });
+      // Traer de inmediato la reacción de Chambot (siguiente pregunta de la entrevista) sin esperar al sondeo
+      try {
+        const app = await getApplicationById(activeSession.applicationId);
+        const fresh = missingMessages({ ...activeSession, messages: confirmed }, app);
+        const merged = { messages: [...confirmed, ...fresh], ...metaFromApplication(app) };
+        setActiveSession(prev => ({ ...prev, ...merged }));
+        updateSession(activeSession.id, merged);
+      } catch (e) {
+        // el sondeo periódico lo traerá
+      }
     } catch (err) {
       console.error('Error enviando mensaje al reclutador:', err);
       const failed = [...withUser, {

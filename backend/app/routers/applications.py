@@ -26,6 +26,7 @@ from app.schemas import (
     MessageResponse,
     ToggleBotRequest,
 )
+from app.services import screening_service
 
 router = APIRouter(prefix="/api/v1/applications", tags=["Applications & Recruiter Chat"])
 
@@ -98,6 +99,12 @@ def build_app_response(app: JobApplication) -> ApplicationResponse:
         empresa_nombre=job.empresa_nombre if job else "Empresa",
         job_details=job_details,
         messages=[_message_response(m) for m in sorted(app.messages, key=lambda m: (m.created_at, m.id))],
+        screening_status=app.screening_status or "none",
+        screening=screening_service.current_screening(app),
+        screening_answers=app.screening_answers,
+        match_breakdown=app.match_breakdown,
+        match_level=app.match_level,
+        screening_completed_at=app.screening_completed_at,
     )
 
 
@@ -195,16 +202,7 @@ def apply_to_job(
             "En breve un reclutador de nuestra planta revisará tus datos y te responderá aquí mismo."
         ),
     ))
-    db.add(ApplicationMessage(
-        application_id=application.id,
-        sender_type="bot",
-        sender_name="Chambot (IA)",
-        mensaje=(
-            f"🤖 ¡Qué onda {candidate_name}! Este es tu chat directo con el equipo de {job.empresa_nombre}. "
-            f"Si el reclutador tarda más de {RECRUITER_TIMEOUT_SECONDS // 60} minutos en responder, con gusto te apoyo "
-            "con dudas sobre turnos, sueldo o transporte de esta vacante."
-        ),
-    ))
+    screening_service.start_screening(db, application, job, current_user)
     db.commit()
     db.refresh(application)
     return build_app_response(application)
@@ -282,6 +280,10 @@ def send_message_to_application(
 
     msg = ApplicationMessage(application_id=application_id, sender_type=payload.sender_type, sender_name=sender_name, mensaje=mensaje)
     db.add(msg)
+    db.flush()
+    if payload.sender_type == "candidate" and app.screening_status == "in_progress":
+        # Entrevista rápida en curso: Chambot registra la respuesta y publica la siguiente pregunta
+        screening_service.handle_candidate_answer(db, app, current_user, mensaje)
     db.commit()
     db.refresh(msg)
     return _message_response(msg)
@@ -306,34 +308,6 @@ def toggle_bot_state(
     return {"status": "success", "bot_silenced": app.bot_silenced, "message": sys_text}
 
 
-def _bot_fallback_reply(job: Job, question: str) -> str:
-    q = question.lower()
-    if any(w in q for w in ["sueldo", "pagan", "cuanto", "cuánto", "dinero", "semanal", "salario"]):
-        return (
-            f"Para la vacante de {job.titulo} en {job.empresa_nombre}, el sueldo es de ${job.sueldo_semanal_libre:,.0f} semanales libres "
-            f"(~${round(job.sueldo_semanal_libre * 4.33):,.0f} al mes), más prestaciones de ley. En breve el reclutador te dará más pormenores de nómina."
-        )
-    if any(w in q for w in ["turno", "horario", "hora", "rolar", "fijo"]):
-        if job.hora_entrada and job.hora_salida:
-            horario = f" de {job.hora_entrada} a {job.hora_salida}"
-        else:
-            horario = ""
-        turnos_txt = f"{job.tipo_turno or 'turno fijo'}{horario}" if job.turnos_fijos else "turnos que pueden ser rotativos según la línea de producción"
-        return f"Sobre los horarios en {job.empresa_nombre}: esta posición cuenta con {turnos_txt}. El reclutador confirmará contigo la disponibilidad exacta."
-    if any(w in q for w in ["camion", "camión", "transporte", "ruta", "parada", "llegar"]):
-        trans_txt = "cuenta con rutas de transporte de personal incluidas" if job.transporte_incluido else "no cuenta con transporte directo, pero tiene acceso rápido a rutas urbanas"
-        return f"Para la planta en {job.municipio}, la empresa {trans_txt}. Cuando el reclutador responda te indicará la ruta y parada más cercana a tu domicilio."
-    if any(w in q for w in ["estudio", "secundaria", "prepa", "inea", "certificado"]):
-        inea_txt = "cuenta con aula y facilidades del programa INEA en planta para certificar tu educación básica" if job.apoyo_inea else f"solicita {job.escolaridad_minima or 'educación básica'}"
-        return f"Respecto a los estudios: para {job.titulo}, {job.empresa_nombre} {inea_txt}."
-    if any(w in q for w in ["donde", "dónde", "ubicacion", "ubicación", "direccion", "dirección", "planta"]):
-        return f"La planta está ubicada en el municipio de {job.municipio}, Nuevo León. El equipo de reclutamiento te proporcionará la dirección exacta y referencias para tu entrevista."
-    return (
-        f"¡Hola! El reclutador de {job.empresa_nombre} se encuentra atendiendo operaciones en planta, pero tu mensaje quedó registrado. "
-        f"Mientras tanto, si tienes dudas sobre sueldos (${job.sueldo_semanal_libre:,.0f}/sem), turnos o rutas de transporte, ¡aquí sigo con gusto para ayudarte!"
-    )
-
-
 @router.post("/{application_id}/check-bot-fallback")
 def check_bot_fallback(
     application_id: int,
@@ -352,6 +326,8 @@ def check_bot_fallback(
 
     if app.bot_silenced:
         return {"triggered": False, "reason": "BOT_SILENCED"}
+    if app.screening_status == "in_progress" and not force:
+        return {"triggered": False, "reason": "SCREENING_IN_PROGRESS"}
 
     last_msg = db.query(ApplicationMessage).filter(
         ApplicationMessage.application_id == application_id
@@ -368,7 +344,7 @@ def check_bot_fallback(
         application_id=application_id,
         sender_type="bot",
         sender_name="Chambot (IA)",
-        mensaje=f"🤖 {_bot_fallback_reply(app.job, last_msg.mensaje)}",
+        mensaje=f"🤖 {screening_service.answer_job_question(app.job, last_msg.mensaje)}",
     )
     db.add(bot_msg)
     db.commit()

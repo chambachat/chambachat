@@ -1,5 +1,6 @@
 import React from 'react';
 import { Phone, Clock, ExternalLink, Sparkles } from 'lucide-react';
+import ScreeningSummary from './ScreeningSummary';
 
 function WhatsAppButton({ app }) {
   if (!app.candidate_phone) {
@@ -25,33 +26,6 @@ function WhatsAppButton({ app }) {
       <span>WhatsApp ({app.candidate_phone})</span>
       <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
     </a>
-  );
-}
-
-function MatchScoreBar({ app }) {
-  const score = app.match_score;
-  return (
-    <div className="bg-white rounded-xl p-3 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-black text-slate-800" title="Estimación heurística por municipio, teléfono y turnos. No es una evaluación de IA.">
-            Afinidad estimada:
-          </span>
-          <span className={`text-xs font-black px-2.5 py-0.5 rounded-lg ${(score ?? 0) >= 85 ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'}`}>
-            ⚡ {score != null ? `${score}%` : 'N/D'}
-          </span>
-        </div>
-        <div className="w-24 sm:w-28 bg-slate-100 rounded-full h-2 overflow-hidden">
-          <div className="bg-emerald-500 h-2 rounded-full transition-all duration-500" style={{ width: `${score ?? 0}%` }} />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1 text-[10px]">
-        <span className="bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md font-medium">📍 {app.municipio || 'Apodaca'}</span>
-        <span className="bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md font-medium">⏱️ Turno Compatible</span>
-        <span className="bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md font-medium">💼 Perfil Calificado</span>
-      </div>
-    </div>
   );
 }
 
@@ -121,7 +95,7 @@ export default function ApplicationDetail({ app, botActionLoading, onToggleBot, 
         <WhatsAppButton app={app} />
       </div>
 
-      <MatchScoreBar app={app} />
+      <ScreeningSummary app={app} />
       <BotControls app={app} loading={botActionLoading} onToggleBot={onToggleBot} onForceBotFallback={onForceBotFallback} />
     </div>
   );

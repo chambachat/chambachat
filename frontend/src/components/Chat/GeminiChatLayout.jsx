@@ -57,6 +57,11 @@ export default function GeminiChatLayout({
   // Vacantes con chat directo ya abierto (una conversación por postulación)
   const appliedJobIds = new Set(sessions.filter(s => s.kind === 'direct').map(s => s.jobId));
   const isDirect = activeSession?.kind === 'direct';
+  // Entrevista rápida de Chambot dentro del chat directo: sus opciones se muestran como chips
+  const screening = isDirect ? activeSession?.screening : null;
+  const screeningActive = screening?.status === 'in_progress';
+  const screeningOptions = screeningActive && screening.options?.length ? screening.options.map(o => ({ label: o, value: o })) : [];
+  const askingLocationInDirect = isDirect && screeningActive && screening.step_key === 'ubicacion';
 
   useEffect(() => {
     if (propCurrentUser !== undefined) setCurrentUser(propCurrentUser);
@@ -174,6 +179,11 @@ export default function GeminiChatLayout({
         console.error('No se pudo guardar la ubicación en el perfil:', e);
       }
     }
+    if (isDirect) {
+      // En el chat directo la ubicación es una respuesta de la entrevista, no un evento del bot general
+      await sendToBot({ textToSend: `📍 Vivo en ${newLoc.colonia}, ${newLoc.municipio}` });
+      return;
+    }
     await sendToBot({ location: newLoc });
   };
 
@@ -219,10 +229,10 @@ export default function GeminiChatLayout({
                 <LoginPromptCard onLogin={() => setIsAuthModalOpen(true)} />
               )}
 
-              {!isDirect && (!candidateLocation || activeSession?.askLocation) && (
+              {((!isDirect && (!candidateLocation || activeSession?.askLocation)) || askingLocationInDirect) && (
                 <LocationCard
                   location={candidateLocation}
-                  asking={Boolean(activeSession?.askLocation)}
+                  asking={Boolean(activeSession?.askLocation) || askingLocationInDirect}
                   onOpen={() => setIsLocationModalOpen(true)}
                 />
               )}
@@ -246,9 +256,11 @@ export default function GeminiChatLayout({
           value={inputMessage}
           onChange={setInputMessage}
           onSend={() => handleSendMessage()}
-          options={isDirect ? [] : options}
+          options={isDirect ? screeningOptions : options}
           onSelectOption={handleOptionSelect}
-          placeholder={isDirect ? `Escribe a Reclutamiento ${activeSession.companyName}...` : undefined}
+          placeholder={isDirect
+            ? (screeningActive ? 'Responde a Chambot o elige una opción arriba...' : `Escribe a Reclutamiento ${activeSession.companyName}...`)
+            : undefined}
           footer={isDirect ? 'Tus mensajes llegan a los reclutadores de la planta; si tardan, Chambot te apoya con los datos de la vacante.' : undefined}
         />
       </main>

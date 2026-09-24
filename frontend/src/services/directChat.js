@@ -38,6 +38,16 @@ export function findDirectSession(sessions, { applicationId, jobId }) {
   )) || null;
 }
 
+/** Estado que viaja con la postulación y se refleja en la conversación (encabezado, chips de la entrevista). */
+export function metaFromApplication(application) {
+  return {
+    status: application.status,
+    botSilenced: Boolean(application.bot_silenced),
+    screening: application.screening || null,
+    screeningStatus: application.screening_status || 'none',
+  };
+}
+
 /** Crea (y activa) la conversación directa a partir de la postulación devuelta por el backend. */
 export function createDirectSession(application) {
   const companyName = application.empresa_nombre || application.job_details?.empresa_nombre || 'Empresa';
@@ -57,6 +67,7 @@ export function createDirectSession(application) {
     candidateProfile: null,
     backendSessionId: null,
     unread: 0,
+    ...metaFromApplication(application),
   };
   const sessions = loadAllSessions().filter(s => s.id !== session.id);
   sessions.unshift(session);

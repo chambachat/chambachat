@@ -32,7 +32,7 @@ function ApplicationCard({ app, isSelected, onSelect }) {
 
       <div className="flex items-center gap-2 pt-0.5">
         <span className={`text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 ${scoreBadgeClass(score ?? 0)}`}>
-          ⚡ {score !== null ? `${score}%` : 'N/D'} afinidad est.
+          ⚡ {score !== null ? `${score}%` : 'N/D'} {app.match_level ? `· ${app.match_level}` : 'estimado'}
         </span>
         <span className="text-[10px] text-slate-500 font-medium">📍 {app.municipio || 'Apodaca'}</span>
       </div>

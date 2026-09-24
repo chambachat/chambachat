@@ -21,6 +21,7 @@ class User(Base):
     longitud = Column(Float, nullable=True)
     # True solo cuando las coordenadas vienen de GPS/mapa (chat o perfil), no del centro del municipio
     ubicacion_confirmada = Column(Boolean, nullable=False, default=False, server_default="0")
+    perfil_operativo = Column(JSON, nullable=True)  # escolaridad, experiencia por rol, certificaciones, disponibilidad
     sueldo_deseado = Column(Float, nullable=True)
     avatar_url = Column(String(500), nullable=True)
     google_id = Column(String(255), nullable=True)
@@ -129,6 +130,14 @@ class JobApplication(Base):
     last_candidate_message_at = Column(DateTime, nullable=True)
     last_recruiter_message_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Entrevista rápida de Chambot (ver services/screening_service.py)
+    screening_status = Column(String(20), nullable=False, default="none", server_default="none")  # none | in_progress | done
+    screening_state = Column(JSON, nullable=True)      # pasos, índice y respuestas en curso
+    screening_answers = Column(JSON, nullable=True)    # respuestas finales que ve el reclutador
+    match_breakdown = Column(JSON, nullable=True)      # desglose de la compatibilidad
+    match_level = Column(String(20), nullable=True)    # Alta | Media | Baja
+    screening_completed_at = Column(DateTime, nullable=True)
 
     job = relationship("Job", back_populates="applications")
     messages = relationship("ApplicationMessage", back_populates="application", cascade="all, delete-orphan")

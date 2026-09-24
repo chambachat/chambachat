@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, User, MapPin, Navigation, Building2, Bot } from 'lucide-react';
+import { ShieldCheck, User, MapPin, Navigation, Building2, Bot, ClipboardList, CheckCircle2 } from 'lucide-react';
 
 /** Encabezado fijo de una conversación directa con los reclutadores de una planta. */
 export function DirectChatBanner({ session }) {
@@ -21,6 +21,18 @@ export function DirectChatBanner({ session }) {
         <p className="text-[11px] text-blue-900/80 leading-snug">
           Vacante: <strong>{session.jobTitle}</strong>. Lo que escribas aquí lo reciben los reclutadores de la planta.
         </p>
+        {session.screeningStatus === 'in_progress' && session.screening?.total > 0 && (
+          <p className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 inline-flex items-center gap-1">
+            <ClipboardList className="w-3 h-3 shrink-0" />
+            <span>Entrevista rápida de Chambot: pregunta {session.screening.index} de {session.screening.total}</span>
+          </p>
+        )}
+        {session.screeningStatus === 'done' && (
+          <p className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 inline-flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 shrink-0" />
+            <span>Tu información ya se envió al reclutador</span>
+          </p>
+        )}
         <p className="text-[10px] text-blue-800/70 flex items-center gap-1">
           <Bot className="w-3 h-3 shrink-0" />
           <span>Si tardan más de 2 minutos, Chambot te contesta con los datos de la vacante.</span>

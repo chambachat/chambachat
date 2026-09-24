@@ -117,6 +117,13 @@ class ApplicationResponse(BaseModel):
     empresa_nombre: Optional[str] = None
     job_details: Optional[dict] = None
     messages: List[MessageResponse] = []
+    # Entrevista rápida de Chambot y compatibilidad
+    screening_status: Optional[str] = "none"
+    screening: Optional[Dict[str, Any]] = None          # pregunta y opciones vigentes (chips del candidato)
+    screening_answers: Optional[Dict[str, Any]] = None  # respuestas para el reclutador
+    match_breakdown: Optional[List[Dict[str, Any]]] = None
+    match_level: Optional[str] = None
+    screening_completed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
