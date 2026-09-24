@@ -25,10 +25,24 @@ def _parse_cors_origins() -> list[str]:
     return ["http://localhost:5173", "http://localhost:3000"]
 
 
+def _normalize_db_url(url: str) -> str:
+    """
+    Fija el driver de PostgreSQL de forma explícita (psycopg2, el instalado).
+    - postgres:// (formato de Render/Heroku) → postgresql://
+    - postgresql:// sin driver → postgresql+psycopg2:// ; SQLAlchemy 2.1 cambió el driver por
+      defecto a psycopg (3) y sin esto el arranque fallaba con "No module named 'psycopg'".
+    """
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg2://" + url[len("postgresql://"):]
+    return url
+
+
 class Settings(BaseModel):
     APP_NAME: str = "Chambachat V2 API"
     APP_VERSION: str = "2.0.0"
-    DATABASE_URL: str = os.getenv("DATABASE_URL", _DEFAULT_DB_URL)
+    DATABASE_URL: str = _normalize_db_url(os.getenv("DATABASE_URL", _DEFAULT_DB_URL))
     CORS_ORIGINS: list[str] = _parse_cors_origins()
 
     # DeepSeek LLM Configuration — sin fallback hardcodeado

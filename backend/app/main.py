@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.config import settings
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app.models import BotFlowConfig
 from app.services.chatbot_engine import DEFAULT_PROMPTS
 from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents, favorites, blocks, profile
@@ -40,6 +40,34 @@ def _run_alembic_migrations():
 
 
 _run_alembic_migrations()
+
+
+def _harden_public_tables() -> None:
+    """
+    Supabase expone el esquema public por su API REST (PostgREST). Con Row Level Security
+    activo y sin políticas, nadie puede leer ni escribir por esa vía; la app no se ve afectada
+    porque se conecta con el rol dueño de las tablas (al dueño no le aplica RLS).
+    Idempotente: solo toca tablas que aún no tengan RLS. Solo PostgreSQL.
+    """
+    if settings.DATABASE_URL.startswith("sqlite"):
+        return
+    from sqlalchemy import text
+
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(text(
+                "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = 'public' AND c.relkind = 'r' AND NOT c.relrowsecurity"
+            )).fetchall()
+            for (table,) in rows:
+                conn.execute(text(f'ALTER TABLE public."{table}" ENABLE ROW LEVEL SECURITY'))
+        if rows:
+            logger.info("RLS habilitado en %d tabla(s) públicas: %s", len(rows), ", ".join(r[0] for r in rows))
+    except Exception as exc:  # noqa: BLE001 - endurecimiento opcional, nunca debe tumbar el arranque
+        logger.warning("No se pudo habilitar RLS en las tablas públicas: %s", exc)
+
+
+_harden_public_tables()
 
 # Sembrar prompts por defecto si la tabla está vacía
 def init_default_prompts():
