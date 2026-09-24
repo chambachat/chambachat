@@ -1,11 +1,22 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ToggleLeft, ToggleRight } from 'lucide-react';
 import { ESCOLARIDADES, EXPERIENCIAS, CERTIFICACIONES, REQUISITOS_FISICOS } from '../../constants/jobCatalog';
-import ChipMultiSelect from './ChipMultiSelect';
+import TagInput from './TagInput';
+import { getJobCatalog } from '../../services/api';
 import { inputClass } from './JobFormCompany';
 
 /** Sección 4: requisitos (educationRequirements, experienceRequirements, qualifications), descripción libre y estado. */
 export default function JobFormRequirements({ job, onChange }) {
+  // Sugerencias = catálogo base + etiquetas ya usadas en otras vacantes (crece con cada giro)
+  const [suggestions, setSuggestions] = useState({ certificaciones: CERTIFICACIONES, requisitos_fisicos: REQUISITOS_FISICOS });
+  useEffect(() => {
+    let cancelled = false;
+    getJobCatalog()
+      .then(cat => { if (!cancelled && cat) setSuggestions({ certificaciones: cat.certificaciones || CERTIFICACIONES, requisitos_fisicos: cat.requisitos_fisicos || REQUISITOS_FISICOS }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -23,17 +34,20 @@ export default function JobFormRequirements({ job, onChange }) {
         </div>
       </div>
 
-      <ChipMultiSelect
+      <TagInput
         label="Certificaciones o habilidades requeridas"
-        options={CERTIFICACIONES}
+        hint="Escribe y presiona Enter para agregar la tuya, o elige una sugerencia. Sirve para cualquier giro: oficina, comercio, manufactura..."
+        placeholder="Ej. Excel intermedio, Licencia de montacargas, Atención a clientes"
+        suggestions={suggestions.certificaciones}
         value={job.certificaciones}
         onChange={(v) => onChange('certificaciones', v)}
       />
 
-      <ChipMultiSelect
-        label="Condiciones físicas del puesto"
+      <TagInput
+        label="Condiciones del puesto"
         hint="Ayuda al candidato a saber si el trabajo le acomoda. No se piden edad, sexo ni estado civil (LFT art. 133)."
-        options={REQUISITOS_FISICOS}
+        placeholder="Ej. Trabajo de pie prolongado, Horario en fin de semana"
+        suggestions={suggestions.requisitos_fisicos}
         value={job.requisitos_fisicos}
         onChange={(v) => onChange('requisitos_fisicos', v)}
       />

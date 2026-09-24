@@ -68,10 +68,30 @@ def get_jobs(
     return query.order_by(Job.id.desc()).all()
 
 
+def _learned_tags(db: Session, column) -> List[str]:
+    """Etiquetas libres ya usadas en vacantes (catálogo abierto que crece con cada giro)."""
+    seen, out = set(), []
+    for (values,) in db.query(column).filter(column.isnot(None)).all():
+        for tag in values or []:
+            key = str(tag).strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                out.append(str(tag).strip())
+    return out
+
+
 @router.get("/catalogo", response_model=JobCatalogResponse)
-def get_job_catalog():
-    """Opciones válidas para los campos estructurados de una vacante (misma fuente que valida el backend)."""
-    return JobCatalogResponse(**job_catalog.CATALOGO)
+def get_job_catalog(db: Session = Depends(get_db)):
+    """
+    Opciones para los campos de una vacante. Los campos cerrados vienen del catálogo fijo;
+    certificaciones y requisitos_fisicos son abiertos: sugerencias del catálogo más lo ya usado.
+    """
+    data = dict(job_catalog.CATALOGO)
+    for key, column in (("certificaciones", Job.certificaciones), ("requisitos_fisicos", Job.requisitos_fisicos)):
+        base = list(data[key])
+        lower = {b.lower() for b in base}
+        data[key] = base + [t for t in _learned_tags(db, column) if t.lower() not in lower]
+    return JobCatalogResponse(**data)
 
 
 @router.post("", response_model=JobResponse)

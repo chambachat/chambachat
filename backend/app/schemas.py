@@ -121,6 +121,25 @@ def _in_catalog(value: Optional[str], options: List[str], field: str) -> Optiona
     return value
 
 
+def _free_tags(values: Optional[List[str]], field: str, max_items: int = 20, max_len: int = 60) -> Optional[List[str]]:
+    """Etiquetas libres (catálogo abierto): limpia espacios, quita vacíos y duplicados sin distinguir mayúsculas."""
+    if values is None:
+        return None
+    seen, out = set(), []
+    for raw in values:
+        tag = " ".join(str(raw or "").split())[:max_len]
+        if not tag:
+            continue
+        key = tag.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(tag)
+    if len(out) > max_items:
+        raise ValueError(f"{field}: máximo {max_items} etiquetas")
+    return out
+
+
 def _subset_of_catalog(values: Optional[List[str]], options: List[str], field: str) -> Optional[List[str]]:
     if values is None:
         return None
@@ -177,7 +196,7 @@ class JobStructuredFields(BaseModel):
 
     @field_validator("certificaciones")
     @classmethod
-    def _v_cert(cls, v): return _subset_of_catalog(v, job_catalog.CERTIFICACIONES, "certificaciones")
+    def _v_cert(cls, v): return _free_tags(v, "certificaciones")
 
     @field_validator("prestaciones")
     @classmethod
@@ -185,7 +204,7 @@ class JobStructuredFields(BaseModel):
 
     @field_validator("requisitos_fisicos")
     @classmethod
-    def _v_fis(cls, v): return _subset_of_catalog(v, job_catalog.REQUISITOS_FISICOS, "requisitos_fisicos")
+    def _v_fis(cls, v): return _free_tags(v, "requisitos_fisicos")
 
 
 class JobBase(JobStructuredFields):

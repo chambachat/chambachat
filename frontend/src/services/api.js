@@ -155,6 +155,12 @@ export async function createJob(jobData) {
   return res.json();
 }
 
+export async function getJobCatalog() {
+  const res = await fetch(`${API_BASE}/jobs/catalogo`);
+  if (!res.ok) throw new Error('Error al obtener catálogo de vacantes');
+  return res.json();
+}
+
 export async function updateJob(jobId, data) {
   const res = await fetch(`${API_BASE}/jobs/${jobId}`, {
     method: 'PUT',

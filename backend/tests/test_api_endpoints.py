@@ -383,6 +383,18 @@ def test_jobs_structured_fields_location_from_plant_and_status(client):
     assert edited["municipio"] == "Apodaca"                       # la ubicación no se toca
     assert edited["certificaciones"] == ["Licencia de montacargas (DC-3)"]  # campo no enviado: intacto
     assert client.put(f"/api/v1/jobs/{job['id']}", json={"categoria": "Astronauta"}, headers=headers).status_code == 422
+
+    # Certificaciones y condiciones son catálogo abierto: valores propios se aceptan, se limpian y luego se sugieren
+    libre = client.put(f"/api/v1/jobs/{job['id']}", json={
+        "certificaciones": ["  Excel intermedio ", "excel intermedio", "Atención a clientes", ""],
+        "requisitos_fisicos": ["Trabajo sentado en oficina"],
+    }, headers=headers)
+    assert libre.status_code == 200, libre.text
+    assert libre.json()["certificaciones"] == ["Excel intermedio", "Atención a clientes"]
+    sugerencias = client.get("/api/v1/jobs/catalogo").json()
+    assert "Excel intermedio" in sugerencias["certificaciones"]
+    assert "Licencia de montacargas (DC-3)" in sugerencias["certificaciones"]
+    assert "Trabajo sentado en oficina" in sugerencias["requisitos_fisicos"]
     assert client.put(f"/api/v1/jobs/{job['id']}", json={"titulo": "   "}, headers=headers).status_code == 422
 
     # Valor fuera de catálogo → 422; turno de otra planta → 400; PUT de intruso → 403
