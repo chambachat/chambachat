@@ -51,6 +51,10 @@ export const ESCOLARIDADES = [
 
 export const EXPERIENCIAS = ['Sin experiencia', '6 meses', '1 año', '2 años o más'];
 
+// Catálogo del candidato (currículum operativo)
+export const EXPERIENCIA_CANDIDATO = ['Sin experiencia', 'Menos de 6 meses', '6 meses a 1 año', '1 a 2 años', 'Más de 2 años'];
+export const DISPONIBILIDADES = ['De inmediato', 'Esta semana', 'En 15 días', 'En un mes'];
+
 export const PRESTACIONES = [
   'Prestaciones de ley (IMSS, Infonavit, aguinaldo, vacaciones)',
   'Prestaciones superiores a la ley',

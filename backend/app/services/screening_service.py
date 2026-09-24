@@ -18,13 +18,13 @@ from app.constants import job_catalog
 from app.models import ApplicationMessage, Job, JobApplication, User
 from app.services.geo import MUNICIPIOS_NL_COORDS, get_municipio_coords, haversine_distance_km
 
-EXPERIENCIA_OPCIONES = ["Sin experiencia", "Menos de 6 meses", "6 meses a 1 año", "1 a 2 años", "Más de 2 años"]
+EXPERIENCIA_OPCIONES = list(job_catalog.EXPERIENCIA_CANDIDATO)
 # Experiencia mínima de la vacante (catálogo) → nivel mínimo en EXPERIENCIA_OPCIONES
 EXPERIENCIA_MINIMA_NIVEL = {"Sin experiencia": 0, "6 meses": 2, "1 año": 3, "2 años o más": 4}
 SI_NO_PROCESO = ["Sí", "No", "En proceso"]
 CONDICIONES_OPCIONES = ["Sí, sin problema", "Algunas sí", "No"]
 TURNO_OPCIONES = ["Sí, me acomoda", "Prefiero otro turno", "No puedo ese turno"]
-DISPONIBILIDAD_OPCIONES = ["De inmediato", "Esta semana", "En 15 días", "En un mes"]
+DISPONIBILIDAD_OPCIONES = list(job_catalog.DISPONIBILIDADES)
 
 PESOS = {"experiencia": 25, "escolaridad": 20, "certificaciones": 20, "condiciones": 10, "turno": 10, "ubicacion": 10, "disponibilidad": 5}
 ORDEN_CLAVES = ["experiencia", "escolaridad", "cert:", "condiciones", "turno", "ubicacion", "disponibilidad"]
@@ -481,7 +481,11 @@ def _finalize(db: Session, app: JobApplication, job: Job, user: Optional[User], 
         perfil = _perfil(user)
         rol = state.get("rol") or _rol(job)
         if (answers.get("experiencia") or {}).get("respuesta") in EXPERIENCIA_OPCIONES:
-            perfil.setdefault("experiencia", {})[rol] = answers["experiencia"]["respuesta"]
+            nivel = answers["experiencia"]["respuesta"]
+            perfil["experiencia"] = {**(perfil.get("experiencia") or {}), rol: nivel}
+            actual = perfil.get("experiencia_general")
+            if actual not in EXPERIENCIA_OPCIONES or EXPERIENCIA_OPCIONES.index(nivel) > EXPERIENCIA_OPCIONES.index(actual):
+                perfil["experiencia_general"] = nivel
         if (answers.get("escolaridad") or {}).get("respuesta") in job_catalog.ESCOLARIDADES:
             perfil["escolaridad"] = answers["escolaridad"]["respuesta"]
             user.nivel_educativo = answers["escolaridad"]["respuesta"]

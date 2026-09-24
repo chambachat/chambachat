@@ -945,3 +945,65 @@ class BlockResponse(BaseModel):
     reason: Optional[str] = None
     created_at: Optional[datetime] = None
     mine: bool = True  # lo hizo mi lado: puedo quitarlo
+
+
+# ==========================================
+# CURRÍCULUM OPERATIVO DEL CANDIDATO
+# ==========================================
+class CandidateProfileUpdate(BaseModel):
+    """Edición parcial desde el perfil; los campos cerrados se validan contra el catálogo."""
+    nombre: Optional[str] = Field(None, max_length=255)
+    telefono: Optional[str] = Field(None, max_length=50)
+    edad: Optional[int] = Field(None, ge=15, le=75)
+    escolaridad: Optional[str] = None
+    experiencia_general: Optional[str] = None
+    puesto_deseado: Optional[str] = Field(None, max_length=100)
+    certificaciones: Optional[List[str]] = None
+    habilidades: Optional[List[str]] = None
+    disponibilidad: Optional[str] = None
+    turno_preferido: Optional[str] = None
+    sueldo_deseado: Optional[float] = Field(None, ge=0, le=100000)
+
+    @field_validator("escolaridad")
+    @classmethod
+    def _v_escolaridad(cls, v): return _in_catalog(v, job_catalog.ESCOLARIDADES, "escolaridad")
+
+    @field_validator("experiencia_general")
+    @classmethod
+    def _v_experiencia(cls, v): return _in_catalog(v, job_catalog.EXPERIENCIA_CANDIDATO, "experiencia_general")
+
+    @field_validator("disponibilidad")
+    @classmethod
+    def _v_disponibilidad(cls, v): return _in_catalog(v, job_catalog.DISPONIBILIDADES, "disponibilidad")
+
+    @field_validator("turno_preferido")
+    @classmethod
+    def _v_turno(cls, v): return _in_catalog(v, job_catalog.TIPOS_TURNO, "turno_preferido")
+
+    @field_validator("certificaciones", "habilidades")
+    @classmethod
+    def _v_tags(cls, v): return _free_tags(v, "etiquetas", max_items=30)
+
+
+class CandidateProfileResponse(BaseModel):
+    nombre: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    telefono_omitido: bool = False
+    edad: Optional[int] = None
+    escolaridad: Optional[str] = None
+    experiencia_general: Optional[str] = None
+    experiencia_por_rol: Dict[str, str] = {}
+    puesto_deseado: Optional[str] = None
+    certificaciones: List[str] = []
+    sin_certificaciones: bool = False
+    habilidades: List[str] = []
+    disponibilidad: Optional[str] = None
+    turno_preferido: Optional[str] = None
+    sueldo_deseado: Optional[float] = None
+    ubicacion: Optional[str] = None
+    ubicacion_confirmada: bool = False
+    actualizado_en: Optional[str] = None
+    completitud: int = 0
+    faltantes: List[str] = []
+    catalogos: Dict[str, List[str]] = {}

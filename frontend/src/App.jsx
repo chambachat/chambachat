@@ -5,6 +5,7 @@ import AdminView from './components/Admin/AdminView';
 import UserProfileModal from './components/UserProfile/UserProfileModal';
 import AuthModal from './components/Auth/AuthModal';
 import LocationPickerModal from './components/Chat/LocationPickerModal';
+import CandidateResumeModal from './components/UserProfile/CandidateResumeModal';
 import { getStoredUser, setStoredUser, signOut } from './services/authService';
 import { acceptCompanyInvitation, getInvitationByToken, updateMyLocation } from './services/api';
 import { readStoredLocation, saveStoredLocation, locationFromUser, formatLocation } from './services/candidateLocation';
@@ -32,6 +33,8 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState(null);
   const [invitationInfo, setInvitationInfo] = useState(null);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isResumeOpen, setIsResumeOpen] = useState(false);
+  const [resumeVersion, setResumeVersion] = useState(0);
 
   /** Abre el modal de login como reclutador y guarda la acción a ejecutar al autenticarse. */
   const requireRecruiterAuth = (prompt, action) => {
@@ -235,6 +238,21 @@ export default function App() {
         onUpdateLocation={() => {
           setIsProfileOpen(false);
           setIsLocationModalOpen(true);
+        }}
+        onEditResume={() => {
+          setIsProfileOpen(false);
+          setIsResumeOpen(true);
+        }}
+        resumeVersion={resumeVersion}
+      />
+
+      <CandidateResumeModal
+        isOpen={isResumeOpen}
+        onClose={() => { setIsResumeOpen(false); setIsProfileOpen(true); }}
+        onSaved={() => {
+          setResumeVersion(v => v + 1);
+          setIsResumeOpen(false);
+          setIsProfileOpen(true);
         }}
       />
 

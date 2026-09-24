@@ -77,6 +77,17 @@ async def query_deepseek_chat(
         else:
             ctx_lines.append("- Aún no ha registrado su ubicación. Solo si pregunta por cercanía o transporte, sugiérele una vez el botón 📍 Compartir ubicación.")
         ctx_lines.append("- Rutas de transporte: no las ofrezcas ni las describas salvo que el candidato pregunte por rutas, camiones o paradas.")
+        perfil = context_data.get("perfil_resumen") or {}
+        conocido = [t for t in [
+            f"escolaridad {perfil['escolaridad']}" if perfil.get("escolaridad") else None,
+            f"experiencia {perfil['experiencia_general']}" if perfil.get("experiencia_general") else None,
+            f"certificaciones: {', '.join(perfil['certificaciones'])}" if perfil.get("certificaciones") else None,
+            f"disponibilidad {perfil['disponibilidad']}" if perfil.get("disponibilidad") else None,
+            f"turno preferido {perfil['turno_preferido']}" if perfil.get("turno_preferido") else None,
+        ] if t]
+        if conocido:
+            ctx_lines.append("- Perfil ya registrado del candidato: " + "; ".join(conocido) + ". NO vuelvas a preguntar estos datos.")
+        ctx_lines.append("- No pidas tú datos de perfil (escolaridad, experiencia, certificaciones, disponibilidad, teléfono, edad): el sistema los pregunta por su cuenta con botones.")
         
         if ctx_lines:
             messages.append({

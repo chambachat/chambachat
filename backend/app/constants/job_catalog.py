@@ -72,6 +72,10 @@ EXPERIENCIAS = [
     "2 años o más",
 ]
 
+# Catálogo del candidato (currículum operativo y entrevista rápida)
+EXPERIENCIA_CANDIDATO = ["Sin experiencia", "Menos de 6 meses", "6 meses a 1 año", "1 a 2 años", "Más de 2 años"]
+DISPONIBILIDADES = ["De inmediato", "Esta semana", "En 15 días", "En un mes"]
+
 PRESTACIONES = [
     "Prestaciones de ley (IMSS, Infonavit, aguinaldo, vacaciones)",
     "Prestaciones superiores a la ley",

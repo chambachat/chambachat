@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import BotFlowConfig
 from app.services.chatbot_engine import DEFAULT_PROMPTS
-from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents, favorites, blocks
+from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents, favorites, blocks, profile
 
 import logging
 
@@ -91,6 +91,7 @@ app.include_router(routes.router)
 app.include_router(documents.router)
 app.include_router(favorites.router)
 app.include_router(blocks.router)
+app.include_router(profile.router)
 
 
 @app.get("/api/health")

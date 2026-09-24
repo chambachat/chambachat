@@ -2,6 +2,7 @@ import React from 'react';
 import { User, GraduationCap, MapPin, X, Briefcase, LogOut, ShieldCheck, Building2, ExternalLink, Navigation } from 'lucide-react';
 import { readStoredLocation, locationFromUser, formatLocation } from '../../services/candidateLocation';
 import BlockedCompanies from './BlockedCompanies';
+import ResumeSummaryCard from './ResumeSummaryCard';
 
 export default function UserProfileModal({ 
   isOpen, 
@@ -12,7 +13,9 @@ export default function UserProfileModal({
   onOpenAuth, 
   onReturnToChat,
   onOpenEmpresa,
-  onUpdateLocation
+  onUpdateLocation,
+  onEditResume,
+  resumeVersion = 0
 }) {
   if (!isOpen) return null;
 
@@ -174,18 +177,14 @@ export default function UserProfileModal({
                 </div>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">Grado de estudios:</span>
-                <span className="font-semibold text-slate-800">
-                  {candidateProfile?.nivel_educativo?.replace('_', ' ') || 'Secundaria'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-500">Método de acceso:</span>
                 <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
                   {currentUser ? (isGoogle ? 'Google (1 Clic)' : 'Correo Electrónico') : 'Invitado / No autenticado'}
                 </span>
               </div>
             </div>
+
+            <ResumeSummaryCard currentUser={currentUser} onEdit={onEditResume} refreshKey={resumeVersion} />
 
             {currentUser && <BlockedCompanies />}
 

@@ -13,6 +13,7 @@ from app.services.geo import get_municipio_coords
 from app.services.matchmaking import match_jobs_for_candidate
 from app.services.routes_service import find_nearby_stops
 from app.services.blocks_service import blocked_company_ids_for_candidate
+from app.services import profile_service
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +275,27 @@ async def process_chat_message(
     if mentioned_muni:
         data["municipio"] = mentioned_muni
 
+    # ── Currículum del candidato: guarda lo que diga de pasada y atiende la pregunta de perfil pendiente ──
+    profile_user = _find_user(db, data) if (data.get("email") or data.get("user_id")) else None
+    profile_note: Optional[str] = None
+    answered_pending = False
+    if input_text and not is_location_event:
+        data["user_turns"] = int(data.get("user_turns", 0)) + 1
+        facts = profile_service.extract_profile_facts(input_text)
+        if puesto and profile_user is not None and not (profile_user.perfil_operativo or {}).get("puesto_deseado"):
+            facts.setdefault("puesto_deseado", puesto)
+        pending = data.get("onboarding_pending")
+        if pending:
+            answer = profile_service.interpret_answer(pending, input_text)
+            if answer:
+                facts.update(answer)
+                data.pop("onboarding_pending", None)
+                answered_pending = "?" not in input_text
+        if facts:
+            profile_note = profile_service.save_facts(db, profile_user, data, facts)
+        elif profile_user is not None:
+            data["perfil_resumen"] = profile_service.snapshot(profile_user, data)
+
     loc_known = data.get("latitud") is not None and data.get("longitud") is not None
     zona_label = data.get("colonia") or data.get("loc_municipio") or data.get("municipio") or "tu zona"
     wants_change_location = bool(not is_location_event and _CHANGE_LOCATION_RE.search(text_norm))
@@ -339,6 +361,18 @@ async def process_chat_message(
                 "Si quieres saber qué rutas de transporte de personal pasan por tu colonia, nomás pregúntame."
             )
             options = [CHIP_ROUTES, CHIP_NEAREST_JOBS, CHIP_FIXED_SHIFT]
+        elif answered_pending:
+            # Respondió la pregunta de perfil: confirmar y, si falta algo, encadenar la siguiente
+            bot_messages.append(profile_note or "✅ Anotado en tu perfil.")
+            nxt = profile_service.next_question(profile_user, data)
+            if nxt:
+                data["onboarding_pending"] = nxt["field"]
+                data["last_onboarding_turn"] = int(data.get("user_turns", 0))
+                bot_messages.append(nxt["pregunta"])
+                options = [{"label": o, "value": o} for o in nxt["opciones"]]
+            else:
+                bot_messages.append("¡Listo! Tu perfil quedó completo: con eso los reclutadores te ubican más rápido. ¿Seguimos con las vacantes?")
+                options = list(WELCOME_OPTIONS)
         else:
             llm = await query_deepseek_chat(conversation_history=history, user_message=input_text, context_data=data)
             bot_messages.append(llm["reply_text"])
@@ -349,6 +383,16 @@ async def process_chat_message(
             should_ask_login = bool(llm.get("should_ask_login", False))
             if loc_known:
                 options = _without_location_chips(options)
+            if profile_note:
+                bot_messages.append(profile_note)
+            # Onboarding progresivo: una pregunta corta de perfil cada dos mensajes, sin interrumpir otras peticiones
+            if not search_elsewhere and profile_service.should_ask(profile_user, data):
+                nxt = profile_service.next_question(profile_user, data)
+                if nxt:
+                    data["onboarding_pending"] = nxt["field"]
+                    data["last_onboarding_turn"] = int(data.get("user_turns", 0))
+                    bot_messages.append(nxt["pregunta"])
+                    options = [{"label": o, "value": o} for o in nxt["opciones"]] + [o for o in options if o.get("value") != LOCATION_SHARE_VALUE][:2]
 
         if search_elsewhere:
             ask_location = True

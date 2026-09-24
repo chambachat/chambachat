@@ -251,6 +251,15 @@ export async function removeBlock(blockId) {
   return _json(await fetch(`${API_BASE}/blocks/${blockId}`, { method: 'DELETE', headers: authHeaders() }), 'No se pudo quitar el bloqueo');
 }
 
+// ─── Currículum operativo del candidato ──────────────────────────────
+export async function getMyProfile() {
+  return _json(await fetch(`${API_BASE}/profile/me`, { headers: authHeaders() }), 'No se pudo cargar tu currículum');
+}
+
+export async function updateMyProfile(data) {
+  return _json(await fetch(`${API_BASE}/profile/me`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data) }), 'No se pudo guardar tu currículum');
+}
+
 export async function getJobCatalog() {
   const res = await fetch(`${API_BASE}/jobs/catalogo`);
   if (!res.ok) throw new Error('Error al obtener catálogo de vacantes');
