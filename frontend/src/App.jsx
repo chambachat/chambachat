@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import GeminiChatLayout from './components/Chat/GeminiChatLayout';
+import ChatHome from './components/Chat/ChatHome';
 import EmpresaPortal from './components/B2B/EmpresaPortal';
 import AdminView from './components/Admin/AdminView';
 import UserProfileModal from './components/UserProfile/UserProfileModal';
@@ -185,7 +185,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#fcfdfd] text-slate-800 font-sans">
       {currentView === 'chat' && (
-        <GeminiChatLayout
+        <ChatHome
           onOpenEmpresa={handleOpenEmpresa}
           onOpenPerfil={() => setIsProfileOpen(true)}
           onOpenAdmin={() => setCurrentView('admin')}

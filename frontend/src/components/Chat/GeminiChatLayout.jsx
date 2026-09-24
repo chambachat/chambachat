@@ -25,7 +25,8 @@ export default function GeminiChatLayout({
   onOpenAdmin,
   currentUser: propCurrentUser,
   onLogout: propOnLogout,
-  onUserAuthenticated: propOnUserAuthenticated
+  onUserAuthenticated: propOnUserAuthenticated,
+  onSwitchToRecruiter
 }) {
   const toast = useToast();
   const [currentUser, setCurrentUser] = useState(propCurrentUser || getStoredUser());
@@ -205,6 +206,7 @@ export default function GeminiChatLayout({
         onOpenPerfil={onOpenPerfil}
         onOpenAdmin={onOpenAdmin}
         setIsAuthModalOpen={setIsAuthModalOpen}
+        onSwitchToRecruiter={onSwitchToRecruiter}
       />
 
       <main className="flex-1 flex flex-col h-full bg-white relative min-w-0 w-full overflow-hidden">

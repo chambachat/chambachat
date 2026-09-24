@@ -29,6 +29,12 @@ export default function MessageBubble({ message }) {
         </div>
       )}
 
+      {message.sender === 'candidate' && (
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-xs sm:text-sm shadow shrink-0">
+          👷
+        </div>
+      )}
+
       <div className="space-y-1.5 max-w-[88%] sm:max-w-[80%] min-w-0">
         <div
           className={`px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm break-words overflow-hidden ${
@@ -36,6 +42,8 @@ export default function MessageBubble({ message }) {
               ? 'bg-slate-900 text-white rounded-tr-none'
               : message.sender === 'recruiter'
               ? 'bg-blue-50 text-slate-800 rounded-tl-none border border-blue-200'
+              : message.sender === 'candidate'
+              ? 'bg-white text-slate-800 rounded-tl-none border border-emerald-200'
               : 'bg-slate-50 text-slate-800 rounded-tl-none border border-slate-200/80'
           }`}
         >
@@ -44,6 +52,15 @@ export default function MessageBubble({ message }) {
               <span>{message.sender_name || 'Reclutador de Planta'}</span>
               <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-semibold">Empresa</span>
             </div>
+          )}
+          {message.sender === 'candidate' && (
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 mb-1">
+              <span>{message.sender_name || 'Candidato'}</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-semibold">Candidato</span>
+            </div>
+          )}
+          {message.sender === 'user' && message.sender_name && (
+            <div className="text-[10px] font-bold text-emerald-200 mb-1">{message.sender_name}</div>
           )}
           {message.sender === 'bot' && message.sender_name && message.sender_name !== 'bot' && (
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 mb-1">

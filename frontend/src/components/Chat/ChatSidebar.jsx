@@ -15,7 +15,8 @@ export default function ChatSidebar({
   onOpenEmpresa,
   onOpenPerfil,
   onOpenAdmin,
-  setIsAuthModalOpen
+  setIsAuthModalOpen,
+  onSwitchToRecruiter
 }) {
   const toast = useToast();
   return (
@@ -128,6 +129,27 @@ export default function ChatSidebar({
             >
               <User className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>Iniciar sesión / Registrarse</span>
+            </button>
+          )}
+
+          {onSwitchToRecruiter && (
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth < 768) onToggleSidebar();
+                onSwitchToRecruiter();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-blue-900 bg-blue-50 hover:bg-blue-100 transition border border-blue-200"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-blue-600/10 text-blue-700">
+                  <Headset className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="block leading-none">Mis candidatos</span>
+                  <span className="text-[10px] text-blue-700/70 font-normal">Volver al chat de empresa</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-blue-400" />
             </button>
           )}
 

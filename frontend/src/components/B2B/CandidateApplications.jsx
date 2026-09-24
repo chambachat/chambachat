@@ -2,15 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { useApplicationsInbox } from '../../hooks/useApplicationsInbox';
 import { useToast } from '../ui/Toast';
+import { deriveRecruiterName } from '../../services/recruiterChat';
 import SmartLinkCard from './Applications/SmartLinkCard';
 import ApplicationsList from './Applications/ApplicationsList';
 import ApplicationDetail from './Applications/ApplicationDetail';
 import ApplicationChat from './Applications/ApplicationChat';
-
-function deriveRecruiterName(user) {
-  if (!user?.name) return 'Reclutador Industrial';
-  return user.role === 'recruiter' ? user.name : `Reclutador ${user.name}`;
-}
 
 export default function CandidateApplications({ currentUser }) {
   const inbox = useApplicationsInbox();
