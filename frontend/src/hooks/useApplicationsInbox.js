@@ -3,7 +3,8 @@ import {
   getApplications,
   sendRecruiterMessage,
   toggleBotState,
-  checkBotFallback
+  checkBotFallback,
+  deleteApplication
 } from '../services/api';
 
 /**
@@ -16,6 +17,7 @@ export function useApplicationsInbox(pollMs = 4000) {
   const [selectedApp, setSelectedApp] = useState(null);
   const [sending, setSending] = useState(false);
   const [botActionLoading, setBotActionLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -23,7 +25,8 @@ export function useApplicationsInbox(pollMs = 4000) {
       setApplications(data);
       setSelectedApp(prev => {
         if (!prev) return data.length > 0 ? data[0] : null;
-        return data.find(a => a.id === prev.id) || prev;
+        // Si la seleccionada ya no existe (eliminada), pasar a la primera disponible
+        return data.find(a => a.id === prev.id) || (data.length > 0 ? data[0] : null);
       });
     } catch (err) {
       console.error('Error cargando postulaciones:', err);
@@ -70,6 +73,19 @@ export function useApplicationsInbox(pollMs = 4000) {
     }
   };
 
+  /** Elimina la postulación y su conversación; la selección pasa a la siguiente. */
+  const removeApplication = async (applicationId) => {
+    setDeleting(true);
+    try {
+      await deleteApplication(applicationId);
+      setApplications(prev => prev.filter(a => a.id !== applicationId));
+      setSelectedApp(prev => (prev?.id === applicationId ? null : prev));
+      await loadData();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const toggleBot = (silenced) => runBotAction((id) => toggleBotState(id, silenced));
   const forceBotFallback = () => runBotAction((id) => checkBotFallback(id, true));
 
@@ -80,6 +96,8 @@ export function useApplicationsInbox(pollMs = 4000) {
     setSelectedApp,
     sending,
     botActionLoading,
+    deleting,
+    removeApplication,
     sendMessage,
     toggleBot,
     forceBotFallback,

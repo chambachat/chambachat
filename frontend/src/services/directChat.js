@@ -33,7 +33,7 @@ export function directChatTitle(companyName, jobTitle) {
 
 /** Busca la conversación directa ya abierta para una postulación o vacante. */
 export function findDirectSession(sessions, { applicationId, jobId }) {
-  return (sessions || []).find(s => s.kind === 'direct' && (
+  return (sessions || []).find(s => s.kind === 'direct' && !s.closed && (
     (applicationId && s.applicationId === applicationId) || (jobId && s.jobId === jobId)
   )) || null;
 }
@@ -67,6 +67,8 @@ export function createDirectSession(application) {
     candidateProfile: null,
     backendSessionId: null,
     unread: 0,
+    candidateEmail: application.candidate_email || null,
+    closed: false,
     ...metaFromApplication(application),
   };
   const sessions = loadAllSessions().filter(s => s.id !== session.id);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, Clock, ExternalLink, Sparkles } from 'lucide-react';
+import { Phone, Clock, ExternalLink, Sparkles, Trash2 } from 'lucide-react';
 import ScreeningSummary from './ScreeningSummary';
 
 function WhatsAppButton({ app }) {
@@ -79,7 +79,7 @@ function BotControls({ app, loading, onToggleBot, onForceBotFallback }) {
   );
 }
 
-export default function ApplicationDetail({ app, botActionLoading, onToggleBot, onForceBotFallback }) {
+export default function ApplicationDetail({ app, botActionLoading, onToggleBot, onForceBotFallback, onDelete, deleting }) {
   return (
     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -92,7 +92,20 @@ export default function ApplicationDetail({ app, botActionLoading, onToggleBot, 
             Vacante: <strong className="text-slate-800">{app.job_titulo}</strong> en {app.empresa_nombre}
           </p>
         </div>
-        <WhatsAppButton app={app} />
+        <div className="flex items-center gap-2 shrink-0">
+          <WhatsAppButton app={app} />
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(app)}
+              disabled={deleting}
+              title="Eliminar esta conversación y postulación"
+              className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition disabled:opacity-40"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       <ScreeningSummary app={app} />

@@ -121,8 +121,14 @@ export function useChatSession(currentUser) {
     if (!stored) return;
     const known = new Set((stored.messages || []).map(m => m.id));
     const fresh = newMsgs.filter(m => !known.has(m.id));
-    const metaKeys = (o) => JSON.stringify([o.status, o.botSilenced, o.screeningStatus, o.screening]);
-    const metaChanged = Object.keys(meta).length > 0 && metaKeys(meta) !== metaKeys(stored);
+    if (meta.closed && !stored.closed) {
+      fresh.push({
+        id: `closed_${sessionId}`, sender: 'system', time: nowTime(),
+        text: `Reclutamiento ${stored.companyName} cerró esta conversación. Si te sigue interesando la vacante, vuelve a abrir el chat directo desde la vacante.`
+      });
+    }
+    const metaKeys = (o) => JSON.stringify([o.status, o.botSilenced, o.screeningStatus, o.screening, Boolean(o.closed)]);
+    const metaChanged = Object.keys(meta).length > 0 && metaKeys({ ...stored, ...meta }) !== metaKeys(stored);
     if (fresh.length === 0 && !metaChanged) return;
 
     const isActive = activeIdRef.current === sessionId;
@@ -133,7 +139,8 @@ export function useChatSession(currentUser) {
       status: meta.status || stored.status,
       botSilenced: meta.botSilenced ?? stored.botSilenced,
       screening: meta.screening !== undefined ? meta.screening : stored.screening,
-      screeningStatus: meta.screeningStatus || stored.screeningStatus
+      screeningStatus: meta.screeningStatus || stored.screeningStatus,
+      closed: meta.closed ?? stored.closed ?? false
     };
     updateSession(sessionId, changes);
     setSessions(loadAllSessions());
@@ -209,6 +216,7 @@ export function useChatSession(currentUser) {
   const sendToBot = async ({ textToSend, optionVal = null, location = null }) => {
     if (!activeSession) return;
     if (activeSession.kind === 'direct') {
+      if (activeSession.closed) return;  // el reclutador eliminó la postulación
       const text = (optionVal || textToSend || '').trim();
       if (text) await sendDirectMessage(text);
       return;

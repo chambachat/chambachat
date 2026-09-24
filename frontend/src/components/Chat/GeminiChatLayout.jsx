@@ -55,7 +55,7 @@ export default function GeminiChatLayout({
   } = useChatSession(currentUser);
 
   // Vacantes con chat directo ya abierto (una conversación por postulación)
-  const appliedJobIds = new Set(sessions.filter(s => s.kind === 'direct').map(s => s.jobId));
+  const appliedJobIds = new Set(sessions.filter(s => s.kind === 'direct' && !s.closed).map(s => s.jobId));
   const isDirect = activeSession?.kind === 'direct';
   // Entrevista rápida de Chambot dentro del chat directo: sus opciones se muestran como chips
   const screening = isDirect ? activeSession?.screening : null;
@@ -258,8 +258,11 @@ export default function GeminiChatLayout({
           onSend={() => handleSendMessage()}
           options={isDirect ? screeningOptions : options}
           onSelectOption={handleOptionSelect}
+          disabled={Boolean(isDirect && activeSession?.closed)}
           placeholder={isDirect
-            ? (screeningActive ? 'Responde a Chambot o elige una opción arriba...' : `Escribe a Reclutamiento ${activeSession.companyName}...`)
+            ? (activeSession?.closed ? 'Conversación cerrada por el reclutador'
+              : screeningActive ? 'Responde a Chambot o elige una opción arriba...'
+              : `Escribe a Reclutamiento ${activeSession.companyName}...`)
             : undefined}
           footer={isDirect ? 'Tus mensajes llegan a los reclutadores de la planta; si tardan, Chambot te apoya con los datos de la vacante.' : undefined}
         />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { useApplicationsInbox } from '../../hooks/useApplicationsInbox';
+import { useToast } from '../ui/Toast';
 import SmartLinkCard from './Applications/SmartLinkCard';
 import ApplicationsList from './Applications/ApplicationsList';
 import ApplicationDetail from './Applications/ApplicationDetail';
@@ -13,7 +14,21 @@ function deriveRecruiterName(user) {
 
 export default function CandidateApplications({ currentUser }) {
   const inbox = useApplicationsInbox();
+  const toast = useToast();
   const [recruiterName, setRecruiterName] = useState(deriveRecruiterName(currentUser));
+
+  const handleDelete = async (app) => {
+    const ok = await toast.confirm(
+      `¿Eliminar la conversación con ${app.candidate_name} para "${app.job_titulo}"? Se borra la postulación y todos sus mensajes; el candidato verá el chat como cerrado.`
+    );
+    if (!ok) return;
+    try {
+      await inbox.removeApplication(app.id);
+      toast.success('Conversación eliminada');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo eliminar la conversación');
+    }
+  };
 
   useEffect(() => {
     if (currentUser?.name) setRecruiterName(deriveRecruiterName(currentUser));
@@ -49,6 +64,7 @@ export default function CandidateApplications({ currentUser }) {
           loading={inbox.loading}
           selectedApp={inbox.selectedApp}
           onSelect={inbox.setSelectedApp}
+          onDelete={handleDelete}
         />
 
         <div className="lg:col-span-7 flex flex-col justify-between pl-0 lg:pl-2 space-y-4">
@@ -59,6 +75,8 @@ export default function CandidateApplications({ currentUser }) {
                 botActionLoading={inbox.botActionLoading}
                 onToggleBot={inbox.toggleBot}
                 onForceBotFallback={inbox.forceBotFallback}
+                onDelete={handleDelete}
+                deleting={inbox.deleting}
               />
               <ApplicationChat
                 app={inbox.selectedApp}

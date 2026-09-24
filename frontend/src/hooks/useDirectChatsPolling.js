@@ -24,14 +24,20 @@ export function useDirectChatsPolling(sessions, currentUser, onNewMessages) {
 
     const tick = async () => {
       try {
-        const apps = await getMyApplications();
-        if (cancelled || !apps?.length) return;
+        const apps = (await getMyApplications()) || [];
+        if (cancelled) return;
         const byAppId = new Map(apps.map(a => [a.id, a]));
+        const myEmail = (currentUser?.email || '').toLowerCase();
 
         for (const session of sessionsRef.current || []) {
           if (session.kind !== 'direct') continue;
           const app = byAppId.get(session.applicationId);
-          if (!app) continue;
+          if (!app) {
+            // La postulación ya no existe (el reclutador la eliminó): cerrar la conversación una sola vez
+            const mine = !session.candidateEmail || session.candidateEmail.toLowerCase() === myEmail;
+            if (mine && !session.closed) onNewRef.current(session.id, [], { closed: true });
+            continue;
+          }
 
           const last = app.messages?.[app.messages.length - 1];
           if (!app.bot_silenced && last?.sender_type === 'candidate') {

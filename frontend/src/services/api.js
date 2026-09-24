@@ -115,6 +115,16 @@ export async function sendCandidateMessage(applicationId, mensaje) {
   return res.json();
 }
 
+/** Elimina una postulación y su conversación (solo reclutadores de la empresa). */
+export async function deleteApplication(applicationId) {
+  const res = await fetch(`${API_BASE}/applications/${applicationId}`, { method: 'DELETE', headers: authHeaders() });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'No se pudo eliminar la conversación' }));
+    throw new Error(err.detail || 'No se pudo eliminar la conversación');
+  }
+  return res.json();
+}
+
 export async function getApplicationsBySession(sessionId) {
   if (!sessionId) return [];
   const res = await fetch(`${API_BASE}/applications/by-session/${sessionId}`, { headers: authHeaders() });

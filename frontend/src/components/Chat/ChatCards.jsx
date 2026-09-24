@@ -13,9 +13,10 @@ export function DirectChatBanner({ session }) {
             <span className="truncate">Línea directa con Reclutamiento {session.companyName}</span>
           </div>
           <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
-            contacted ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-amber-100 text-amber-800 border-amber-300'
+            session.closed ? 'bg-slate-100 text-slate-600 border-slate-300'
+              : contacted ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-amber-100 text-amber-800 border-amber-300'
           }`}>
-            {contacted ? 'Reclutador en el chat' : 'Esperando al reclutador'}
+            {session.closed ? 'Conversación cerrada' : contacted ? 'Reclutador en el chat' : 'Esperando al reclutador'}
           </span>
         </div>
         <p className="text-[11px] text-blue-900/80 leading-snug">

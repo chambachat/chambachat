@@ -297,6 +297,19 @@ def send_message_to_application(
     return _message_response(msg)
 
 
+@router.delete("/{application_id}")
+def delete_application(application_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Elimina la postulación y toda su conversación (p. ej. duplicados). Solo reclutadores de la
+    empresa o admin. El candidato verá su chat directo como cerrado.
+    """
+    app = _get_app_or_404(db, application_id)
+    _ensure_recruiter(app, current_user, db)
+    db.delete(app)  # los mensajes se borran en cascada
+    db.commit()
+    return {"status": "success", "deleted_id": application_id}
+
+
 @router.post("/{application_id}/toggle-bot")
 def toggle_bot_state(
     application_id: int,

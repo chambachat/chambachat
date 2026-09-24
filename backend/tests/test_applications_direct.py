@@ -115,3 +115,24 @@ def test_bot_answers_questions_during_screening_and_fallback_after(client):
     forced = client.post(f"/api/v1/applications/{app['id']}/check-bot-fallback?force=true", headers=owner).json()
     assert forced["triggered"] is True
     assert "2,600" in forced["message"]["mensaje"]
+
+
+def test_recruiter_can_delete_conversation(client):
+    owner = make_auth_header("del_owner@test.com", nombre="Del Owner")
+    company, job = _company_and_job(client, owner, nombre="Planta Borrar")
+    cand = make_auth_header("del_cand@test.com", nombre="Cand Borrar", role="candidate")
+    app = client.post("/api/v1/applications/apply", json={"job_id": job["id"], "candidate_name": "Cand Borrar"}, headers=cand).json()
+
+    # Ni el candidato ni un reclutador de otra empresa pueden borrarla; sin sesión tampoco
+    otro_rh = make_auth_header("del_otro_rh@test.com", nombre="Otro RH")
+    assert client.delete(f"/api/v1/applications/{app['id']}", headers=cand).status_code == 403
+    assert client.delete(f"/api/v1/applications/{app['id']}", headers=otro_rh).status_code == 403
+    assert client.delete(f"/api/v1/applications/{app['id']}").status_code == 401
+
+    # El reclutador de la empresa sí: desaparece para todos, con sus mensajes
+    res = client.delete(f"/api/v1/applications/{app['id']}", headers=owner)
+    assert res.status_code == 200 and res.json()["deleted_id"] == app["id"]
+    assert client.get(f"/api/v1/applications/{app['id']}", headers=owner).status_code == 404
+    assert client.get("/api/v1/applications/mine", headers=cand).json() == []
+    assert not any(a["id"] == app["id"] for a in client.get("/api/v1/applications", headers=owner).json())
+    assert client.delete(f"/api/v1/applications/{app['id']}", headers=owner).status_code == 404

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Search, Building2 } from 'lucide-react';
+import { Users, Search, Building2, Trash2 } from 'lucide-react';
 
 function scoreBadgeClass(score) {
   if (score >= 85) return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
@@ -7,7 +7,7 @@ function scoreBadgeClass(score) {
   return 'bg-amber-100 text-amber-800 border border-amber-200';
 }
 
-function ApplicationCard({ app, isSelected, onSelect }) {
+function ApplicationCard({ app, isSelected, onSelect, onDelete }) {
   const lastMessage = app.messages?.[app.messages.length - 1];
   const score = app.match_score ?? null;
 
@@ -25,9 +25,21 @@ function ApplicationCard({ app, isSelected, onSelect }) {
           <h4 className="text-xs font-black text-slate-900">{app.candidate_name}</h4>
           <span className="text-[11px] font-semibold text-emerald-700 block">{app.job_titulo}</span>
         </div>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
-          {app.status}
-        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+            {app.status}
+          </span>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete(app); }}
+              title="Eliminar conversación"
+              className="p-1 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 pt-0.5">
@@ -55,7 +67,7 @@ function ApplicationCard({ app, isSelected, onSelect }) {
   );
 }
 
-export default function ApplicationsList({ applications, loading, selectedApp, onSelect }) {
+export default function ApplicationsList({ applications, loading, selectedApp, onSelect, onDelete }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const q = searchTerm.toLowerCase();
@@ -93,6 +105,7 @@ export default function ApplicationsList({ applications, loading, selectedApp, o
               app={app}
               isSelected={selectedApp?.id === app.id}
               onSelect={onSelect}
+              onDelete={onDelete}
             />
           ))
         )}
