@@ -12,6 +12,7 @@ import { useChatSession } from '../../hooks/useChatSession';
 import ChatSidebar from './ChatSidebar';
 import TopNavbar from './TopNavbar';
 import MessageList from './MessageList';
+import ChatScrollArea from './ChatScrollArea';
 import ChatInput from './ChatInput';
 import VacanciesCarousel from './VacanciesCarousel';
 import ChatWelcome from './ChatWelcome';
@@ -218,7 +219,7 @@ export default function GeminiChatLayout({
           setSidebarOpen={setSidebarOpen}
         />
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-3xl mx-auto w-full min-w-0">
+        <ChatScrollArea sessionKey={activeSession?.id} messages={activeSession?.messages || []} isTyping={!isDirect && isTyping}>
           {!hasMessages ? (
             <ChatWelcome onPrompt={handleSendMessage} />
           ) : (
@@ -252,7 +253,7 @@ export default function GeminiChatLayout({
               )}
             </div>
           )}
-        </div>
+        </ChatScrollArea>
 
         <ChatInput
           value={inputMessage}

@@ -1,17 +1,8 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import MessageBubble from './MessageBubble';
 
+/** Lista de burbujas. El desplazamiento al fondo lo controla ChatScrollArea (nunca la página). */
 export default function MessageList({ messages, isTyping }) {
-  const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
-
   return (
     <div className="space-y-4 sm:space-y-6 min-w-0 w-full">
       {messages.map((msg) => (
@@ -32,8 +23,6 @@ export default function MessageList({ messages, isTyping }) {
           </div>
         </div>
       )}
-      
-      <div ref={messagesEndRef} />
-    </div>
+          </div>
   );
 }

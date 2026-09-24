@@ -82,3 +82,11 @@ input, select, textarea, button {
 }
 .brand-navy { color: #052B52; }
 .brand-green { color: #65A30D; } /* verde de la marca oscurecido para legibilidad sobre blanco */
+
+/* Vista de chat: la página no se desplaza (ni por scroll encadenado en móvil); solo el área de mensajes */
+html.chat-lock,
+html.chat-lock body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}

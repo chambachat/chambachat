@@ -23,6 +23,12 @@ export default function ChatHome(props) {
     setMode(getChatMode(currentUser));
   }, [currentUser?.email, currentUser?.role]);
 
+  // Bloquear el desplazamiento de la página: el encabezado con el menú queda fijo y solo se mueven los mensajes
+  useEffect(() => {
+    document.documentElement.classList.add('chat-lock');
+    return () => document.documentElement.classList.remove('chat-lock');
+  }, []);
+
   const switchTo = (next) => {
     setChatMode(next);
     setMode(next);

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Trash2, ChevronDown, ChevronUp, Bot, BellOff, Sparkles } from 'lucide-react';
 import MessageList from '../MessageList';
+import ChatScrollArea from '../ChatScrollArea';
 import ChatInput from '../ChatInput';
 import ScreeningSummary from '../../B2B/Applications/ScreeningSummary';
 import { mapRecruiterMessage, initials } from '../../../services/recruiterChat';
@@ -84,9 +85,9 @@ export default function RecruiterConversation({ app, recruiterName, sending, onS
         {showDetail && <ScreeningSummary app={app} />}
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 max-w-3xl mx-auto w-full min-w-0">
+      <ChatScrollArea sessionKey={app.id} messages={messages} innerClassName="max-w-3xl mx-auto w-full min-w-0 p-3.5 sm:p-6 space-y-4">
         <MessageList messages={messages} isTyping={false} />
-      </div>
+      </ChatScrollArea>
 
       <ChatInput
         value={text}
