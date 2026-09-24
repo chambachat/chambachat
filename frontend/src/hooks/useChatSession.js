@@ -9,7 +9,7 @@ import {
   clearAllSessions
 } from '../services/chatStorage';
 import { startChat, sendChatMessage, submitApplication, sendCandidateMessage, getApplicationById } from '../services/api';
-import { readSmartLinkParams, loadSmartLink, smartWelcomeText } from '../services/smartLink';
+import { readSmartLinkParams, openSmartLinkSession } from '../services/smartLink';
 import { createDirectSession, findDirectSession, mapApplicationMessage, formatBackendTime, missingMessages, metaFromApplication } from '../services/directChat';
 import { useDirectChatsPolling } from './useDirectChatsPolling';
 
@@ -34,51 +34,7 @@ export function useChatSession(currentUser) {
     const smartParams = typeof window !== 'undefined' ? readSmartLinkParams(window.location.search) : { empresa: null, codigo: null };
 
     if (smartParams.empresa || smartParams.codigo) {
-      // Smart Link: mientras se resuelve la planta (por código verificador), mostrar lo guardado
-      if (loaded.length > 0) {
-        setSessions(loaded);
-        setActiveSession(loaded[0]);
-      }
-      loadSmartLink(smartParams).then(info => {
-        if (!info) return;
-        if (info.error) {
-          const fresh = createNewSession();
-          fresh.messages = [{ id: 'smart_error_' + Date.now(), sender: 'bot', text: info.error, time: nowTime() }];
-          updateSession(fresh.id, { messages: fresh.messages });
-          setSessions(loadAllSessions());
-          setActiveSession(fresh);
-          return;
-        }
-        const smartTitle = `Bolsa ${info.nombre}`;
-        const existingSmart = loaded.find(s => s.smartKey === info.key || s.title === smartTitle);
-        if (existingSmart) {
-          const refreshed = { ...existingSmart, smartKey: info.key, matchedJobs: info.jobs.length ? info.jobs : existingSmart.matchedJobs };
-          updateSession(existingSmart.id, { smartKey: info.key, matchedJobs: refreshed.matchedJobs });
-          setSessions(loadAllSessions());
-          setActiveSession(refreshed);
-          setActiveSessionId(existingSmart.id);
-          setShowVacancies(true);
-          return;
-        }
-        const freshSmart = createNewSession();
-        freshSmart.title = smartTitle;
-        freshSmart.smartKey = info.key;
-        freshSmart.matchedJobs = info.jobs;
-        freshSmart.messages = [{ id: 'smart_welcome_' + Date.now(), sender: 'bot', text: smartWelcomeText(info), time: nowTime() }];
-        freshSmart.candidateProfile = { empresa_interes: info.nombre };
-        updateSession(freshSmart.id, { title: freshSmart.title, smartKey: info.key, matchedJobs: freshSmart.matchedJobs, messages: freshSmart.messages, candidateProfile: freshSmart.candidateProfile });
-        setSessions(loadAllSessions());
-        setActiveSession(freshSmart);
-        setActiveSessionId(freshSmart.id);
-        setShowVacancies(true);
-      }).catch(err => {
-        console.error('Error cargando el Smart Link:', err);
-        if (loaded.length === 0) {
-          const fresh = createNewSession();
-          setSessions([fresh]);
-          setActiveSession(fresh);
-        }
-      });
+      openSmartLinkSession(loaded, smartParams, { setSessions, setActiveSession, setShowVacancies });
     } else if (loaded.length === 0) {
       const fresh = createNewSession();
       setSessions([fresh]);

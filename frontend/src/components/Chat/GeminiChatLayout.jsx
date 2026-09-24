@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getStoredUser, setStoredUser, signOut, syncUserWithBackend } from '../../services/authService';
 import { updateMyLocation } from '../../services/api';
 import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
+import { directInputPlaceholder } from '../../services/directChat';
 import { loadAllSessions, updateSession } from '../../services/chatStorage';
 
 import AuthModal from '../Auth/AuthModal';
@@ -271,13 +272,7 @@ export default function GeminiChatLayout({
           options={isDirect ? screeningOptions : options}
           onSelectOption={handleOptionSelect}
           disabled={Boolean(directLocked)}
-          placeholder={isDirect
-            ? (activeSession?.closed ? 'Conversación cerrada por el reclutador'
-              : activeSession?.blockedByCandidate ? 'Bloqueaste a esta empresa'
-              : activeSession?.blockedByCompany ? 'La empresa cerró esta conversación'
-              : screeningActive ? 'Responde a Chambot o elige una opción arriba...'
-              : `Escribe a Reclutamiento ${activeSession.companyName}...`)
-            : undefined}
+          placeholder={isDirect ? directInputPlaceholder(activeSession, screeningActive) : undefined}
           footer={isDirect ? 'Tus mensajes llegan a los reclutadores de la planta; si tardan, Chambot te apoya con los datos de la vacante.' : undefined}
         />
       </main>

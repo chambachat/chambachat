@@ -87,3 +87,13 @@ export function missingMessages(session, application) {
     .map(m => mapApplicationMessage(m, session.companyName))
     .filter(m => !known.has(m.id));
 }
+
+/** Placeholder de la caja de texto en un chat directo según su estado. */
+export function directInputPlaceholder(session, screeningActive) {
+  if (!session) return '';
+  if (session.closed) return 'Conversación cerrada por el reclutador';
+  if (session.blockedByCandidate) return 'Bloqueaste a esta empresa';
+  if (session.blockedByCompany) return 'La empresa cerró esta conversación';
+  if (screeningActive) return 'Responde a Chambot o elige una opción arriba...';
+  return `Escribe a Reclutamiento ${session.companyName}...`;
+}
