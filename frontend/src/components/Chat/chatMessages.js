@@ -46,9 +46,9 @@ export function buildAuthConfirmMessage(user) {
   };
 }
 
-/** ¿El texto/opción pide compartir ubicación? */
+/** ¿El texto/opción pide compartir, registrar o cambiar la ubicación? Abre el mapa directamente. */
 export function isShareLocationIntent(text) {
   if (typeof text !== 'string') return false;
-  const t = text.toLowerCase();
-  return t.includes('compartir mi ubicación') || t.includes('compartir ubicacion');
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return /(compartir|cambiar|actualizar|elegir|registrar)\s+(mi\s+|una\s+|la\s+)?(nueva\s+)?ubicacion/.test(t);
 }

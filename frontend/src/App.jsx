@@ -4,8 +4,10 @@ import EmpresaPortal from './components/B2B/EmpresaPortal';
 import AdminView from './components/Admin/AdminView';
 import UserProfileModal from './components/UserProfile/UserProfileModal';
 import AuthModal from './components/Auth/AuthModal';
+import LocationPickerModal from './components/Chat/LocationPickerModal';
 import { getStoredUser, setStoredUser, signOut } from './services/authService';
-import { acceptCompanyInvitation, getInvitationByToken } from './services/api';
+import { acceptCompanyInvitation, getInvitationByToken, updateMyLocation } from './services/api';
+import { readStoredLocation, saveStoredLocation, locationFromUser, formatLocation } from './services/candidateLocation';
 import { useToast } from './components/ui/Toast';
 
 const EMPRESA_AUTH_PROMPT = {
@@ -29,6 +31,7 @@ export default function App() {
   const [authPrompt, setAuthPrompt] = useState({ title: '', message: '' });
   const [pendingAction, setPendingAction] = useState(null);
   const [invitationInfo, setInvitationInfo] = useState(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
   /** Abre el modal de login como reclutador y guarda la acción a ejecutar al autenticarse. */
   const requireRecruiterAuth = (prompt, action) => {
@@ -49,6 +52,27 @@ export default function App() {
     }
     if (!user.empresa_nombre) setEmpresaTab('team');
     setCurrentView('empresa');
+  };
+
+  /** Ubicación registrada desde el perfil: se guarda en el perfil (con sesión) y en este dispositivo; el chat se entera por evento. */
+  const handleProfileLocationConfirmed = async (loc) => {
+    if (currentUser) {
+      try {
+        const saved = await updateMyLocation(loc);
+        const merged = {
+          ...currentUser,
+          latitud: saved.latitud, longitud: saved.longitud,
+          colonia: saved.colonia, municipio: saved.municipio, ubicacion_confirmada: true
+        };
+        setCurrentUser(merged);
+        setStoredUser(merged);
+      } catch (e) {
+        toast.error(e.message || 'No se pudo guardar tu ubicación');
+        return;
+      }
+    }
+    saveStoredLocation(loc);
+    toast.success(`Ubicación actualizada: ${formatLocation(loc)}`);
   };
 
   const handleLogout = async () => {
@@ -208,6 +232,17 @@ export default function App() {
           setIsProfileOpen(false);
           setCurrentView('chat');
         }}
+        onUpdateLocation={() => {
+          setIsProfileOpen(false);
+          setIsLocationModalOpen(true);
+        }}
+      />
+
+      <LocationPickerModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onLocationConfirmed={handleProfileLocationConfirmed}
+        initialLocation={locationFromUser(currentUser) || readStoredLocation()}
       />
 
       <AuthModal

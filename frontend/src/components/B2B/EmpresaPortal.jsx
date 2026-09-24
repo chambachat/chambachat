@@ -14,10 +14,13 @@ export const B2B_TABS = [
   { id: 'team', label: 'Mi Equipo', icon: Users2, badge: 'Team', desc: 'Plantas y reclutadores' },
   { id: 'routes', label: 'Rutas de Transporte', icon: Bus, badge: 'GPS', desc: 'Trazado y horarios' },
   { id: 'jobs', label: 'Bolsa de Vacantes', icon: Briefcase, desc: 'Puestos vigentes' },
-  { id: 'predictor', label: 'Predictor de Retención', icon: Calculator, desc: 'Predicción IA' },
-  { id: 'candidates', label: 'Operarios Registrados', icon: Users, desc: 'Base de datos NL' },
-  { id: 'analytics', label: 'People Analytics', icon: BarChart3, desc: 'Métricas de planta' },
+  // Ocultos del menú por ahora (los componentes siguen disponibles para reactivarlos)
+  { id: 'predictor', label: 'Predictor de Retención', icon: Calculator, desc: 'Predicción IA', hidden: true },
+  { id: 'candidates', label: 'Operarios Registrados', icon: Users, desc: 'Base de datos NL', hidden: true },
+  { id: 'analytics', label: 'People Analytics', icon: BarChart3, desc: 'Métricas de planta', hidden: true },
 ];
+
+export const VISIBLE_B2B_TABS = B2B_TABS.filter(t => !t.hidden);
 
 function PortalContent({ tab, currentUser, activeCompany, onCompanyChanged, onSelectTab }) {
   switch (tab) {
@@ -51,7 +54,7 @@ export default function EmpresaPortal({ currentUser, activeTab, onSelectTab, act
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentUser={currentUser}
-        tabs={B2B_TABS}
+        tabs={VISIBLE_B2B_TABS}
         activeTab={activeTab}
         onSelectTab={onSelectTab}
         onBackToChat={onBackToChat}

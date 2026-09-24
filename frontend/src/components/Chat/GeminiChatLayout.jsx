@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { getStoredUser, signOut, syncUserWithBackend } from '../../services/authService';
-import { submitApplication } from '../../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { getStoredUser, setStoredUser, signOut, syncUserWithBackend } from '../../services/authService';
+import { submitApplication, updateMyLocation } from '../../services/api';
+import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
 import { loadAllSessions, updateSession } from '../../services/chatStorage';
 
 import AuthModal from '../Auth/AuthModal';
@@ -16,17 +17,6 @@ import VacanciesCarousel from './VacanciesCarousel';
 import ChatWelcome from './ChatWelcome';
 import { LoginPromptCard, LocationCard } from './ChatCards';
 import { buildApplicationIntroMessages, buildAuthConfirmMessage, isShareLocationIntent } from './chatMessages';
-
-const LOCATION_STORAGE_KEY = 'candidate_location';
-
-function readStoredLocation() {
-  try {
-    const stored = localStorage.getItem(LOCATION_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch (e) {
-    return null;
-  }
-}
 
 export default function GeminiChatLayout({
   onOpenEmpresa,
@@ -71,16 +61,27 @@ export default function GeminiChatLayout({
     if (user && !propCurrentUser) setCurrentUser(user);
   }, [propCurrentUser]);
 
+  // Ubicación confirmada en el perfil del usuario (GPS/mapa): manda sobre la guardada localmente
   useEffect(() => {
-    if (currentUser?.latitud && currentUser?.longitud) {
-      setCandidateLocation({
-        lat: currentUser.latitud,
-        lon: currentUser.longitud,
-        colonia: currentUser.colonia || '',
-        municipio: currentUser.municipio || 'Apodaca'
-      });
+    const fromUser = locationFromUser(currentUser);
+    if (fromUser) {
+      setCandidateLocation(fromUser);
+      persistStoredLocation(fromUser);
     }
-  }, [currentUser]);
+  }, [currentUser?.latitud, currentUser?.longitud, currentUser?.ubicacion_confirmada]);
+
+  // Ubicación actualizada desde el perfil: reflejarla en el chat y avisarle al bot (una sola vez)
+  const sendToBotRef = useRef(sendToBot);
+  sendToBotRef.current = sendToBot;
+  useEffect(() => {
+    const onUpdated = (e) => {
+      const loc = e.detail || readStoredLocation();
+      setCandidateLocation(loc);
+      if (loc) sendToBotRef.current({ location: loc });
+    };
+    window.addEventListener(LOCATION_UPDATED_EVENT, onUpdated);
+    return () => window.removeEventListener(LOCATION_UPDATED_EVENT, onUpdated);
+  }, []);
 
   /** Agrega mensajes locales a la sesión activa y los persiste. */
   const appendToActiveSession = (newMessages, extra = {}) => {
@@ -152,9 +153,23 @@ export default function GeminiChatLayout({
 
   const handleLocationConfirmed = async (newLoc) => {
     setCandidateLocation(newLoc);
-    try {
-      localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(newLoc));
-    } catch (e) {}
+    persistStoredLocation(newLoc);
+    if (currentUser) {
+      // Con sesión, la ubicación vive en el perfil para reutilizarla en cualquier dispositivo
+      try {
+        const saved = await updateMyLocation(newLoc);
+        const merged = {
+          ...currentUser,
+          latitud: saved.latitud, longitud: saved.longitud,
+          colonia: saved.colonia, municipio: saved.municipio, ubicacion_confirmada: true
+        };
+        setCurrentUser(merged);
+        setStoredUser(merged);
+        if (propOnUserAuthenticated) propOnUserAuthenticated(merged);
+      } catch (e) {
+        console.error('No se pudo guardar la ubicación en el perfil:', e);
+      }
+    }
     await sendToBot({ location: newLoc });
   };
 
@@ -198,7 +213,13 @@ export default function GeminiChatLayout({
                 <LoginPromptCard onLogin={() => setIsAuthModalOpen(true)} />
               )}
 
-              <LocationCard location={candidateLocation} onOpen={() => setIsLocationModalOpen(true)} />
+              {(!candidateLocation || activeSession?.askLocation) && (
+                <LocationCard
+                  location={candidateLocation}
+                  asking={Boolean(activeSession?.askLocation)}
+                  onOpen={() => setIsLocationModalOpen(true)}
+                />
+              )}
 
               <VacanciesCarousel
                 jobs={activeSession?.matchedJobs}

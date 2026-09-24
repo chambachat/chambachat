@@ -46,6 +46,7 @@ from app.schemas import (
     ProfileSyncResponse,
     RefreshTokenResponse,
     SendCodeResponse,
+    UserLocationUpdate,
     VerificationCodeRequest,
     VerifyCodeRequest,
     VerifyCodeResponse,
@@ -330,11 +331,13 @@ def sync_google_profile(
                 setattr(user, field, bool(value))
             elif field == "nombre":
                 setattr(user, field, value.strip() or user.nombre)
+            elif field == "municipio" and user.ubicacion_confirmada:
+                continue  # el municipio de residencia confirmado (GPS/mapa) manda sobre el genérico del login
             else:
                 setattr(user, field, value)
 
-    # Actualizar coordenadas si cambió municipio
-    if req.municipio:
+    # Coordenadas aproximadas del municipio solo si el usuario aún no tiene ubicación confirmada
+    if req.municipio and not user.ubicacion_confirmada:
         user.latitud = coords[0]
         user.longitud = coords[1]
 
@@ -370,4 +373,22 @@ def refresh_token(current_user: User = Depends(get_current_user)):
 @router.get("/me", response_model=AuthUserResponse)
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Devuelve la información del usuario autenticado."""
+    return AuthUserResponse.model_validate(current_user)
+
+
+@router.patch("/me/location", response_model=AuthUserResponse)
+def update_my_location(req: UserLocationUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Registra o actualiza la ubicación del candidato desde su perfil (GPS o mapa).
+    Queda marcada como confirmada: el chat la reutiliza sin volver a pedirla.
+    """
+    current_user.latitud = req.latitud
+    current_user.longitud = req.longitud
+    current_user.ubicacion_confirmada = True
+    if req.colonia is not None:
+        current_user.colonia = req.colonia.strip() or None
+    if req.municipio and req.municipio.strip():
+        current_user.municipio = req.municipio.strip()
+    db.commit()
+    db.refresh(current_user)
     return AuthUserResponse.model_validate(current_user)

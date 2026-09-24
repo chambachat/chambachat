@@ -26,8 +26,12 @@ export function LoginPromptCard({ onLogin }) {
   );
 }
 
-/** Tarjeta de ubicación del candidato para calcular rutas y cercanía. */
-export function LocationCard({ location, onOpen }) {
+/**
+ * Tarjeta de ubicación del candidato. Se muestra mientras no haya ubicación registrada,
+ * o cuando el bot vuelve a pedirla (`asking`) porque el candidato quiere cambiarla.
+ */
+export function LocationCard({ location, onOpen, asking = false }) {
+  const changing = Boolean(location && asking);
   return (
     <div className="pl-0 sm:pl-10 py-1 animate-fadeIn w-full min-w-0">
       <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-teal-50/70 to-sky-50/80 border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -38,7 +42,7 @@ export function LocationCard({ location, onOpen }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-extrabold text-slate-900">
-                {location ? '📍 Tu Ubicación Registrada' : '📍 Ubicación para Transporte y Cercanía'}
+                {changing ? '📍 ¿Cambiamos tu ubicación?' : location ? '📍 Tu Ubicación Registrada' : '📍 Ubicación para Transporte y Cercanía'}
               </span>
               {location && (
                 <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
@@ -47,9 +51,11 @@ export function LocationCard({ location, onOpen }) {
               )}
             </div>
             <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
-              {location
-                ? 'Calculamos las empresas con menor tiempo de traslado y las rutas de camión con paradas por tu casa.'
-                : 'Comparte dónde vives (GPS o selecciona en el mapa) para ver qué plantas y camiones de personal pasan por tu colonia.'}
+              {changing
+                ? 'Elige tu nueva zona con GPS o en el mapa y vuelvo a calcular las vacantes con menor tiempo de traslado.'
+                : location
+                  ? 'Calculamos las empresas con menor tiempo de traslado desde tu casa.'
+                  : 'Comparte dónde vives (GPS o selecciona en el mapa) para ver qué plantas te quedan más cerca.'}
             </p>
           </div>
         </div>
@@ -60,7 +66,7 @@ export function LocationCard({ location, onOpen }) {
           className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition shrink-0 self-start sm:self-center"
         >
           <Navigation className="w-3.5 h-3.5 text-emerald-200" />
-          <span>{location ? 'Cambiar ubicación' : 'Compartir mi ubicación'}</span>
+          <span>{changing ? 'Elegir nueva ubicación' : location ? 'Cambiar ubicación' : 'Compartir mi ubicación'}</span>
         </button>
       </div>
     </div>

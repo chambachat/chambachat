@@ -1,12 +1,16 @@
 import json
 import logging
+import re
+import unicodedata
 import uuid
-from typing import Dict, Any, Tuple, List
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy.orm import Session
-from app.models import BotFlowConfig, ChatSession, User, Job
-from app.services.matchmaking import match_jobs_for_candidate
-from app.services.geo import get_municipio_coords
+
+from app.models import BotFlowConfig, ChatSession, Job, User
 from app.services.deepseek_engine import query_deepseek_chat
+from app.services.geo import get_municipio_coords
+from app.services.matchmaking import match_jobs_for_candidate
 from app.services.routes_service import find_nearby_stops
 
 logger = logging.getLogger(__name__)
@@ -25,11 +29,183 @@ DEFAULT_PROMPTS = {
     }
 }
 
+WELCOME_OPTIONS = [
+    {"label": "🚜 Montacarguista", "value": "Busco vacantes de montacarguista"},
+    {"label": "🏭 Ensamble en Apodaca", "value": "Busco de operario en Apodaca"},
+    {"label": "📦 Almacén y Embarques", "value": "Busco jale de almacén"},
+]
+
+MUNICIPIOS_DETECTABLES = [
+    "Apodaca", "Pesquería", "San Nicolás", "Monterrey", "García", "Guadalupe", "Escobedo",
+    "Santa Catarina", "Juárez", "Santiago", "Cadereyta", "Salinas Victoria", "Ciénega de Flores", "San Pedro",
+]
+
+# (término en el texto, etiqueta del puesto)
+PUESTOS_DETECTABLES = [
+    ("montacarg", "Montacarguista"), ("forklift", "Montacarguista"),
+    ("soldad", "Soldador"), ("almacen", "Almacén"), ("embarques", "Almacén"),
+    ("ensamble", "Ensamble"), ("prensista", "Prensista"), ("ayudante general", "Ayudante general"),
+    ("calidad", "Inspector de calidad"), ("empaque", "Empaque"), ("chofer", "Chofer"),
+]
+
+# Intenciones sobre ubicación (texto normalizado: minúsculas y sin acentos)
+_CHANGE_LOCATION_RE = re.compile(
+    r"(cambiar|actualizar|modificar|corregir|nueva|otra|registrar|compartir)\s+(mi\s+|la\s+|de\s+)?(ubicacion|direccion|zona|colonia|casa|domicilio)"
+    r"|me\s+mud|me\s+cambie\s+de\s+casa|ya\s+no\s+vivo|ahora\s+vivo|otro\s+lado|otra\s+zona|otro\s+municipio|otra\s+colonia"
+    r"|buscar\s+en\s+otr|desde\s+otro\s+lugar"
+)
+# El candidato pregunta por rutas / camiones de personal
+_ROUTES_RE = re.compile(
+    r"\brutas?\b|\bcamion(es|cito)?\b|\bparadas?\b|pasan?\s+(por|cerca)|transporte\s+(de\s+personal|cerca|por)"
+    r"|que\s+transporte|hay\s+transporte|me\s+recoge|recogen\s+cerca"
+)
+
+LOCATION_SHARE_VALUE = "Quiero compartir mi ubicación para ver rutas de transporte"  # el frontend abre el mapa con esta frase
+CHIP_SHARE_LOCATION = {"label": "📍 Compartir mi ubicación", "value": LOCATION_SHARE_VALUE}
+CHIP_CHANGE_LOCATION = {"label": "📍 Elegir nueva ubicación", "value": LOCATION_SHARE_VALUE}
+CHIP_ROUTES = {"label": "🚌 ¿Qué rutas pasan por mi colonia?", "value": "¿Qué rutas de transporte de personal pasan cerca de mi colonia?"}
+CHIP_NEAREST_JOBS = {"label": "🏭 Ver vacantes más cercanas", "value": "Muéstrame las vacantes más cercanas a mi casa"}
+CHIP_FIXED_SHIFT = {"label": "⏱️ ¿Cuáles tienen turno fijo?", "value": "¿Cuáles vacantes tienen turnos fijos?"}
+
+
+def _normalize(text: str) -> str:
+    """Minúsculas y sin acentos para detectar intenciones sin importar cómo escriba el candidato."""
+    nfkd = unicodedata.normalize("NFKD", text or "")
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
 def get_prompt_text(db: Session, step_key: str, fallback_text: str = "") -> str:
     config = db.query(BotFlowConfig).filter(BotFlowConfig.step_key == step_key).first()
     if config and config.prompt_texto:
         return config.prompt_texto
     return DEFAULT_PROMPTS.get(step_key, {}).get("prompt_texto", fallback_text)
+
+
+def _detect_puesto(text_norm: str) -> Optional[str]:
+    for term, label in PUESTOS_DETECTABLES:
+        if term in text_norm:
+            return label
+    return None
+
+
+def _detect_municipio(text_norm: str) -> Optional[str]:
+    for m in MUNICIPIOS_DETECTABLES:
+        if _normalize(m) in text_norm:
+            return m
+    return None
+
+
+def _get_or_create_session(db: Session, session_id: Optional[str]) -> ChatSession:
+    chat_session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first() if session_id else None
+    if not chat_session:
+        chat_session = ChatSession(
+            session_id=session_id or f"session_{uuid.uuid4().hex[:12]}",
+            current_step="chatting",
+            collected_data=json.dumps({}),
+            completed=False,
+        )
+        db.add(chat_session)
+        db.flush()
+    return chat_session
+
+
+def _find_user(db: Session, data: Dict[str, Any]) -> Optional[User]:
+    user = None
+    if data.get("user_id"):
+        user = db.query(User).filter(User.id == data["user_id"]).first()
+    if not user and data.get("email"):
+        user = db.query(User).filter(User.email == data["email"]).first()
+    return user
+
+
+def _sync_location_from_profile(db: Session, data: Dict[str, Any]) -> None:
+    """Usuarios con sesión: la ubicación confirmada en su perfil manda sobre la de la conversación."""
+    user = _find_user(db, data)
+    if not user:
+        return
+    data["user_id"] = user.id
+    if user.ubicacion_confirmada and user.latitud is not None and user.longitud is not None:
+        data["latitud"], data["longitud"] = user.latitud, user.longitud
+        if user.colonia:
+            data["colonia"] = user.colonia
+        if user.municipio:
+            data["loc_municipio"] = user.municipio
+
+
+def _upsert_candidate(db: Session, data: Dict[str, Any], c_lat: float, c_lon: float) -> Dict[str, Any]:
+    """Crea o actualiza el operario. Solo guarda coordenadas cuando son precisas (chat o perfil), nunca el centro del municipio."""
+    precise = data.get("latitud") is not None and data.get("longitud") is not None
+    residence = data.get("loc_municipio") or data.get("municipio")
+    user_rec = _find_user(db, data)
+
+    if not user_rec:
+        user_rec = User(
+            nombre=data.get("nombre", "Operario Registrado"),
+            email=data.get("email"),
+            telefono=data.get("telefono"),
+            municipio=residence or "Apodaca",
+            nivel_educativo="Secundaria",
+            tag_inea=False,
+            latitud=float(data["latitud"]) if precise else None,
+            longitud=float(data["longitud"]) if precise else None,
+            sueldo_deseado=2800.0,
+            activo=True,
+        )
+        db.add(user_rec)
+        db.flush()
+    else:
+        if data.get("nombre"):
+            user_rec.nombre = data["nombre"]
+        # No pisar el municipio de residencia confirmado con el municipio donde solo está buscando
+        if data.get("loc_municipio"):
+            user_rec.municipio = data["loc_municipio"]
+        elif residence and not user_rec.ubicacion_confirmada:
+            user_rec.municipio = residence
+
+    if precise:
+        user_rec.latitud = float(data["latitud"])
+        user_rec.longitud = float(data["longitud"])
+        user_rec.ubicacion_confirmada = True
+        if data.get("colonia"):
+            user_rec.colonia = data["colonia"]
+
+    data["user_id"] = user_rec.id
+    return {
+        "id": user_rec.id,
+        "nombre": user_rec.nombre,
+        "municipio": user_rec.municipio,
+        "colonia": user_rec.colonia,
+        "latitud": user_rec.latitud if precise else c_lat,
+        "longitud": user_rec.longitud if precise else c_lon,
+        "ubicacion_confirmada": bool(user_rec.ubicacion_confirmada),
+        "puesto_deseado": data.get("puesto_deseado", "Operario General"),
+    }
+
+
+def _without_location_chips(options: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Con la ubicación ya registrada no volvemos a ofrecer 'compartir ubicación' salvo que el candidato lo pida."""
+    return [o for o in options if "ubicaci" not in _normalize(str(o.get("value", ""))) or "cambiar" in _normalize(str(o.get("label", "")))]
+
+
+def _response(chat_session: ChatSession, data: Dict[str, Any], history: List[Dict[str, str]], **fields) -> Dict[str, Any]:
+    data["history"] = history[-20:]
+    chat_session.collected_data = json.dumps(data)
+    base = {
+        "session_id": chat_session.session_id,
+        "current_step": "chatting",
+        "bot_messages": [],
+        "options": [],
+        "matched_jobs": [],
+        "nearby_routes": [],
+        "completed": False,
+        "candidate_profile": None,
+        "should_ask_login": False,
+        "ask_location": False,
+        "location_known": data.get("latitud") is not None and data.get("longitud") is not None,
+    }
+    base.update(fields)
+    return base
+
 
 async def process_chat_message(
     db: Session,
@@ -42,205 +218,174 @@ async def process_chat_message(
     candidate_lat: float = None,
     candidate_lon: float = None,
     candidate_colonia: str = None,
-    candidate_municipio: str = None
+    candidate_municipio: str = None,
 ) -> Dict[str, Any]:
     """
-    Motor conversacional híbrido con DeepSeek AI que mantiene el contexto de puesto, usuario y ubicación.
-    """
-    if not session_id:
-        session_id = f"session_{uuid.uuid4().hex[:12]}"
-        chat_session = ChatSession(
-            session_id=session_id,
-            current_step="chatting",
-            collected_data=json.dumps({}),
-            completed=False
-        )
-        db.add(chat_session)
-        db.flush()
-    else:
-        chat_session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
-        if not chat_session:
-            chat_session = ChatSession(
-                session_id=session_id,
-                current_step="chatting",
-                collected_data=json.dumps({}),
-                completed=False
-            )
-            db.add(chat_session)
-            db.flush()
+    Motor conversacional híbrido (DeepSeek + heurística) con memoria de puesto, usuario y ubicación.
 
+    Reglas de ubicación y rutas:
+    - La ubicación se pide una sola vez. Registrada, no se vuelve a ofrecer salvo que el candidato
+      quiera cambiarla o diga que busca en otro lado (ask_location=True).
+    - Las rutas de transporte solo se calculan cuando el candidato las pide.
+    """
+    chat_session = _get_or_create_session(db, session_id)
     data = json.loads(chat_session.collected_data or "{}")
+    history: List[Dict[str, str]] = data.get("history", [])
+
     if user_name:
         data["nombre"] = user_name
     if user_phone:
         data["telefono"] = user_phone
     if user_email:
-        data["email"] = user_email
-    if candidate_lat is not None and candidate_lon is not None:
-        data["latitud"] = candidate_lat
-        data["longitud"] = candidate_lon
-    if candidate_colonia:
-        data["colonia"] = candidate_colonia
-    if candidate_municipio:
-        data["municipio"] = candidate_municipio
+        data["email"] = user_email.strip().lower()
+
+    is_location_event = candidate_lat is not None and candidate_lon is not None
+    if is_location_event:
+        data["latitud"], data["longitud"] = candidate_lat, candidate_lon
+        if candidate_colonia:
+            data["colonia"] = candidate_colonia
+        if candidate_municipio:
+            data["loc_municipio"] = candidate_municipio
+            data["municipio"] = candidate_municipio
+    elif data.get("email") or data.get("user_id"):
+        _sync_location_from_profile(db, data)
 
     input_text = (selected_option or user_message or "").strip()
-    
-    bot_messages = []
-    options = []
-    matched_jobs = []
-    nearby_routes = []
-    completed = False
-    candidate_profile = None
-    should_ask_login = False
+    text_norm = _normalize(input_text)
 
-    history = data.get("history", [])
-
-    if not input_text and candidate_lat is None:
-        # Mensaje de bienvenida inicial
+    # ── Bienvenida ─────────────────────────────────────────────────────
+    if not input_text and not is_location_event:
         welcome_text = get_prompt_text(db, "welcome")
         if data.get("nombre"):
             welcome_text = f"¡Qué onda, {data['nombre']}! 🤠 Bienvenido a Chambachat. ¿Qué tipo de vacante estás buscando hoy?"
-        bot_messages.append(welcome_text)
-        options = [
-            {"label": "🚜 Montacarguista", "value": "Busco vacantes de montacarguista"},
-            {"label": "🏭 Ensamble en Apodaca", "value": "Busco de operario en Apodaca"},
-            {"label": "📦 Almacén y Embarques", "value": "Busco jale de almacén"}
-        ]
+        result = _response(chat_session, data, history, bot_messages=[welcome_text], options=list(WELCOME_OPTIONS))
+        db.commit()
+        return result
+
+    if input_text:
+        history.append({"sender": "user", "text": input_text})
+
+    # ── Contexto acumulado: puesto y municipio mencionados ─────────────
+    puesto = _detect_puesto(text_norm)
+    if puesto:
+        data["puesto_deseado"] = puesto
+    mentioned_muni = None if is_location_event else _detect_municipio(text_norm)
+    if mentioned_muni:
+        data["municipio"] = mentioned_muni
+
+    loc_known = data.get("latitud") is not None and data.get("longitud") is not None
+    zona_label = data.get("colonia") or data.get("loc_municipio") or data.get("municipio") or "tu zona"
+    wants_change_location = bool(not is_location_event and _CHANGE_LOCATION_RE.search(text_norm))
+    wants_routes = bool(not is_location_event and _ROUTES_RE.search(text_norm))
+    search_elsewhere = bool(
+        loc_known and mentioned_muni and data.get("loc_municipio")
+        and _normalize(mentioned_muni) != _normalize(data["loc_municipio"])
+    )
+
+    bot_messages: List[str] = []
+    options: List[Dict[str, str]] = []
+    matched_jobs: List[Dict[str, Any]] = []
+    nearby_routes: List[Dict[str, Any]] = []
+    ask_location = False
+    should_ask_login = False
+
+    # Coordenadas para buscar vacantes: otro municipio pedido > ubicación registrada > municipio mencionado
+    if search_elsewhere:
+        c_lat, c_lon = get_municipio_coords(mentioned_muni)
+    elif loc_known:
+        c_lat, c_lon = float(data["latitud"]), float(data["longitud"])
     else:
-        # Detectar y recordar puesto en contexto acumulado
-        for p_term in ["montacarguista", "montacarga", "montacargas", "forklift", "soldador", "soldadura", "almacen", "almacén", "ensamble", "prensista", "ayudante general"]:
-            if p_term in input_text.lower():
-                data["puesto_deseado"] = "Montacarguista" if "montacarg" in p_term or "forklift" in p_term else p_term.capitalize()
-                break
+        c_lat, c_lon = get_municipio_coords(data.get("municipio") or "monterrey")
 
-        # Detectar municipio
-        for m in ["Apodaca", "Pesquería", "San Nicolás", "Monterrey", "García", "Guadalupe", "Escobedo", "Santa Catarina", "Juárez"]:
-            if m.lower() in input_text.lower():
-                data["municipio"] = m
-                break
-
-        # Si se acaba de enviar la ubicación geográfica
-        is_location_event = candidate_lat is not None and candidate_lon is not None
-        
-        # Registrar mensaje del usuario en el historial
-        if input_text:
-            history.append({"sender": "user", "text": input_text})
-
-        # Invocar a DeepSeek con todo el historial y contexto de la sesión
-        llm_response = await query_deepseek_chat(
-            conversation_history=history, 
-            user_message=input_text, 
-            context_data=data
+    if wants_change_location:
+        # Quiere cambiar/registrar ubicación: se lo pedimos en este momento
+        ask_location = True
+        bot_messages.append(
+            "¡Claro! Toca **📍 Elegir nueva ubicación** y marca tu zona en el mapa o usa el GPS. "
+            "En cuanto la confirmes vuelvo a calcular las vacantes con menor tiempo de traslado."
         )
-        
-        reply_text = llm_response["reply_text"]
-        
-        # Si fue un evento de compartir ubicación, anteponer mensaje enfocado en transporte
-        if is_location_event:
-            zona_label = data.get("colonia") or data.get("municipio") or "tu zona"
+        options = [CHIP_CHANGE_LOCATION if loc_known else CHIP_SHARE_LOCATION]
+
+    elif wants_routes:
+        if not loc_known:
+            ask_location = True
             bot_messages.append(
-                f"📍 ¡Excelente compadre! Ya guardé tu ubicación en **{zona_label}**. "
-                f"A continuación calculé las vacantes más cercanas a ti y las rutas de transporte de personal con paradas y horarios por tu casa."
+                "Para decirte qué rutas de transporte de personal pasan por tu casa necesito saber dónde vives. "
+                "Toca **📍 Compartir mi ubicación** (GPS o mapa) y te digo paradas y horarios."
             )
+            options = [CHIP_SHARE_LOCATION]
         else:
-            bot_messages.append(reply_text)
+            try:
+                nearby_routes = find_nearby_stops(db, c_lat, c_lon, max_km=8.0, limit=4)
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Error consultando rutas de transporte: %s", exc)
+            if nearby_routes:
+                bot_messages.append(
+                    f"🚌 Estas son las rutas de transporte de personal que pasan cerca de **{zona_label}**, "
+                    f"con su parada más cercana y la hora a la que pasan:"
+                )
+            else:
+                bot_messages.append(
+                    f"Por ahora no tengo registrada ninguna ruta de transporte de personal que pase cerca de **{zona_label}**. "
+                    "Las plantas van dando de alta sus rutas; en cuanto haya una por tu rumbo te la muestro."
+                )
+            options = [CHIP_NEAREST_JOBS, CHIP_FIXED_SHIFT, {"label": "📍 Cambiar mi ubicación", "value": LOCATION_SHARE_VALUE}]
 
-        history.append({"sender": "bot", "text": bot_messages[-1]})
-
-        # Actualizar perfil extraído
-        extracted = llm_response.get("extracted_profile", {})
-        for k, v in extracted.items():
-            if v:
-                data[k] = v
-
-        options = llm_response.get("suggested_chips", [])
-        should_ask_login = llm_response.get("should_ask_login", False)
-
-        # Matchmaking inteligente con la base de datos
-        target_muni = data.get("municipio")
-        puesto_kw = data.get("puesto_deseado")
-
-        if data.get("latitud") is not None and data.get("longitud") is not None:
-            c_lat = float(data["latitud"])
-            c_lon = float(data["longitud"])
+    else:
+        if is_location_event:
+            bot_messages.append(
+                f"📍 ¡Listo! Guardé tu ubicación en **{zona_label}**. Ya calculé las vacantes con menor tiempo de traslado desde tu casa. "
+                "Si quieres saber qué rutas de transporte de personal pasan por tu colonia, nomás pregúntame."
+            )
+            options = [CHIP_ROUTES, CHIP_NEAREST_JOBS, CHIP_FIXED_SHIFT]
         else:
-            c_lat, c_lon = get_municipio_coords(target_muni or "monterrey")
+            llm = await query_deepseek_chat(conversation_history=history, user_message=input_text, context_data=data)
+            bot_messages.append(llm["reply_text"])
+            for k, v in (llm.get("extracted_profile") or {}).items():
+                if v and k not in ("latitud", "longitud"):
+                    data[k] = v
+            options = list(llm.get("suggested_chips") or [])
+            should_ask_login = bool(llm.get("should_ask_login", False))
+            if loc_known:
+                options = _without_location_chips(options)
+
+        if search_elsewhere:
+            ask_location = True
+            bot_messages.append(
+                f"Busqué en **{mentioned_muni}**. Si te mudaste o quieres que esa sea tu zona fija, toca **📍 Elegir nueva ubicación**."
+            )
+            options = [CHIP_CHANGE_LOCATION] + [o for o in options if o.get("value") != LOCATION_SHARE_VALUE]
 
         wants_jobs = bool(
-            target_muni or puesto_kw or is_location_event
-            or any(w in input_text.lower() for w in ["vacante", "jale", "chamba", "montacarguista", "apodaca", "pesquer"])
+            data.get("municipio") or data.get("puesto_deseado") or is_location_event or loc_known
+            or any(w in text_norm for w in ["vacante", "jale", "chamba", "trabajo", "empleo"])
         )
-        all_jobs = db.query(Job).filter(Job.activa.is_(True)).all() if wants_jobs else []
-
-        if all_jobs:
+        if wants_jobs:
+            all_jobs = db.query(Job).filter(Job.activa.is_(True)).all()
             matched_jobs = match_jobs_for_candidate(
                 candidate_lat=c_lat,
                 candidate_lon=c_lon,
-                municipio=target_muni or "Monterrey",
-                puesto_keyword=puesto_kw,
-                all_jobs=all_jobs
+                municipio=(mentioned_muni if search_elsewhere else data.get("loc_municipio") or data.get("municipio")) or "Monterrey",
+                puesto_keyword=data.get("puesto_deseado"),
+                all_jobs=all_jobs,
             )[:4]
 
-        # Calcular rutas de transporte cercanas
-        try:
-            nearby_routes = find_nearby_stops(db, c_lat, c_lon, max_km=8.0, limit=4)
-        except Exception as e:
-            logger.error(f"Error consultando rutas de transporte: {e}")
+    history.append({"sender": "bot", "text": bot_messages[-1] if bot_messages else ""})
 
-        # Guardar en base de datos si tenemos al menos nombre o puesto/municipio/coordenadas
-        if data.get("nombre") or data.get("municipio") or data.get("puesto_deseado") or is_location_event:
-            user_rec = None
-            if data.get("user_id"):
-                user_rec = db.query(User).filter(User.id == data["user_id"]).first()
-            if not user_rec and data.get("email"):
-                user_rec = db.query(User).filter(User.email == data["email"]).first()
+    candidate_profile = None
+    if data.get("nombre") or data.get("municipio") or data.get("puesto_deseado") or is_location_event or data.get("email"):
+        candidate_profile = _upsert_candidate(db, data, c_lat, c_lon)
 
-            if not user_rec:
-                user_rec = User(
-                    nombre=data.get("nombre", "Operario Registrado"),
-                    email=data.get("email"),
-                    telefono=data.get("telefono", None),
-                    municipio=data.get("municipio", "Apodaca"),
-                    nivel_educativo="Secundaria",
-                    tag_inea=False,
-                    latitud=c_lat,
-                    longitud=c_lon,
-                    sueldo_deseado=2800.0,
-                    activo=True
-                )
-                db.add(user_rec)
-                db.flush()
-            else:
-                if data.get("municipio"):
-                    user_rec.municipio = data["municipio"]
-                if data.get("nombre"):
-                    user_rec.nombre = data["nombre"]
-                user_rec.latitud = c_lat
-                user_rec.longitud = c_lon
-
-            data["user_id"] = user_rec.id
-            candidate_profile = {
-                "id": user_rec.id,
-                "nombre": user_rec.nombre,
-                "municipio": user_rec.municipio,
-                "latitud": c_lat,
-                "longitud": c_lon,
-                "puesto_deseado": data.get("puesto_deseado", "Operario General")
-            }
-
-    data["history"] = history[-20:]
-    chat_session.collected_data = json.dumps(data)
+    result = _response(
+        chat_session, data, history,
+        bot_messages=bot_messages,
+        options=options,
+        matched_jobs=matched_jobs,
+        nearby_routes=nearby_routes,
+        completed=bool(candidate_profile and matched_jobs),
+        candidate_profile=candidate_profile,
+        should_ask_login=should_ask_login and not data.get("google_logged_in"),
+        ask_location=ask_location,
+    )
     db.commit()
-
-    return {
-        "session_id": chat_session.session_id,
-        "current_step": "chatting",
-        "bot_messages": bot_messages,
-        "options": options,
-        "matched_jobs": matched_jobs,
-        "nearby_routes": nearby_routes,
-        "completed": bool(candidate_profile and matched_jobs),
-        "candidate_profile": candidate_profile,
-        "should_ask_login": should_ask_login and not data.get("google_logged_in")
-    }
+    return result

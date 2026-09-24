@@ -22,7 +22,8 @@ Tus objetivos principales:
    - Operarios de ensamble/producción: $2,100 - $2,600 libres/sem (contratación rápida, turnos fijos o rolados).
    - Soldadores/Técnicos: $3,000 - $4,000 libres/sem.
 6. Mantener respuestas breves (máximo 2 párrafos cortos), útiles y con energía positiva.
-7. Compartir ubicación para transporte y cercanía: Cuando el usuario mencione municipios o pregunte por vacantes cercanas, anímalo amablemente a presionar el botón o tarjeta de "Compartir ubicación" en el chat para calcularle las plantas más cercanas y las rutas de transporte de personal con paradas y horarios exactos por su colonia.
+7. Ubicación: si el contexto dice que el candidato YA registró su ubicación, NUNCA le pidas compartirla o registrarla de nuevo; solo si él dice que se mudó, que quiere cambiarla o que quiere buscar en otro lado, indícale que toque "📍 Elegir nueva ubicación". Si NO la ha registrado y pregunta por vacantes cercanas o transporte, sugiérele una sola vez, sin insistir, el botón "📍 Compartir ubicación".
+8. Rutas de transporte de personal: no las menciones ni las ofrezcas por iniciativa propia. Solo si el candidato pregunta por rutas, camiones o paradas, dile que con gusto se las muestras (el sistema las calcula cuando él las pide).
 
 SIEMPRE al final de tu respuesta, agrega una sección delimitada exactamente así:
 <<<METADATA>>>
@@ -70,6 +71,12 @@ async def query_deepseek_chat(
             ctx_lines.append(f"- Puesto de interés activo: {context_data.get('puesto_deseado')}.")
         if context_data.get("municipio"):
             ctx_lines.append(f"- Zona o municipio: {context_data.get('municipio')}.")
+        if context_data.get("latitud") is not None and context_data.get("longitud") is not None:
+            zona = ", ".join(p for p in [context_data.get("colonia"), context_data.get("loc_municipio")] if p) or "su zona"
+            ctx_lines.append(f"- Ubicación YA registrada: {zona}. No le pidas compartir ni registrar su ubicación otra vez; solo si él quiere cambiarla.")
+        else:
+            ctx_lines.append("- Aún no ha registrado su ubicación. Solo si pregunta por cercanía o transporte, sugiérele una vez el botón 📍 Compartir ubicación.")
+        ctx_lines.append("- Rutas de transporte: no las ofrezcas ni las describas salvo que el candidato pregunte por rutas, camiones o paradas.")
         
         if ctx_lines:
             messages.append({
@@ -152,6 +159,7 @@ def generate_heuristic_response(
     
     prev_puesto = context_data.get("puesto_deseado") if context_data else None
     prev_muni = context_data.get("municipio") if context_data else None
+    loc_known = bool(context_data and context_data.get("latitud") is not None)
 
     # Detección de puesto
     if any(term in msg_lower for term in ["montacarguista", "montacarga", "montacargas", "forklift"]):
@@ -220,10 +228,11 @@ def generate_heuristic_response(
         reply = (
             f"¡Excelente! En **{muni_target}** tenemos vacantes abiertas de **Montacarguista de Almacén** en Parque Industrial Monterrey y Stiva. "
             f"Ofrecen un sueldo semanal libre de **$2,850 a $3,200 MXN**, turno fijo y ruta de transporte directo a tu colonia.\n\n"
-            "💡 **Tip:** Si le das clic a **📍 Compartir ubicación**, calculamos las rutas de transporte y paradas exactas por tu casa. ¿Cuál es tu nombre para registrarte?"
+            + ("" if loc_known else "💡 **Tip:** Si le das clic a **📍 Compartir ubicación**, te muestro las plantas con menor tiempo de traslado desde tu casa. ")
+            + "¿Cuál es tu nombre para registrarte?"
         )
         chips = [
-            {"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"},
+            *([] if loc_known else [{"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"}]),
             {"label": "Tengo experiencia en hombre sentado", "value": "Tengo experiencia en montacargas hombre sentado"},
             {"label": "Tengo experiencia en hombre parado", "value": "Tengo experiencia en montacargas hombre parado"},
             {"label": "Ver vacantes en Apodaca", "value": f"Muéstrame las vacantes de montacarguista en {muni_target}"}
@@ -241,11 +250,11 @@ def generate_heuristic_response(
         puesto_str = f" de {prev_puesto}" if prev_puesto else ""
         reply = (
             f"¡Arre! En **{muni_target}** hay mucho jale activo{puesto_str} en plantas de manufactura y logística. "
-            f"Los sueldos van de **$2,300 a $3,200 libres por semana** con transporte y comedor.\n\n"
-            "💡 **Tip de transporte:** Si compartes tu ubicación exacta con el botón de abajo, te muestro qué rutas de transporte y camiones pasan cerca de tu casa."
+            f"Los sueldos van de **$2,300 a $3,200 libres por semana** con transporte y comedor."
+            + ("" if loc_known else "\n\n💡 **Tip:** Si compartes tu ubicación con el botón de abajo, te muestro las plantas con menor tiempo de traslado desde tu casa.")
         )
         chips = [
-            {"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"},
+            *([] if loc_known else [{"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"}]),
             {"label": "🚜 Montacarguista", "value": f"Busco vacantes de montacarguista en {muni_target}"},
             {"label": "🏭 Operario de Ensamble", "value": f"Busco vacantes de ensamble en {muni_target}"},
             {"label": "📦 Almacén", "value": f"Busco vacantes de almacén en {muni_target}"}

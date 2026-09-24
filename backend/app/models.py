@@ -14,10 +14,13 @@ class User(Base):
     telefono = Column(String(50), nullable=True)
     codigo_postal = Column(String(10), nullable=True)
     municipio = Column(String(100), nullable=True)
+    colonia = Column(String(150), nullable=True)  # etiqueta legible de la ubicación confirmada
     nivel_educativo = Column(String(50), nullable=False, default="Secundaria")
     tag_inea = Column(Boolean, default=False, index=True)
     latitud = Column(Float, nullable=True)
     longitud = Column(Float, nullable=True)
+    # True solo cuando las coordenadas vienen de GPS/mapa (chat o perfil), no del centro del municipio
+    ubicacion_confirmada = Column(Boolean, nullable=False, default=False, server_default="0")
     sueldo_deseado = Column(Float, nullable=True)
     avatar_url = Column(String(500), nullable=True)
     google_id = Column(String(255), nullable=True)

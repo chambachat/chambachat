@@ -191,10 +191,11 @@ export function useChatSession(currentUser) {
           ...activeSession,
           messages: finalMessages,
           matchedJobs: res.matched_jobs?.length ? res.matched_jobs : activeSession.matchedJobs || [],
-          nearbyRoutes: res.nearby_routes?.length ? res.nearby_routes : activeSession.nearbyRoutes || [],
+          nearbyRoutes: res.nearby_routes || [],  // solo se muestran en el turno en que el candidato las pidió
           candidateProfile: res.candidate_profile || activeSession.candidateProfile || null,
           backendSessionId: currentSessionId,
-          shouldAskLogin: res.should_ask_login && !currentUser
+          shouldAskLogin: res.should_ask_login && !currentUser,
+          askLocation: Boolean(res.ask_location)
         };
 
         setActiveSession(finalSession);
@@ -204,7 +205,8 @@ export function useChatSession(currentUser) {
           nearbyRoutes: finalSession.nearbyRoutes,
           candidateProfile: finalSession.candidateProfile,
           backendSessionId: finalSession.backendSessionId,
-          shouldAskLogin: finalSession.shouldAskLogin
+          shouldAskLogin: finalSession.shouldAskLogin,
+          askLocation: finalSession.askLocation
         });
         setSessions(loadAllSessions());
         setOptions(res.options || []);

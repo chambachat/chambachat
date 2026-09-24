@@ -1,5 +1,6 @@
 import React from 'react';
-import { User, GraduationCap, MapPin, Phone, CheckCircle2, ArrowLeft, X, Award, Briefcase, LogOut, ShieldCheck, Building2, ExternalLink } from 'lucide-react';
+import { User, GraduationCap, MapPin, X, Briefcase, LogOut, ShieldCheck, Building2, ExternalLink, Navigation } from 'lucide-react';
+import { readStoredLocation, locationFromUser, formatLocation } from '../../services/candidateLocation';
 
 export default function UserProfileModal({ 
   isOpen, 
@@ -9,12 +10,15 @@ export default function UserProfileModal({
   onLogout, 
   onOpenAuth, 
   onReturnToChat,
-  onOpenEmpresa 
+  onOpenEmpresa,
+  onUpdateLocation
 }) {
   if (!isOpen) return null;
 
   const isGoogle = currentUser?.provider === 'google';
   const isRecruiter = currentUser?.role === 'recruiter';
+  // Ubicación confirmada: la del perfil (usuario con sesión) o la guardada en este dispositivo (invitado)
+  const location = locationFromUser(currentUser) || readStoredLocation();
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
@@ -149,21 +153,25 @@ export default function UserProfileModal({
                   </span>
                 </div>
               )}
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">Municipio de residencia:</span>
-                <span className="font-bold text-slate-900">
-                  {candidateProfile?.municipio || currentUser?.municipio || 'Apodaca'}
-                </span>
-              </div>
-              {(candidateProfile?.colonia || currentUser?.colonia) && (
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">Colonia / Ubicación:</span>
-                  <span className="font-semibold text-emerald-700 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>{candidateProfile?.colonia || currentUser?.colonia}</span>
+              <div className="flex justify-between items-center text-xs gap-2">
+                <span className="text-slate-500 shrink-0">Ubicación para transporte:</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`font-semibold flex items-center gap-1 min-w-0 ${location ? 'text-slate-900' : 'text-slate-400'}`}>
+                    <MapPin className={`w-3.5 h-3.5 shrink-0 ${location ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <span className="truncate">{location ? formatLocation(location) : 'Sin registrar'}</span>
                   </span>
+                  {onUpdateLocation && (
+                    <button
+                      type="button"
+                      onClick={onUpdateLocation}
+                      className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 transition shrink-0"
+                    >
+                      <Navigation className="w-3 h-3" />
+                      <span>{location ? 'Actualizar' : 'Registrar'}</span>
+                    </button>
+                  )}
                 </div>
-              )}
+              </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-500">Grado de estudios:</span>
                 <span className="font-semibold text-slate-800">

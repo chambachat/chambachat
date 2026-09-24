@@ -155,6 +155,20 @@ export async function createJob(jobData) {
   return res.json();
 }
 
+/** Registra/actualiza la ubicación confirmada del usuario autenticado (perfil). */
+export async function updateMyLocation({ lat, lon, colonia, municipio }) {
+  const res = await fetch(`${API_BASE}/auth/me/location`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ latitud: lat, longitud: lon, colonia: colonia || null, municipio: municipio || null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'No se pudo guardar tu ubicación' }));
+    throw new Error(err.detail || 'No se pudo guardar tu ubicación');
+  }
+  return res.json();
+}
+
 export async function getJobCatalog() {
   const res = await fetch(`${API_BASE}/jobs/catalogo`);
   if (!res.ok) throw new Error('Error al obtener catálogo de vacantes');

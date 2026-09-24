@@ -54,10 +54,20 @@ class ChatMessageResponse(BaseModel):
     bot_messages: List[str]
     options: List[ChatOption] = []
     matched_jobs: List[Dict[str, Any]] = []
-    nearby_routes: Optional[List[Dict[str, Any]]] = []
+    nearby_routes: Optional[List[Dict[str, Any]]] = []  # solo cuando el candidato pide rutas
     completed: bool = False
     candidate_profile: Optional[Dict[str, Any]] = None
     should_ask_login: Optional[bool] = False
+    ask_location: Optional[bool] = False     # el bot pide (o vuelve a pedir) la ubicación en este turno
+    location_known: Optional[bool] = False   # la sesión ya tiene ubicación precisa del candidato
+
+
+class UserLocationUpdate(BaseModel):
+    """Ubicación confirmada del candidato desde su perfil (GPS o mapa)."""
+    latitud: float = Field(..., ge=-90, le=90)
+    longitud: float = Field(..., ge=-180, le=180)
+    colonia: Optional[str] = Field(None, max_length=150)
+    municipio: Optional[str] = Field(None, max_length=100)
 
 # ==========================================
 # APPLICATION & RECRUITER MESSAGES SCHEMAS
@@ -549,6 +559,10 @@ class AuthUserResponse(BaseModel):
     empresa_nombre: Optional[str] = None
     telefono: Optional[str] = None
     municipio: Optional[str] = None
+    colonia: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
+    ubicacion_confirmada: Optional[bool] = False
     nivel_educativo: Optional[str] = None
     avatar_url: Optional[str] = None
     tag_inea: Optional[bool] = False
