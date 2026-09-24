@@ -176,7 +176,11 @@ def apply_to_job(
         if existing:
             if payload.session_id and not existing.session_id:
                 existing.session_id = payload.session_id
-                db.commit()
+            if (existing.screening_status or "none") == "none":
+                # Postulación creada antes de la entrevista rápida: abrirla ahora para conocer al candidato
+                screening_service.start_screening(db, existing, job, current_user)
+            db.commit()
+            db.refresh(existing)
             return build_app_response(existing)
 
     application = JobApplication(
@@ -281,9 +285,13 @@ def send_message_to_application(
     msg = ApplicationMessage(application_id=application_id, sender_type=payload.sender_type, sender_name=sender_name, mensaje=mensaje)
     db.add(msg)
     db.flush()
-    if payload.sender_type == "candidate" and app.screening_status == "in_progress":
-        # Entrevista rápida en curso: Chambot registra la respuesta y publica la siguiente pregunta
-        screening_service.handle_candidate_answer(db, app, current_user, mensaje)
+    if payload.sender_type == "candidate":
+        if (app.screening_status or "none") == "none":
+            # Postulación creada antes de la entrevista rápida: Chambot la abre ahora (el mensaje queda para el reclutador)
+            screening_service.start_screening(db, app, app.job, current_user)
+        elif app.screening_status == "in_progress":
+            # Entrevista rápida en curso: Chambot registra la respuesta y publica la siguiente pregunta
+            screening_service.handle_candidate_answer(db, app, current_user, mensaje)
     db.commit()
     db.refresh(msg)
     return _message_response(msg)

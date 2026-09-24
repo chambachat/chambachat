@@ -124,3 +124,46 @@ def test_screening_low_match_and_early_finish_when_everything_known(client):
     assert app3["screening"]["total"] == 6
     assert "tu ubicación" in app3["messages"][1]["mensaje"]
     assert keys == ["experiencia"]
+
+
+def _make_legacy(app_id):
+    """Simula una postulación creada antes de la entrevista rápida (sin estado ni mensajes de Chambot)."""
+    from conftest import SessionLocal
+    from app.models import ApplicationMessage, JobApplication
+
+    db = SessionLocal()
+    try:
+        rec = db.get(JobApplication, app_id)
+        rec.screening_status = "none"
+        rec.screening_state = None
+        db.query(ApplicationMessage).filter(
+            ApplicationMessage.application_id == app_id, ApplicationMessage.sender_type == "bot"
+        ).delete()
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_legacy_applications_start_interview_when_candidate_returns(client):
+    owner, company, job = _setup(client, "scr_owner_legacy@test.com", "Planta Legacy")
+    cand = make_auth_header("scr_cand_legacy@test.com", nombre="Luis Legado", role="candidate")
+
+    # Caso 1: vuelve a abrir el chat directo (apply idempotente) → Chambot arranca la entrevista
+    app = _apply(client, cand, job["id"], "Luis Legado")
+    _make_legacy(app["id"])
+    assert client.get(f"/api/v1/applications/{app['id']}", headers=cand).json()["screening_status"] == "none"
+    again = _apply(client, cand, job["id"], "Luis Legado")
+    assert again["id"] == app["id"]
+    assert again["screening_status"] == "in_progress"
+    assert again["screening"]["step_key"] == "experiencia"
+    assert again["messages"][-1]["sender_type"] == "bot"
+
+    # Caso 2: escribe en el chat sin haber tenido entrevista → arranca sin consumir su mensaje como respuesta
+    job2 = client.post("/api/v1/jobs", json={**JOB_BASE, "company_id": company["id"], "titulo": "Montacarguista Legacy 2"}, headers=owner).json()
+    app2 = _apply(client, cand, job2["id"], "Luis Legado")
+    _make_legacy(app2["id"])
+    a = _answer(client, cand, app2["id"], "Hola, me interesa la vacante")
+    assert a["screening_status"] == "in_progress"
+    assert a["screening"]["index"] == 1
+    assert any(m["sender_type"] == "candidate" and "me interesa" in m["mensaje"] for m in a["messages"])
+    assert a["messages"][-1]["sender_type"] == "bot"
