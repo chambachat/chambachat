@@ -6,6 +6,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.models import BotFlowConfig, ChatSession, Job, User
 from app.services.deepseek_engine import query_deepseek_chat
@@ -424,7 +425,17 @@ async def process_chat_message(
             or any(w in text_norm for w in ["vacante", "jale", "chamba", "trabajo", "empleo"])
         )
         if wants_jobs:
-            all_jobs = db.query(Job).filter(Job.activa.is_(True)).all()
+            from datetime import datetime, timedelta
+            cutoff = datetime.utcnow() - timedelta(days=15)
+            
+            all_jobs = db.query(Job).filter(
+                Job.activa.is_(True),
+                or_(
+                    Job.origen != "scraping",
+                    Job.empresa_id.isnot(None),
+                    Job.created_at >= cutoff
+                )
+            ).all()
             if data.get("email"):
                 excluded = blocked_company_ids_for_candidate(db, data["email"])
                 if excluded:

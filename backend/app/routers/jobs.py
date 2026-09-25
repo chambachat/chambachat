@@ -35,6 +35,17 @@ def get_jobs(
     query = db.query(Job)
     if not (mine and include_inactive):
         query = query.filter(Job.activa.is_(True))
+        
+        # Filtro de caducidad automática para vacantes scrapeadas sin reclamar (15 días)
+        from datetime import datetime, timedelta
+        cutoff = datetime.utcnow() - timedelta(days=15)
+        query = query.filter(
+            or_(
+                Job.origen != "scraping",
+                Job.empresa_id.isnot(None),
+                Job.created_at >= cutoff
+            )
+        )
     if mine:
         if not current_user:
             raise HTTPException(status_code=401, detail="Inicia sesión para ver las vacantes de tus empresas")

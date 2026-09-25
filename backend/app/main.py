@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import SessionLocal, engine
 from app.models import BotFlowConfig
 from app.services.chatbot_engine import DEFAULT_PROMPTS, LEGACY_WELCOME_TEXTS
-from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents, favorites, blocks, profile, seo, web, job_photos
+from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents, favorites, blocks, profile, seo, web, job_photos, admin_scraper
 
 import logging
 
@@ -118,6 +118,7 @@ app.include_router(chat.router)
 app.include_router(jobs.router)
 app.include_router(candidates.router)
 app.include_router(admin.router)
+app.include_router(admin_scraper.router)
 app.include_router(analytics.router)
 app.include_router(auth.router)
 app.include_router(applications.router)

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ChatHome from './components/Chat/ChatHome';
 import EmpresaPortal from './components/B2B/EmpresaPortal';
 import AdminView from './components/Admin/AdminView';
+import ScraperTool from './components/Admin/ScraperTool';
 import UserProfileModal from './components/UserProfile/UserProfileModal';
 import AuthModal from './components/Auth/AuthModal';
 import LocationPickerModal from './components/Chat/LocationPickerModal';
@@ -20,7 +21,8 @@ export default function App() {
   const toast = useToast();
 
   // 'chat' es la pantalla principal por defecto
-  const [currentView, setCurrentView] = useState('chat');
+  const initialView = (typeof window !== 'undefined' && window.location.pathname.includes('/admin/scraper')) ? 'scraper' : 'chat';
+  const [currentView, setCurrentView] = useState(initialView);
   const [empresaTab, setEmpresaTab] = useState('team');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(getStoredUser());
@@ -211,6 +213,8 @@ export default function App() {
       )}
 
       {currentView === 'admin' && <AdminView onBack={() => setCurrentView('chat')} />}
+
+      {currentView === 'scraper' && <ScraperTool onBack={() => setCurrentView('chat')} />}
 
       <UserProfileModal
         isOpen={isProfileOpen}
