@@ -192,6 +192,8 @@ def profile_view(user: Optional[User], data: Optional[Dict[str, Any]] = None) ->
         "telefono": (user.telefono if user else None) or data.get("telefono"),
         "telefono_omitido": bool(perfil.get("telefono_omitido")),
         "edad": perfil.get("edad"),
+        "genero": (user.genero if user else data.get("genero")),
+        "aura_puntos": (user.aura_puntos if user else 0),
         "escolaridad": perfil.get("escolaridad"),
         "experiencia_general": perfil.get("experiencia_general"),
         "experiencia_por_rol": dict(perfil.get("experiencia") or {}),

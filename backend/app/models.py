@@ -29,7 +29,12 @@ class User(Base):
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    aura = relationship("UserAura", back_populates="user", uselist=False)
     hiring_records = relationship("HiringHistory", back_populates="user", cascade="all, delete-orphan")
+
+    @property
+    def aura_puntos(self) -> int:
+        return self.aura.total_points if self.aura else 0
 
 
 class Job(Base):
@@ -379,6 +384,7 @@ class UserAura(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    user = relationship("User", back_populates="aura")
     email = Column(String(255), nullable=False, index=True)
     total_points = Column(Integer, nullable=False, default=0, server_default="0")
     vacantes_reportadas = Column(Integer, nullable=False, default=0, server_default="0")

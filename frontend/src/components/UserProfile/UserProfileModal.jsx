@@ -53,12 +53,17 @@ export default function UserProfileModal({
             </div>
           )}
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <h2 className="text-lg font-black text-slate-900 truncate">
                 {currentUser 
                   ? currentUser.name 
                   : 'Mi Perfil de Operario'}
               </h2>
+              {currentUser && (candidateProfile?.aura_puntos > 0 || currentUser?.aura_puntos > 0) && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black tracking-wide border border-amber-200" title="Puntos ganados por ayudar a la comunidad">
+                  ⭐ {(candidateProfile?.aura_puntos || currentUser?.aura_puntos || 0)} de Aura
+                </span>
+              )}
               {currentUser && (
                 <ShieldCheck 
                   className={`w-4 h-4 shrink-0 ${isRecruiter ? 'text-blue-600' : 'text-emerald-600'}`} 

@@ -580,6 +580,7 @@ class AuthUserResponse(BaseModel):
     nivel_educativo: Optional[str] = None
     avatar_url: Optional[str] = None
     tag_inea: Optional[bool] = False
+    aura_puntos: int = 0
 
     @field_validator("role", mode="before")
     @classmethod
@@ -996,6 +997,7 @@ class CandidateProfileResponse(BaseModel):
     telefono_omitido: bool = False
     edad: Optional[int] = None
     genero: Optional[str] = None
+    aura_puntos: int = 0
     escolaridad: Optional[str] = None
     experiencia_general: Optional[str] = None
     experiencia_por_rol: Dict[str, str] = {}
