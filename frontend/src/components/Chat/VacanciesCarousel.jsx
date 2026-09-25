@@ -103,8 +103,21 @@ export default function VacanciesCarousel({
                   >
                     <div>
                       <div className="flex items-start justify-between gap-1.5">
-                        <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wide truncate">
+                        <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wide truncate flex items-center gap-1">
                           {job.empresa_nombre}
+                          {job.empresa_id ? (
+                            <span title="Empresa verificada con SAT" className="text-blue-500 shrink-0">
+                              <svg className="w-3 h-3 inline" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd"/></svg>
+                            </span>
+                          ) : job.origen === 'foto_comunitaria' ? (
+                            <span title="Reportada por la comunidad" className="text-amber-500 shrink-0">
+                              <svg className="w-3 h-3 inline" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v7a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm9 3a2 2 0 100-4 2 2 0 000 4zm0 1.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" clipRule="evenodd"/></svg>
+                            </span>
+                          ) : (
+                            <span title="Oferta detectada" className="text-slate-400 shrink-0">
+                              <svg className="w-3 h-3 inline" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd"/></svg>
+                            </span>
+                          )}
                         </span>
                         <div className="text-right shrink-0">
                           <span className="text-xs font-black text-emerald-600">
