@@ -148,6 +148,15 @@ def health_check():
 
 # Si existe el build del frontend, servirlo estáticamente
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+
+from fastapi.responses import FileResponse
+@app.get("/admin/scraper")
+async def serve_scraper_ui():
+    index_file = os.path.join(frontend_dist, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return {"detail": "Not Found"}
+
 if os.path.exists(frontend_dist):
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
