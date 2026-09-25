@@ -27,6 +27,7 @@ export default function CandidateResumeModal({ isOpen, onClose, onSaved }) {
           nombre: p.nombre || '',
           telefono: p.telefono || '',
           edad: p.edad || '',
+          genero: p.genero || '',
           escolaridad: p.escolaridad || '',
           experiencia_general: p.experiencia_general || '',
           puesto_deseado: p.puesto_deseado || '',
@@ -53,6 +54,7 @@ export default function CandidateResumeModal({ isOpen, onClose, onSaved }) {
         ...form,
         edad: form.edad === '' ? null : Number(form.edad),
         sueldo_deseado: form.sueldo_deseado === '' ? null : Number(form.sueldo_deseado),
+        genero: form.genero || null,
         escolaridad: form.escolaridad || null,
         experiencia_general: form.experiencia_general || null,
         disponibilidad: form.disponibilidad || null,
@@ -121,6 +123,16 @@ export default function CandidateResumeModal({ isOpen, onClose, onSaved }) {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Edad (opcional)</label>
                 <input type="number" min="15" max="75" value={form.edad} onChange={(e) => change('edad', e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Género (opcional)</label>
+                <select value={form.genero} onChange={(e) => change('genero', e.target.value)} className={inputClass}>
+                  <option value="">Selecciona...</option>
+                  <option value="Hombre">Hombre</option>
+                  <option value="Mujer">Mujer</option>
+                  <option value="Otro">Otro</option>
+                  <option value="Prefiero no decir">Prefiero no decir</option>
+                </select>
               </div>
               <Select field="escolaridad" label="Escolaridad" options={cat.escolaridades} />
               <Select field="experiencia_general" label="Experiencia en planta o almacén" options={cat.experiencias} />

@@ -237,6 +237,7 @@ async def process_chat_message(
     user_name: str = None,
     user_phone: str = None,
     user_email: str = None,
+    user_gender: str = None,
     candidate_lat: float = None,
     candidate_lon: float = None,
     candidate_colonia: str = None,
@@ -260,6 +261,8 @@ async def process_chat_message(
         data["telefono"] = user_phone
     if user_email:
         data["email"] = user_email.strip().lower()
+    if user_gender:
+        data["genero"] = user_gender
 
     is_location_event = candidate_lat is not None and candidate_lon is not None
     if is_location_event:

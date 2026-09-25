@@ -21,6 +21,7 @@ class User(Base):
     longitud = Column(Float, nullable=True)
     # True solo cuando las coordenadas vienen de GPS/mapa (chat o perfil), no del centro del municipio
     ubicacion_confirmada = Column(Boolean, nullable=False, default=False, server_default="0")
+    genero = Column(String(20), nullable=True)
     perfil_operativo = Column(JSON, nullable=True)  # escolaridad, experiencia por rol, certificaciones, disponibilidad
     sueldo_deseado = Column(Float, nullable=True)
     avatar_url = Column(String(500), nullable=True)

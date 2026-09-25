@@ -39,6 +39,7 @@ class ChatMessageRequest(BaseModel):
     user_name: Optional[str] = None
     user_phone: Optional[str] = None
     user_email: Optional[str] = None
+    user_gender: Optional[str] = None
     candidate_lat: Optional[float] = None
     candidate_lon: Optional[float] = None
     candidate_colonia: Optional[str] = None
@@ -572,6 +573,7 @@ class AuthUserResponse(BaseModel):
     telefono: Optional[str] = None
     municipio: Optional[str] = None
     colonia: Optional[str] = None
+    genero: Optional[str] = None
     latitud: Optional[float] = None
     longitud: Optional[float] = None
     ubicacion_confirmada: Optional[bool] = False
@@ -956,6 +958,7 @@ class CandidateProfileUpdate(BaseModel):
     nombre: Optional[str] = Field(None, max_length=255)
     telefono: Optional[str] = Field(None, max_length=50)
     edad: Optional[int] = Field(None, ge=15, le=75)
+    genero: Optional[str] = Field(None, max_length=20)
     escolaridad: Optional[str] = None
     experiencia_general: Optional[str] = None
     puesto_deseado: Optional[str] = Field(None, max_length=100)
@@ -992,6 +995,7 @@ class CandidateProfileResponse(BaseModel):
     telefono: Optional[str] = None
     telefono_omitido: bool = False
     edad: Optional[int] = None
+    genero: Optional[str] = None
     escolaridad: Optional[str] = None
     experiencia_general: Optional[str] = None
     experiencia_por_rol: Dict[str, str] = {}

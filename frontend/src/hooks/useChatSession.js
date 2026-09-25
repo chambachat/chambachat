@@ -230,6 +230,7 @@ export function useChatSession(currentUser) {
         userName: currentUser?.name,
         userPhone: currentUser?.phone,
         userEmail: currentUser?.email,
+        userGender: currentUser?.genero,
         candidateLat: location?.lat,
         candidateLon: location?.lon,
         candidateColonia: location?.colonia,

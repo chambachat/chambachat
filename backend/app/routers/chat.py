@@ -20,6 +20,7 @@ async def handle_chat_message(request: ChatMessageRequest, db: Session = Depends
         user_name=request.user_name,
         user_phone=request.user_phone,
         user_email=request.user_email,
+        user_gender=request.user_gender,
         candidate_lat=request.candidate_lat,
         candidate_lon=request.candidate_lon,
         candidate_colonia=request.candidate_colonia,

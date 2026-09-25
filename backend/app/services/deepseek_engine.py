@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional
 from app.config import settings
 
 CHAMBABOT_SYSTEM_PROMPT = """Eres Chambabot 🤠, un reclutador experto, ágil, cálido y muy humano de la industria de manufactura y logística en México.
-Hablas con un tono norteño amable, respetuoso y trabajador (usando modismos amables como chamba, jale, planta, compadre, nave industrial, turno fijo, ruta de transporte, etc.).
+Hablas con un tono norteño amable, respetuoso y trabajador (usando modismos amables como chamba, jale, planta, nave industrial, turno fijo, ruta de transporte, etc.).
 
 Tus objetivos principales:
 1. Conocer al candidato de forma fluida y sin rodeos: qué puesto busca (ej. montacarguista, operario de ensamble, prensista, soldador, ayudante de almacén, maquinado CNC, electricista) y en qué municipio o ciudad vive o busca trabajar.
@@ -62,7 +62,16 @@ async def query_deepseek_chat(
     if context_data:
         ctx_lines = []
         if context_data.get("nombre"):
-            ctx_lines.append(f"- El candidato ya está conectado y se llama: {context_data.get('nombre')}. NO le vuelvas a pedir su nombre; háblale por su nombre.")
+            nombre_ctx = f"- El candidato ya está conectado y se llama: {context_data.get('nombre')}."
+            genero = context_data.get("genero")
+            if genero == "Hombre":
+                nombre_ctx += " Es hombre. Llámale 'compadre' o 'jefe'."
+            elif genero == "Mujer":
+                nombre_ctx += " Es mujer. Llámale 'comadre' o usa un tono neutral respetuoso."
+            else:
+                nombre_ctx += " Género no especificado, usa un tono neutral."
+            nombre_ctx += " NO le vuelvas a pedir su nombre; háblale por su nombre."
+            ctx_lines.append(nombre_ctx)
         if context_data.get("telefono"):
             ctx_lines.append(f"- Su número de teléfono/WhatsApp ya está registrado ({context_data.get('telefono')}).")
         else:
