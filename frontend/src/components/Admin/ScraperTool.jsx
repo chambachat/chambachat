@@ -5,6 +5,7 @@ import { useToast } from '../ui/Toast';
 export default function ScraperTool({ onBack }) {
   const [platforms, setPlatforms] = useState({ computrabajo: true, occ: true });
   const [keywords, setKeywords] = useState('ayudante general\nmontacargista');
+  const [locations, setLocations] = useState('nuevo leon');
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState([]);
   const toast = useToast();
@@ -30,45 +31,53 @@ export default function ScraperTool({ onBack }) {
       toast.error('Ingresa al menos una palabra clave');
       return;
     }
+
+    const locLines = locations.split('\n').map(l => l.trim()).filter(Boolean);
+    if (locLines.length === 0) {
+      toast.error('Ingresa al menos una ciudad o estado');
+      return;
+    }
     
     setLoading(true);
     setLogs([]);
-    addLog(`Iniciando búsqueda de ${lines.length} palabras en ${activePlatforms.length} plataformas...`);
+    addLog(`Iniciando búsqueda de ${lines.length} palabras en ${locLines.length} ubicaciones y ${activePlatforms.length} plataformas...`);
     
     let totalSaved = 0;
 
     try {
       for (const platform of activePlatforms) {
-        for (const keyword of lines) {
-          addLog(`Iniciando tarea: ${keyword} en ${platform}`);
-          
-          const res = await fetch('/api/v1/admin/scrape/search-and-run', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-            },
-            body: JSON.stringify({ 
-              platform, 
-              keyword,
-              location: "nuevo-leon",
-              limit: 3
-            })
-          });
-          
-          const data = await res.json();
-          
-          if (!res.ok) {
-            addLog(`Falló ${keyword} en ${platform}: ${data.detail}`, 'error');
-            continue;
-          }
+        for (const loc of locLines) {
+          for (const keyword of lines) {
+            addLog(`Iniciando tarea: ${keyword} en ${platform} (${loc})`);
+            
+            const res = await fetch('/api/v1/admin/scrape/search-and-run', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+              },
+              body: JSON.stringify({ 
+                platform, 
+                keyword,
+                location: loc,
+                limit: 3
+              })
+            });
+            
+            const data = await res.json();
+            
+            if (!res.ok) {
+              addLog(`Falló ${keyword} en ${platform}: ${data.detail}`, 'error');
+              continue;
+            }
 
-          if (data.logs) {
-            setLogs(prev => [...prev, ...data.logs.map(l => `[API] ${l}`)]);
-          }
-          
-          if (data.success) {
-            totalSaved += data.saved;
+            if (data.logs) {
+              setLogs(prev => [...prev, ...data.logs.map(l => `[API] ${l}`)]);
+            }
+            
+            if (data.success) {
+              totalSaved += data.saved;
+            }
           }
         }
       }
@@ -111,15 +120,28 @@ export default function ScraperTool({ onBack }) {
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-semibold text-slate-700 block mb-2">Palabras Clave (Una por línea)</label>
-              <textarea
-                value={keywords}
-                onChange={e => setKeywords(e.target.value)}
-                rows={4}
-                placeholder="ayudante general&#10;montacargista&#10;soldador"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-semibold text-slate-700 block mb-2">Palabras Clave (Una por línea)</label>
+                <textarea
+                  value={keywords}
+                  onChange={e => setKeywords(e.target.value)}
+                  rows={4}
+                  placeholder="ayudante general&#10;montacargista&#10;soldador"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-slate-700 block mb-2">Ciudades / Ubicaciones</label>
+                <textarea
+                  value={locations}
+                  onChange={e => setLocations(e.target.value)}
+                  rows={4}
+                  placeholder="nuevo leon&#10;monterrey&#10;apodaca&#10;saltillo"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y"
+                />
+              </div>
             </div>
             
             <button 
