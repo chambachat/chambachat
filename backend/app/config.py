@@ -53,6 +53,14 @@ class Settings(BaseModel):
     # Google Sign-In (Google Identity Services). Vacío = botón de Google deshabilitado.
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
 
+    # Gemini Vision (análisis de fotos de ofertas laborales callejeras)
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    GEMINI_API_URL: str = os.getenv(
+        "GEMINI_API_URL",
+        "https://generativelanguage.googleapis.com/v1beta",
+    )
+
     # JWT Configuration
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
     JWT_ALGORITHM: str = "HS256"

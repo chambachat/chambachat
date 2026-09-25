@@ -1,7 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 import { ArrowUp } from 'lucide-react';
+import PhotoUploadButton from './PhotoUploadButton';
 
-export default function ChatInput({ value, onChange, onSend, options, onSelectOption, disabled, placeholder, footer }) {
+export default function ChatInput({ value, onChange, onSend, options, onSelectOption, disabled, placeholder, footer, onPhotoSelected }) {
   const inputRef = useRef(null);
 
   const handleSubmit = (e) => {
@@ -31,8 +32,14 @@ export default function ChatInput({ value, onChange, onSend, options, onSelectOp
 
         <form
           onSubmit={handleSubmit}
-          className="relative flex items-center bg-slate-50 border border-slate-300/80 rounded-2xl shadow-sm focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:bg-white transition"
+          className="relative flex items-center gap-2 bg-slate-50 border border-slate-300/80 rounded-2xl shadow-sm focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:bg-white transition"
         >
+          {onPhotoSelected && (
+            <div className="pl-2 sm:pl-2.5 shrink-0">
+              <PhotoUploadButton onPhotoSelected={onPhotoSelected} disabled={disabled} />
+            </div>
+          )}
+
           <input
             ref={inputRef}
             type="text"
@@ -40,7 +47,7 @@ export default function ChatInput({ value, onChange, onSend, options, onSelectOp
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
             placeholder={placeholder || 'Pregunta sobre vacantes, montacargas, sueldos...'}
-            className="w-full py-3 sm:py-3.5 pl-3.5 sm:pl-4 pr-11 sm:pr-12 text-base sm:text-sm text-slate-800 bg-transparent focus:outline-none placeholder-slate-400"
+            className="w-full py-3 sm:py-3.5 pl-1.5 sm:pl-2 pr-11 sm:pr-12 text-base sm:text-sm text-slate-800 bg-transparent focus:outline-none placeholder-slate-400"
           />
 
           <button

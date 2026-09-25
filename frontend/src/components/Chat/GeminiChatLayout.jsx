@@ -4,12 +4,14 @@ import { updateMyLocation } from '../../services/api';
 import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
 import { directInputPlaceholder } from '../../services/directChat';
 import { loadAllSessions, updateSession } from '../../services/chatStorage';
+import PhotoJobPreview from './PhotoJobPreview';
 
 import AuthModal from '../Auth/AuthModal';
 import JobDetailModal from '../Jobs/JobDetailModal';
 import LocationPickerModal from './LocationPickerModal';
 
 import { useChatSession } from '../../hooks/useChatSession';
+import { usePhotoJob } from '../../hooks/usePhotoJob';
 import ChatSidebar from './ChatSidebar';
 import TopNavbar from './TopNavbar';
 import MessageList from './MessageList';
@@ -106,6 +108,11 @@ export default function GeminiChatLayout({
     updateSession(activeSession.id, { messages: finalMsgs, ...extra });
   };
 
+  const {
+    photoExtraction, isAnalyzingPhoto, isConfirmingPhoto,
+    handlePhotoSelected, handleConfirmPhotoJob, handleDiscardPhoto,
+  } = usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast });
+
   /** "Chat directo con el reclutador": abre una conversación nueva y separada para esa planta y vacante. */
   const handleApplyJob = async (job) => {
     if (!currentUser) {
@@ -145,6 +152,7 @@ export default function GeminiChatLayout({
     setCurrentUser(null);
     if (propOnLogout) propOnLogout();
   };
+
 
   const handleSendMessage = (text = inputMessage) => {
     if (!text.trim()) return;
@@ -261,6 +269,15 @@ export default function GeminiChatLayout({
                   currentUser={currentUser}
                 />
               )}
+
+              {!isDirect && photoExtraction && (
+                <PhotoJobPreview
+                  extraction={photoExtraction}
+                  onConfirm={handleConfirmPhotoJob}
+                  onDiscard={handleDiscardPhoto}
+                  isSubmitting={isConfirmingPhoto}
+                />
+              )}
             </div>
           )}
         </ChatScrollArea>
@@ -271,9 +288,10 @@ export default function GeminiChatLayout({
           onSend={() => handleSendMessage()}
           options={isDirect ? screeningOptions : options}
           onSelectOption={handleOptionSelect}
-          disabled={Boolean(directLocked)}
-          placeholder={isDirect ? directInputPlaceholder(activeSession, screeningActive) : undefined}
+          disabled={Boolean(directLocked) || isAnalyzingPhoto}
+          placeholder={isDirect ? directInputPlaceholder(activeSession, screeningActive) : (isAnalyzingPhoto ? '📸 Analizando foto...' : undefined)}
           footer={isDirect ? 'Tus mensajes llegan a los reclutadores de la planta; si tardan, Chambot te apoya con los datos de la vacante.' : undefined}
+          onPhotoSelected={!isDirect ? handlePhotoSelected : undefined}
         />
       </main>
 

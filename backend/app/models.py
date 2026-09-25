@@ -67,6 +67,20 @@ class Job(Base):
     direccion = Column(Text, nullable=True)  # dirección de la planta al momento de publicar
     activa = Column(Boolean, nullable=False, default=True, server_default="1")
 
+    # Origen de la vacante
+    origen = Column(String(30), nullable=False, default="empresa", server_default="empresa")
+    # Valores: "empresa" (publicada por empresa verificada) | "foto_comunitaria" (foto callejera)
+
+    # Contacto del empleador (extraído de la foto por la IA de visión)
+    fuente_contacto_telefono = Column(String(50), nullable=True)
+    fuente_contacto_email = Column(String(255), nullable=True)
+    fuente_contacto_whatsapp = Column(String(50), nullable=True)
+
+    # Trazabilidad de la foto
+    foto_original_url = Column(String(500), nullable=True)
+    reportada_por_email = Column(String(255), nullable=True)  # quién tomó la foto
+    texto_ocr = Column(Text, nullable=True)  # texto crudo extraído por la IA
+
     company = relationship("Company", backref="jobs", foreign_keys=[empresa_id])
     hiring_records = relationship("HiringHistory", back_populates="job", cascade="all, delete-orphan")
     applications = relationship("JobApplication", back_populates="job", cascade="all, delete-orphan")
@@ -350,4 +364,36 @@ class ChatBlock(Base):
     candidate_email = Column(String(255), nullable=False, index=True)
     reason = Column(Text, nullable=True)
     created_by_email = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class UserAura(Base):
+    """Puntos de reputación acumulados por cada usuario.
+
+    Se incrementan al reportar vacantes desde fotos callejeras (+10),
+    al ayudar a alguien a conseguir empleo (+50), o al referir usuarios (+25).
+    La UI de ranking es fase 2; por ahora solo se acumula en DB.
+    """
+    __tablename__ = "user_aura"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    total_points = Column(Integer, nullable=False, default=0, server_default="0")
+    vacantes_reportadas = Column(Integer, nullable=False, default=0, server_default="0")
+    colocaciones_ayudadas = Column(Integer, nullable=False, default=0, server_default="0")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AuraEvent(Base):
+    """Cada acción que suma (o resta) puntos de Aura, para auditoría y trazabilidad."""
+    __tablename__ = "aura_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = Column(String(50), nullable=False)
+    # Tipos: "foto_vacante" (+10), "vacante_colocacion" (+50), "referido" (+25)
+    points = Column(Integer, nullable=False)
+    description = Column(String(255), nullable=True)
+    reference_id = Column(Integer, nullable=True)  # job_id, application_id, etc.
     created_at = Column(DateTime, default=datetime.utcnow)

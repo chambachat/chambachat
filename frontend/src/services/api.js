@@ -547,4 +547,35 @@ export async function deleteCompanyShift(companyId, shiftId) {
   return res.json();
 }
 
+export async function analyzeJobPhoto(imageBase64, gpsCoords = {}) {
+  const res = await fetch(`${API_BASE}/jobs/from-photo`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      image_base64: imageBase64,
+      latitud: gpsCoords.latitud || null,
+      longitud: gpsCoords.longitud || null,
+      municipio: gpsCoords.municipio || null,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Error al analizar la foto');
+  }
+  return res.json();
+}
+
+export async function confirmPhotoJob(jobData) {
+  const res = await fetch(`${API_BASE}/jobs/from-photo/confirm`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(jobData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Error al publicar la vacante');
+  }
+  return res.json();
+}
+
 

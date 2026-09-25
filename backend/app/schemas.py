@@ -1007,3 +1007,73 @@ class CandidateProfileResponse(BaseModel):
     completitud: int = 0
     faltantes: List[str] = []
     catalogos: Dict[str, List[str]] = {}
+
+
+# ─── FOTO → VACANTE (Vision AI) ──────────────────────────────────────
+
+
+class JobFromPhotoRequest(BaseModel):
+    """Request para analizar una foto de oferta laboral callejera."""
+    image_base64: str = Field(..., min_length=100, description="Imagen JPEG/PNG codificada en base64 (max ~4 MB)")
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
+    municipio: Optional[str] = None
+
+
+class ExtractedContact(BaseModel):
+    """Datos de contacto del empleador extraídos de la foto."""
+    telefono: Optional[str] = None
+    whatsapp: Optional[str] = None
+    email: Optional[str] = None
+
+
+class JobPhotoExtraction(BaseModel):
+    """Resultado del análisis de la IA de visión sobre una foto de oferta laboral."""
+    titulo: Optional[str] = None
+    empresa_nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    sueldo_semanal_libre: Optional[float] = None
+    categoria: Optional[str] = None
+    tipo_turno: Optional[str] = None
+    dias_laborales: Optional[str] = None
+    tipo_contrato: Optional[str] = None
+    escolaridad_minima: Optional[str] = None
+    experiencia_minima: Optional[str] = None
+    prestaciones: List[str] = []
+    certificaciones: List[str] = []
+    requisitos_fisicos: List[str] = []
+    vacantes_disponibles: int = 1
+    municipio: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
+    contacto: ExtractedContact = ExtractedContact()
+    texto_crudo: Optional[str] = None
+    confianza: float = Field(0.0, ge=0.0, le=1.0)
+    campos_detectados: int = 0
+    campos_totales: int = 15
+    es_oferta_laboral: bool = True
+
+
+class JobFromPhotoConfirm(BaseModel):
+    """El usuario confirma (y opcionalmente edita) la vacante extraída de la foto."""
+    titulo: str
+    empresa_nombre: str = "Empresa no identificada"
+    descripcion: Optional[str] = None
+    sueldo_semanal_libre: float = Field(..., gt=0)
+    categoria: Optional[str] = None
+    tipo_turno: Optional[str] = None
+    dias_laborales: Optional[str] = None
+    tipo_contrato: Optional[str] = None
+    escolaridad_minima: Optional[str] = None
+    experiencia_minima: Optional[str] = None
+    prestaciones: List[str] = []
+    certificaciones: List[str] = []
+    requisitos_fisicos: List[str] = []
+    vacantes_disponibles: int = Field(1, ge=1, le=500)
+    municipio: str
+    latitud: float
+    longitud: float
+    fuente_contacto_telefono: Optional[str] = None
+    fuente_contacto_email: Optional[str] = None
+    fuente_contacto_whatsapp: Optional[str] = None
+    texto_ocr: Optional[str] = None
