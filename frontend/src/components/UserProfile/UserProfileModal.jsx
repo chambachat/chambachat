@@ -188,28 +188,7 @@ export default function UserProfileModal({
 
             {currentUser && <BlockedCompanies />}
 
-            {/* Estatus INEA */}
-            <div className={`p-4 rounded-2xl border ${
-              candidateProfile?.tag_inea 
-                ? 'bg-purple-50 border-purple-200 text-purple-900' 
-                : 'bg-slate-50 border-slate-200 text-slate-700'
-            }`}>
-              <div className="flex items-center gap-2 mb-1">
-                <GraduationCap className="w-4 h-4 text-purple-600" />
-                <span className="text-xs font-bold uppercase tracking-wide">
-                  Programa Educativo INEA
-                </span>
-              </div>
-              {candidateProfile?.tag_inea ? (
-                <p className="text-xs leading-relaxed text-purple-950 font-medium">
-                  ✅ <span className="font-bold">Canalizado con éxito.</span> Tus postulaciones priorizan empresas que cuentan con aula y facilidades de tiempo para certificar tu educación básica.
-                </p>
-              ) : (
-                <p className="text-xs text-slate-500">
-                  Actualmente no tienes activo el apoyo del INEA. Puedes activarlo en cualquier momento platicando con el bot.
-                </p>
-              )}
-            </div>
+            {/* TODO fase 2: Programa Educativo INEA (oculto para lanzamiento) */}
           </div>
         )}
 
