@@ -41,9 +41,9 @@ export async function loadSmartLink({ empresa, codigo }) {
 export function smartWelcomeText(info) {
   const verified = info.verified ? ' ✅ Empresa verificada.' : '';
   const jobsText = info.jobs.length > 0
-    ? 'Aquí tienes las vacantes activas de la planta. Revísalas y da clic en **"Abrir chat directo con el reclutador"** para apartar tu lugar, o pregúntame sobre transporte, turnos fijos o sueldos libres.'
-    : 'Por ahora la planta no tiene vacantes publicadas. Pregúntame y te muestro otras opciones cerca de ti.';
-  return `¡Qué onda! 🤠 Bienvenido a la bolsa de trabajo oficial de **${info.nombre}**.${verified}\n\n${jobsText}`;
+    ? 'Aquí están sus vacantes activas: toca una para ver detalles o abrir el chat con el reclutador.'
+    : 'Por ahora no tiene vacantes publicadas; pregúntame y te muestro otras cerca de ti.';
+  return `¡Qué onda! 🤠 Bienvenido a la bolsa de trabajo de **${info.nombre}**.${verified} ${jobsText}`;
 }
 
 const nowTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

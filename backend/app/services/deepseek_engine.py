@@ -21,7 +21,7 @@ Tus objetivos principales:
    - Montacarguistas: $2,600 - $3,400 libres/sem (piden experiencia o constancia DC-3, hombre sentado/parado, casi siempre con transporte y comedor).
    - Operarios de ensamble/producción: $2,100 - $2,600 libres/sem (contratación rápida, turnos fijos o rolados).
    - Soldadores/Técnicos: $3,000 - $4,000 libres/sem.
-6. Mantener respuestas breves (máximo 2 párrafos cortos), útiles y con energía positiva.
+6. RESPUESTAS CORTAS: máximo 3 oraciones (unas 60 palabras), sin listas ni encabezados, con los datos clave (sueldo, turno, transporte) en una sola línea y terminando con UNA pregunta o siguiente paso. La gente lee desde el celular: ve al grano.
 7. Ubicación: si el contexto dice que el candidato YA registró su ubicación, NUNCA le pidas compartirla o registrarla de nuevo; solo si él dice que se mudó, que quiere cambiarla o que quiere buscar en otro lado, indícale que toque "📍 Elegir nueva ubicación". Si NO la ha registrado y pregunta por vacantes cercanas o transporte, sugiérele una sola vez, sin insistir, el botón "📍 Compartir ubicación".
 8. Rutas de transporte de personal: no las menciones ni las ofrezcas por iniciativa propia. Solo si el candidato pregunta por rutas, camiones o paradas, dile que con gusto se las muestras (el sistema las calcula cuando él las pide).
 
@@ -114,7 +114,7 @@ async def query_deepseek_chat(
                     "model": settings.DEEPSEEK_MODEL,
                     "messages": messages,
                     "temperature": 0.6,
-                    "max_tokens": 500
+                    "max_tokens": 260
                 }
             )
 
@@ -157,20 +157,21 @@ def parse_deepseek_output(raw_text: str) -> Dict[str, Any]:
     }
 
 def generate_heuristic_response(
-    conversation_history: List[Dict[str, str]], 
+    conversation_history: List[Dict[str, str]],
     user_message: str,
     context_data: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """
-    Motor heurístico de respaldo que recuerda el contexto acumulado (ej: montacarguista, soldador, municipio).
+    Motor de respaldo (sin LLM): respuestas cortas que recuerdan puesto, municipio y ubicación.
     """
     msg_lower = user_message.lower()
-    extracted = {}
-    chips = []
-    
+    extracted: Dict[str, Any] = {}
+
     prev_puesto = context_data.get("puesto_deseado") if context_data else None
     prev_muni = context_data.get("municipio") if context_data else None
     loc_known = bool(context_data and context_data.get("latitud") is not None)
+    user_name_ctx = (context_data.get("nombre") if context_data else None)
+    disp_name = user_name_ctx or "compa"
 
     # Detección de puesto
     if any(term in msg_lower for term in ["montacarguista", "montacarga", "montacargas", "forklift"]):
@@ -193,105 +194,64 @@ def generate_heuristic_response(
         extracted["municipio"] = found_muni.capitalize()
         prev_muni = found_muni.capitalize()
 
-    # Caso 0: Pregunta sobre cómo se comunicarán o cómo lo contactan
-    user_name_ctx = (context_data.get("nombre") if context_data else None) or extracted.get("nombre")
+    loc_chip = [] if loc_known else [{"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"}]
+    loc_tip = "" if loc_known else " Si compartes tu ubicación te muestro las plantas más cercanas."
+
+    def _out(reply: str, chips: List[Dict[str, str]], ask_login: bool) -> Dict[str, Any]:
+        return {"reply_text": reply, "extracted_profile": extracted, "suggested_chips": chips, "should_ask_login": ask_login}
+
+    # Caso 0: cómo lo contactan
     if any(w in msg_lower for w in ["comunicar", "cumicaran", "contact", "reclutador", "llam", "whatsapp", "como me contactan"]):
-        disp_name = user_name_ctx or "compa"
-        reply = (
-            f"¡Con gusto, {disp_name}! 🤠 Al postularte a una vacante, el equipo de reclutamiento de la planta recibe de inmediato tu solicitud y te puede responder directamente por **este mismo chat**.\n\n"
-            "💡 **Tip muy importante:** Si agregas tu número de teléfono o WhatsApp en tus datos, el reclutador de la empresa también podrá llamarte o escribirte directamente por WhatsApp para coordinar tu entrevista."
-        )
+        reply = f"¡Con gusto, {disp_name}! Al postularte, el reclutador te responde por este mismo chat. Si dejas tu WhatsApp en tu perfil, también te puede marcar."
         chips = [
             {"label": "📱 Dejar mi WhatsApp", "value": "Quiero registrar mi número de WhatsApp"},
             {"label": "🚜 Ver vacantes activas", "value": "Ver vacantes de montacarguista"},
-            {"label": "⏱️ ¿Hay turnos fijos?", "value": "¿Cuáles tienen turnos fijos?"}
+            {"label": "⏱️ ¿Hay turnos fijos?", "value": "¿Cuáles tienen turnos fijos?"},
         ]
-        return {
-            "reply_text": reply,
-            "extracted_profile": extracted,
-            "suggested_chips": chips,
-            "should_ask_login": not bool(user_name_ctx)
-        }
+        return _out(reply, chips, not bool(user_name_ctx))
 
-    # Caso 1: Preguntan sobre Montacarguista
+    # Caso 1: montacarguista
     if "montacarguista" in msg_lower or "montacarga" in msg_lower:
         reply = (
-            "¡Claro que sí, compadre! Tenemos excelentes vacantes de **Montacarguista** (hombre sentado y hombre parado en almacenes y CEDIS). "
-            "Los sueldos van de **$2,600 a $3,400 libres semanales**, e incluyen transporte de personal, tiempo extra pagado y comedor subsidiado.\n\n"
-            "¿En qué municipio vives o buscas el jale (Apodaca, Pesquería, San Nicolás, etc.) y cuentas con constancia DC-3 o experiencia?"
+            "¡Claro! Hay vacantes de **Montacarguista** (hombre sentado y parado) de **$2,600 a $3,400 libres** a la semana, con transporte y comedor. "
+            "¿En qué municipio buscas y cuentas con DC-3?"
         )
         chips = [
             {"label": "📍 Montacarguista en Apodaca", "value": "Busco de montacarguista en Apodaca"},
             {"label": "📍 Montacarguista en Pesquería", "value": "Busco de montacarguista en Pesquería"},
-            {"label": "📄 Cuento con DC-3 y Experiencia", "value": "Sí tengo experiencia y DC-3 en montacargas"},
-            {"label": "💵 ¿Cuánto pagan de tiempo extra?", "value": "¿Cuánto pagan de tiempo extra y bonos?"}
+            {"label": "📄 Tengo DC-3 y experiencia", "value": "Sí tengo experiencia y DC-3 en montacargas"},
         ]
-        return {
-            "reply_text": reply,
-            "extracted_profile": extracted,
-            "suggested_chips": chips,
-            "should_ask_login": False
-        }
+        return _out(reply, chips, False)
 
-    # Caso 2: El usuario ya había preguntado de montacarguista (u otro puesto) y ahora elige municipio (ej. "Buscar en Apodaca")
+    # Caso 2: ya pidió montacarguista y ahora dice municipio
     if prev_puesto == "Montacarguista" and (found_muni or "apodaca" in msg_lower or "pesquer" in msg_lower):
         muni_target = prev_muni or "Apodaca"
-        reply = (
-            f"¡Excelente! En **{muni_target}** tenemos vacantes abiertas de **Montacarguista de Almacén** en Parque Industrial Monterrey y Stiva. "
-            f"Ofrecen un sueldo semanal libre de **$2,850 a $3,200 MXN**, turno fijo y ruta de transporte directo a tu colonia.\n\n"
-            + ("" if loc_known else "💡 **Tip:** Si le das clic a **📍 Compartir ubicación**, te muestro las plantas con menor tiempo de traslado desde tu casa. ")
-            + "¿Cuál es tu nombre para registrarte?"
-        )
-        chips = [
-            *([] if loc_known else [{"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"}]),
-            {"label": "Tengo experiencia en hombre sentado", "value": "Tengo experiencia en montacargas hombre sentado"},
-            {"label": "Tengo experiencia en hombre parado", "value": "Tengo experiencia en montacargas hombre parado"},
-            {"label": "Ver vacantes en Apodaca", "value": f"Muéstrame las vacantes de montacarguista en {muni_target}"}
+        reply = f"¡Va! En **{muni_target}** hay montacarguistas de **$2,850 a $3,200 libres**, turno fijo y ruta de transporte.{loc_tip} ¿Cómo te llamas para registrarte?"
+        chips = loc_chip + [
+            {"label": "Hombre sentado", "value": "Tengo experiencia en montacargas hombre sentado"},
+            {"label": "Hombre parado", "value": "Tengo experiencia en montacargas hombre parado"},
+            {"label": f"Ver vacantes en {muni_target}", "value": f"Muéstrame las vacantes de montacarguista en {muni_target}"},
         ]
-        return {
-            "reply_text": reply,
-            "extracted_profile": extracted,
-            "suggested_chips": chips,
-            "should_ask_login": True
-        }
+        return _out(reply, chips, True)
 
-    # Caso 3: Pregunta sobre municipio en general
+    # Caso 3: municipio en general
     if found_muni:
         muni_target = found_muni.capitalize()
         puesto_str = f" de {prev_puesto}" if prev_puesto else ""
-        reply = (
-            f"¡Arre! En **{muni_target}** hay mucho jale activo{puesto_str} en plantas de manufactura y logística. "
-            f"Los sueldos van de **$2,300 a $3,200 libres por semana** con transporte y comedor."
-            + ("" if loc_known else "\n\n💡 **Tip:** Si compartes tu ubicación con el botón de abajo, te muestro las plantas con menor tiempo de traslado desde tu casa.")
-        )
-        chips = [
-            *([] if loc_known else [{"label": "📍 Compartir mi ubicación", "value": "Quiero compartir mi ubicación para ver rutas de transporte"}]),
+        reply = f"¡Arre! En **{muni_target}** hay jale{puesto_str} de **$2,300 a $3,200 libres** por semana con transporte.{loc_tip} ¿Qué puesto te interesa?"
+        chips = loc_chip + [
             {"label": "🚜 Montacarguista", "value": f"Busco vacantes de montacarguista en {muni_target}"},
-            {"label": "🏭 Operario de Ensamble", "value": f"Busco vacantes de ensamble en {muni_target}"},
-            {"label": "📦 Almacén", "value": f"Busco vacantes de almacén en {muni_target}"}
+            {"label": "🏭 Operador de Ensamble", "value": f"Busco vacantes de ensamble en {muni_target}"},
+            {"label": "📦 Almacén", "value": f"Busco vacantes de almacén en {muni_target}"},
         ]
-        return {
-            "reply_text": reply,
-            "extracted_profile": extracted,
-            "suggested_chips": chips,
-            "should_ask_login": True
-        }
+        return _out(reply, chips, True)
 
-    # Caso 4: Saludo general o pregunta libre
-    reply = (
-        "¡Qué onda! Con gusto te ayudo a conseguir una buena chamba. "
-        "Tenemos vacantes operativas de montacarguistas, ensamble, soldadura y almacén cerca de ti. "
-        "¿Qué puesto te interesa o en qué zona te gustaría jalar?"
-    )
+    # Caso 4: saludo o pregunta libre
+    reply = "¡Qué onda! Te ayudo a conseguir chamba: montacarguistas, ensamble, soldadura y almacén. ¿Qué puesto te interesa o en qué zona vives?"
     chips = [
         {"label": "🚜 Montacarguista", "value": "Busco vacantes de montacarguista"},
-        {"label": "🏭 Ensamble en Apodaca", "value": "Busco de operario en Apodaca"},
-        {"label": "📦 Almacén y Logística", "value": "Busco jale de almacén"},
-        {"label": "💰 Sueldos mayores a $2,800", "value": "¿Qué puestos pagan más de $2,800 por semana?"}
+        {"label": "🏭 Operador de producción", "value": "Busco vacantes de operador de producción"},
+        {"label": "📦 Almacén y logística", "value": "Busco jale de almacén"},
+        {"label": "💰 Sueldos mayores a $2,800", "value": "¿Qué puestos pagan más de $2,800 por semana?"},
     ]
-    return {
-        "reply_text": reply,
-        "extracted_profile": extracted,
-        "suggested_chips": chips,
-        "should_ask_login": False
-    }
+    return _out(reply, chips, False)

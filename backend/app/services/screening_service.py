@@ -127,28 +127,28 @@ def answer_job_question(job: Job, question: str) -> str:
         if (job.bono_semanal or 0) > 0 or (job.vales_despensa_semanal or 0) > 0:
             extras = f" Además ofrece ${(job.bono_semanal or 0):,.0f} en bonos y ${(job.vales_despensa_semanal or 0):,.0f} en vales a la semana."
         return (
-            f"Para la vacante de {job.titulo} en {job.empresa_nombre}, el sueldo es de ${job.sueldo_semanal_libre:,.0f} semanales libres "
-            f"(~${round(job.sueldo_semanal_libre * 4.33):,.0f} al mes), más prestaciones de ley.{extras} El reclutador te dará los pormenores de nómina."
+            f"{job.titulo} en {job.empresa_nombre}: ${job.sueldo_semanal_libre:,.0f} libres a la semana "
+            f"(~${round(job.sueldo_semanal_libre * 4.33):,.0f} al mes) más prestaciones de ley.{extras}"
         )
     if re.search(r"turno|horario|hora|rolar|fijo|dias|descanso", q):
         horario = f" de {job.hora_entrada} a {job.hora_salida}" if job.hora_entrada and job.hora_salida else ""
         dias = f", {job.dias_laborales}" if job.dias_laborales else ""
         turnos_txt = f"{job.tipo_turno or 'turno fijo'}{horario}{dias}" if job.turnos_fijos or job.tipo_turno else "turnos que pueden ser rotativos según la línea de producción"
-        return f"Sobre los horarios en {job.empresa_nombre}: esta posición es {turnos_txt}. El reclutador confirmará contigo la disponibilidad exacta."
+        return f"Horario en {job.empresa_nombre}: {turnos_txt}. El reclutador te confirma la disponibilidad."
     if re.search(r"camion|transporte|ruta|parada|llegar", q):
         trans_txt = "cuenta con rutas de transporte de personal incluidas" if job.transporte_incluido else "no cuenta con transporte directo, pero tiene acceso rápido a rutas urbanas"
-        return f"Para la planta en {job.municipio}, la empresa {trans_txt}. Cuando el reclutador responda te indicará la ruta y parada más cercana a tu domicilio."
+        return f"La planta en {job.municipio} {trans_txt}. El reclutador te dice la ruta y parada más cercana."
     if re.search(r"estudio|secundaria|prepa|inea|certificado|escolaridad", q):
         inea_txt = "cuenta con aula y facilidades del programa INEA en planta para certificar tu educación básica" if job.apoyo_inea else f"pide {job.escolaridad_minima or 'educación básica'}"
-        return f"Respecto a los estudios: para {job.titulo}, {job.empresa_nombre} {inea_txt}."
+        return f"Estudios: {job.empresa_nombre} {inea_txt}."
     if re.search(r"prestacion|imss|infonavit|seguro|comedor|uniforme", q):
         prest = ", ".join(job.prestaciones or []) or "prestaciones de ley"
         return f"Las prestaciones de esta vacante son: {prest}."
     if re.search(r"donde|ubicacion|direccion|planta|queda", q):
-        return f"La planta está ubicada en el municipio de {job.municipio}{(', ' + job.direccion) if job.direccion else ''}. El reclutador te dará referencias exactas para tu entrevista."
+        return f"La planta está en {job.municipio}{(', ' + job.direccion) if job.direccion else ''}. El reclutador te da referencias exactas para tu entrevista."
     return (
-        f"¡Hola! El reclutador de {job.empresa_nombre} se encuentra atendiendo operaciones en planta, pero tu mensaje quedó registrado. "
-        f"Mientras tanto, si tienes dudas sobre sueldos (${job.sueldo_semanal_libre:,.0f}/sem), turnos o rutas de transporte, ¡aquí sigo con gusto para ayudarte!"
+        f"El reclutador de {job.empresa_nombre} anda en planta, pero tu mensaje quedó registrado. "
+        f"Si tienes dudas de sueldo (${job.sueldo_semanal_libre:,.0f}/sem), turnos o transporte, aquí sigo."
     )
 
 
@@ -229,10 +229,7 @@ def build_steps(job: Job, user: Optional[User]) -> Tuple[List[Dict[str, Any]], D
 
 
 def _format_question(step: Dict[str, Any], index: int, total: int) -> str:
-    text = f"🤖 ({index + 1}/{total}) {step['pregunta']}"
-    if step.get("opciones"):
-        text += "\n\nElige una opción abajo o escribe tu respuesta."
-    return text
+    return f"🤖 ({index + 1}/{total}) {step['pregunta']}"
 
 
 def _bot(db: Session, app: JobApplication, text: str) -> ApplicationMessage:
@@ -268,15 +265,15 @@ def start_screening(db: Session, app: JobApplication, job: Job, user: Optional[U
     app.screening_status = "in_progress"
     name = _first_name(app)
 
-    intro = f"🤖 ¡Qué onda {name}! Este es tu chat directo con el equipo de {job.empresa_nombre}."
+    intro = f"🤖 ¡Qué onda {name}! Aquí hablas directo con el equipo de {job.empresa_nombre}."
     if steps:
         n = len(steps)
-        intro += f" Antes de pasarte con el reclutador te hago {n} pregunta{'s' if n != 1 else ''} rápida{'s' if n != 1 else ''} para enviarle tu información completa."
+        intro += f" Te hago {n} pregunta{'s' if n != 1 else ''} rápida{'s' if n != 1 else ''} para pasarle tu información al reclutador."
         if conocidos:
-            intro += f" Ya tengo {_resumen_conocidos(conocidos)}; solo te pregunto lo que falta."
+            intro += f" Ya tengo {_resumen_conocidos(conocidos)}; solo lo que falta."
         posted = [_bot(db, app, intro), _bot(db, app, _format_question(steps[0], 0, n))]
         return posted
-    posted = [_bot(db, app, intro + " Ya tengo toda tu información, así que se la envié al reclutador de una vez.")]
+    posted = [_bot(db, app, intro + " Ya tengo toda tu información; se la envié al reclutador.")]
     posted.extend(_finalize(db, app, job, user, state))
     return posted
 
@@ -505,6 +502,6 @@ def _finalize(db: Session, app: JobApplication, job: Job, user: Optional[User], 
     bullets = "\n".join(f"• {v.get('pregunta')}: {v.get('respuesta')}" for _, v in ordered_answers(answers) if v.get("respuesta"))
     summary = (
         f"✅ ¡Listo, {_first_name(app)}! Ya envié tu información al reclutador de {job.empresa_nombre}:\n{bullets}\n\n"
-        "El reclutador la revisará y te responderá por aquí. Si tarda, yo te apoyo con dudas de la vacante."
+        "Te responderá por aquí; si tarda, yo te apoyo."
     )
     return [_bot(db, app, summary)]

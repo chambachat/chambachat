@@ -75,6 +75,21 @@ CHIP_NEAREST_JOBS = {"label": "🏭 Ver vacantes más cercanas", "value": "Mués
 CHIP_FIXED_SHIFT = {"label": "⏱️ ¿Cuáles tienen turno fijo?", "value": "¿Cuáles vacantes tienen turnos fijos?"}
 
 
+_MAX_REPLY_CHARS = 420
+
+
+def _shorten_reply(text: str) -> str:
+    """Respuestas cortas: máximo dos párrafos y ~420 caracteres, cortando en fin de oración."""
+    text = (text or "").strip()
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    text = "\n\n".join(paragraphs[:2])
+    if len(text) <= _MAX_REPLY_CHARS:
+        return text
+    cut = text[:_MAX_REPLY_CHARS]
+    end = max(cut.rfind(". "), cut.rfind("? "), cut.rfind("! "), cut.rfind(".\n"))
+    return (cut[:end + 1] if end > 120 else cut.rstrip() + "…").strip()
+
+
 def _normalize(text: str) -> str:
     """Minúsculas y sin acentos para detectar intenciones sin importar cómo escriba el candidato."""
     nfkd = unicodedata.normalize("NFKD", text or "")
@@ -329,8 +344,7 @@ async def process_chat_message(
         # Quiere cambiar/registrar ubicación: se lo pedimos en este momento
         ask_location = True
         bot_messages.append(
-            "¡Claro! Toca **📍 Elegir nueva ubicación** y marca tu zona en el mapa o usa el GPS. "
-            "En cuanto la confirmes vuelvo a calcular las vacantes con menor tiempo de traslado."
+            "¡Claro! Toca **📍 Elegir nueva ubicación** (GPS o mapa) y vuelvo a calcular tus vacantes cercanas."
         )
         options = [CHIP_CHANGE_LOCATION if loc_known else CHIP_SHARE_LOCATION]
 
@@ -338,8 +352,7 @@ async def process_chat_message(
         if not loc_known:
             ask_location = True
             bot_messages.append(
-                "Para decirte qué rutas de transporte de personal pasan por tu casa necesito saber dónde vives. "
-                "Toca **📍 Compartir mi ubicación** (GPS o mapa) y te digo paradas y horarios."
+                "Para decirte qué rutas pasan por tu casa necesito tu ubicación: toca **📍 Compartir mi ubicación**."
             )
             options = [CHIP_SHARE_LOCATION]
         else:
@@ -349,21 +362,18 @@ async def process_chat_message(
                 logger.error("Error consultando rutas de transporte: %s", exc)
             if nearby_routes:
                 bot_messages.append(
-                    f"🚌 Estas son las rutas de transporte de personal que pasan cerca de **{zona_label}**, "
-                    f"con su parada más cercana y la hora a la que pasan:"
+                    f"🚌 Rutas de transporte de personal cerca de **{zona_label}**, con parada y hora de paso:"
                 )
             else:
                 bot_messages.append(
-                    f"Por ahora no tengo registrada ninguna ruta de transporte de personal que pase cerca de **{zona_label}**. "
-                    "Las plantas van dando de alta sus rutas; en cuanto haya una por tu rumbo te la muestro."
+                    f"Por ahora no hay rutas de personal registradas cerca de **{zona_label}**. En cuanto una planta dé de alta una por tu rumbo, te la muestro."
                 )
             options = [CHIP_NEAREST_JOBS, CHIP_FIXED_SHIFT, {"label": "📍 Cambiar mi ubicación", "value": LOCATION_SHARE_VALUE}]
 
     else:
         if is_location_event:
             bot_messages.append(
-                f"📍 ¡Listo! Guardé tu ubicación en **{zona_label}**. Ya calculé las vacantes con menor tiempo de traslado desde tu casa. "
-                "Si quieres saber qué rutas de transporte de personal pasan por tu colonia, nomás pregúntame."
+                f"📍 Listo, guardé tu ubicación en **{zona_label}**. Ya te muestro las vacantes más cercanas; si quieres, pregúntame qué rutas de transporte pasan por tu colonia."
             )
             options = [CHIP_ROUTES, CHIP_NEAREST_JOBS, CHIP_FIXED_SHIFT]
         elif answered_pending:
@@ -376,11 +386,11 @@ async def process_chat_message(
                 bot_messages.append(nxt["pregunta"])
                 options = [{"label": o, "value": o} for o in nxt["opciones"]]
             else:
-                bot_messages.append("¡Listo! Tu perfil quedó completo: con eso los reclutadores te ubican más rápido. ¿Seguimos con las vacantes?")
+                bot_messages.append("¡Listo! Tu perfil quedó completo. ¿Seguimos con las vacantes?")
                 options = list(WELCOME_OPTIONS)
         else:
             llm = await query_deepseek_chat(conversation_history=history, user_message=input_text, context_data=data)
-            bot_messages.append(llm["reply_text"])
+            bot_messages.append(_shorten_reply(llm["reply_text"]))
             for k, v in (llm.get("extracted_profile") or {}).items():
                 if v and k not in ("latitud", "longitud"):
                     data[k] = v
