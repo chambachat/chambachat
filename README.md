@@ -96,7 +96,7 @@ Ver [`.env.example`](.env.example) para la lista completa. Variables críticas:
 | `CORS_ORIGINS` | Orígenes permitidos (separados por coma) | ✅ |
 | `RESEND_API_KEY` | API key de Resend para emails | Opcional |
 | `SMTP_HOST/USER/PASSWORD` | Credenciales SMTP alternativas | Opcional |
-| `PUBLIC_BASE_URL` | URL pública del frontend (logos en correos) | Opcional |
+| `PUBLIC_BASE_URL` | URL pública canónica del sitio (logos en correos, canonicals, sitemap, Open Graph) | Opcional, por defecto `https://www.chambachat.com` |
 | `LOG_LEVEL` | Nivel de logging (DEBUG/INFO/WARNING) | Opcional |
 
 ---

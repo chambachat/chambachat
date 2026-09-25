@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Search, Building2, User, ChevronRight, Settings, Headset, MessageSquare, Star, Ban } from 'lucide-react';
+import { X, Search, Building2, User, ChevronRight, Settings, Headset, MessageSquare, Star, Ban, Info } from 'lucide-react';
 import { unreadCount, lastMessage, initials } from '../../../services/recruiterChat';
 import { formatBackendTime } from '../../../services/directChat';
 
@@ -172,6 +172,16 @@ export default function RecruiterSidebar({
               <span>Ver el chat de empleo como candidato</span>
             </button>
           )}
+
+          <a
+            href="/web"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-400 hover:text-slate-600 transition"
+          >
+            <Info className="w-3 h-3" />
+            <span className="text-[11px]">Acerca de ChambaChat</span>
+          </a>
 
           {currentUser?.role === 'admin' && (
             <button onClick={() => { closeOnMobile(); onOpenAdmin(); }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-400 hover:text-slate-600 transition">

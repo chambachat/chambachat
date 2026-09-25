@@ -23,7 +23,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "..", "templates")
-_DEFAULT_BASE_URL = "https://chambachat.onrender.com"
+_DEFAULT_BASE_URL = "https://www.chambachat.com"
 
 
 # ─── Plantillas ───────────────────────────────────────────────────────

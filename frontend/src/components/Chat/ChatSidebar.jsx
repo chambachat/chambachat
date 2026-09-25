@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X, MessageSquare, Trash2, Building2, User, ChevronRight, Settings, Headset } from 'lucide-react';
+import { Plus, X, MessageSquare, Trash2, Building2, User, ChevronRight, Settings, Headset, Info } from 'lucide-react';
 import { useToast } from '../ui/Toast';
 
 export default function ChatSidebar({
@@ -184,6 +184,16 @@ export default function ChatSidebar({
               <span>Mi Perfil Guardado</span>
             </div>
           </button>
+
+          <a
+            href="/web"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-400 hover:text-slate-600 transition"
+          >
+            <Info className="w-3 h-3" />
+            <span className="text-[11px]">Acerca de ChambaChat</span>
+          </a>
 
           {currentUser?.role === 'admin' && (
             <button

@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import SessionLocal, engine
 from app.models import BotFlowConfig
 from app.services.chatbot_engine import DEFAULT_PROMPTS, LEGACY_WELCOME_TEXTS
-from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents, favorites, blocks, profile
+from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents, favorites, blocks, profile, seo, web
 
 import logging
 
@@ -127,6 +127,10 @@ app.include_router(documents.router)
 app.include_router(favorites.router)
 app.include_router(blocks.router)
 app.include_router(profile.router)
+# Páginas HTML indexables servidas desde el servidor (SEO): /vacantes, sitemap, robots y sitio informativo /web.
+# Se registran antes del mount del frontend para que no caigan en el index.html de la SPA.
+app.include_router(seo.router)
+app.include_router(web.router)
 
 
 @app.get("/api/health")
