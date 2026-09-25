@@ -103,7 +103,7 @@ export default function JobsManager({ currentUser, activeCompany, onGoToTeam }) 
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Bolsa de Vacantes Operativas</h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mt-1">
-            Gestión y publicación de puestos para plantas industriales en el corredor Monterrey, Apodaca, Pesquería y San Nicolás.
+            Gestión y publicación de puestos operativos para plantas industriales, almacenes y centros de distribución.
           </p>
         </div>
 

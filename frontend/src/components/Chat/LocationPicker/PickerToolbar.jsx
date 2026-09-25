@@ -57,7 +57,7 @@ export default function PickerToolbar({
       )}
 
       <div className="space-y-1.5">
-        <span className="text-[11px] font-semibold text-slate-500 block">Zonas y colonias populares en NL:</span>
+        <span className="text-[11px] font-semibold text-slate-500 block">Zonas y colonias populares:</span>
         <div className="flex flex-wrap gap-1.5">
           {QUICK_ZONES.map((zone) => (
             <button

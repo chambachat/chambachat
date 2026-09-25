@@ -17,7 +17,7 @@ export default function PickerDetailsForm({ colonia, onColoniaChange, municipio,
       </div>
 
       <div>
-        <label className="text-[11px] font-bold text-slate-700 block mb-1">Municipio de Nuevo León:</label>
+        <label className="text-[11px] font-bold text-slate-700 block mb-1">Municipio:</label>
         <select
           value={municipio}
           onChange={(e) => onMunicipioChange(e.target.value)}

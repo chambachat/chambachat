@@ -97,7 +97,7 @@ export default function UserProfileModal({
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-500">Empresa / Planta:</span>
                 <span className="font-bold text-blue-700 bg-white px-2 py-0.5 rounded-md border border-blue-200">
-                  {currentUser.empresa_nombre || currentUser.company_name || 'Planta Industrial NL'}
+                  {currentUser.empresa_nombre || currentUser.company_name || 'Planta Industrial'}
                 </span>
               </div>
 
@@ -146,7 +146,7 @@ export default function UserProfileModal({
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-500">Nombre registrado:</span>
                 <span className="font-bold text-slate-900 text-sm">
-                  {candidateProfile?.nombre || currentUser?.name || 'Operario de Nuevo León'}
+                  {candidateProfile?.nombre || currentUser?.name || 'Operario'}
                 </span>
               </div>
               {currentUser?.phone && (

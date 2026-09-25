@@ -98,7 +98,7 @@ export default function CompanyOnboarding({ currentUser, onCompanyCreated }) {
             Da de alta tu Empresa o Planta Industrial
           </h1>
           <p className="text-sm text-slate-300 leading-relaxed">
-            En <strong>ChambaChat</strong> garantizamos que todas las vacantes sean 100% formales y seguras para los trabajadores de Nuevo León. Para comenzar a publicar ofertas y gestionar a tu equipo, sube la <strong>Constancia de Situación Fiscal (CSF)</strong> emitida por el SAT.
+            En <strong>ChambaChat</strong> garantizamos que todas las vacantes sean 100% formales y seguras para los trabajadores. Para comenzar a publicar ofertas y gestionar a tu equipo, sube la <strong>Constancia de Situación Fiscal (CSF)</strong> emitida por el SAT.
           </p>
         </div>
       </div>
@@ -111,7 +111,7 @@ export default function CompanyOnboarding({ currentUser, onCompanyCreated }) {
             </div>
             <div>
               <h2 className="text-lg font-black text-slate-900">Registro de la Empresa</h2>
-              <p className="text-xs text-slate-500">Datos fiscales y ubicación en Nuevo León</p>
+              <p className="text-xs text-slate-500">Datos fiscales y ubicación de la planta</p>
             </div>
           </div>
 
@@ -161,7 +161,7 @@ export default function CompanyOnboarding({ currentUser, onCompanyCreated }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Municipio en Nuevo León *</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Municipio *</label>
                   <select
                     value={form.municipio}
                     onChange={(e) => setForm({ ...form, municipio: e.target.value })}

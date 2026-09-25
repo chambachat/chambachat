@@ -196,7 +196,7 @@ export default function RouteMap({
               <span>${stop.nombre}</span>
             </div>
             <div style="color: #059669; font-weight: 700; margin: 3px 0;">⏰ Pasa: ${stop.horario}</div>
-            <div style="color: #64748b; font-size: 10px;">📍 ${stop.colonia_referencia || 'Nuevo León'}</div>
+            <div style="color: #64748b; font-size: 10px;">📍 ${stop.colonia_referencia || 'Sin referencia'}</div>
           </div>
         `);
       });

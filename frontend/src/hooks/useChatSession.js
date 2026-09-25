@@ -137,7 +137,7 @@ export function useChatSession(currentUser) {
     const application = await submitApplication({
       jobId: job.id,
       sessionId: activeSession?.backendSessionId,
-      candidateName: currentUser?.name || 'Operario de NL',
+      candidateName: currentUser?.name || 'Operario',
       candidateEmail: currentUser?.email,
       candidatePhone: currentUser?.phone || '',
       municipio: job.municipio

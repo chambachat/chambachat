@@ -35,7 +35,7 @@ export default function RetentionPredictor() {
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Predictor de Retención de Operarios</h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mt-1">
-            Modelo estadístico basado en regresión sobre 100+ perfiles de manufactura en Nuevo León. Evalúa en tiempo real el impacto de sueldo, tiempo de traslado y condiciones de turno.
+            Modelo estadístico basado en regresión sobre 100+ perfiles de manufactura. Evalúa en tiempo real el impacto de sueldo, tiempo de traslado y condiciones de turno.
           </p>
         </div>
 

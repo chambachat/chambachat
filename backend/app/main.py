@@ -7,7 +7,7 @@ import os
 from app.config import settings
 from app.database import SessionLocal, engine
 from app.models import BotFlowConfig
-from app.services.chatbot_engine import DEFAULT_PROMPTS
+from app.services.chatbot_engine import DEFAULT_PROMPTS, LEGACY_WELCOME_TEXTS
 from app.routers import predictor, chat, jobs, candidates, admin, analytics, auth, applications, companies, routes, documents, favorites, blocks, profile
 
 import logging
@@ -73,6 +73,13 @@ _harden_public_tables()
 def init_default_prompts():
     db = SessionLocal()
     try:
+        # Copy de versiones anteriores (mencionaba una sola región): actualizar al texto genérico actual
+        for cfg in db.query(BotFlowConfig).filter(BotFlowConfig.step_key == "welcome").all():
+            if cfg.prompt_texto in LEGACY_WELCOME_TEXTS:
+                cfg.prompt_texto = DEFAULT_PROMPTS["welcome"]["prompt_texto"]
+                cfg.opciones_json = json.dumps(DEFAULT_PROMPTS["welcome"].get("opciones", []))
+        db.commit()
+
         count = db.query(BotFlowConfig).count()
         if count == 0:
             for key, pdata in DEFAULT_PROMPTS.items():
@@ -94,7 +101,7 @@ init_default_prompts()
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Plataforma de Reclutamiento Operativo y People Analytics para Nuevo León"
+    description="Plataforma de Reclutamiento Operativo y People Analytics"
 )
 
 app.add_middleware(

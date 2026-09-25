@@ -57,13 +57,13 @@ export default function CandidatesList() {
         <div>
           <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs tracking-wider uppercase mb-1">
             <Users className="w-4 h-4" />
-            <span>Base de Talento Operativo · Nuevo León</span>
+            <span>Base de Talento Operativo</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Operarios Registrados en Nuevo León
+            Operarios Registrados
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mt-1">
-            Padrón de candidatos perfilados en Nuevo León con datos de ubicación, escolaridad y aspiración salarial.
+            Padrón de candidatos perfilados con datos de ubicación, escolaridad y aspiración salarial.
           </p>
         </div>
 
@@ -147,7 +147,7 @@ export default function CandidatesList() {
                     <td className="px-5 py-3.5">
                       <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
                         <MapPin className="w-3 h-3 text-sky-500" />
-                        {cand.municipio || 'Nuevo León'}
+                        {cand.municipio || 'Sin municipio'}
                       </span>
                       <span className="block text-[10px] text-slate-400">CP {cand.codigo_postal || '64000'}</span>
                     </td>

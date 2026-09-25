@@ -53,7 +53,7 @@ export default function ChatInput({ value, onChange, onSend, options, onSelectOp
         </form>
 
         <p className="text-[10px] sm:text-[11px] text-center text-slate-400 mt-1.5 sm:mt-2 font-medium">
-          {footer || 'Chambachat te orienta sobre oportunidades industriales y vacantes operativas en Nuevo León.'}
+          {footer || 'Chambachat te orienta sobre vacantes operativas e industriales cerca de ti.'}
         </p>
       </div>
     </div>

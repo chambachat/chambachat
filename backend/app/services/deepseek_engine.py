@@ -8,16 +8,16 @@ import httpx
 from typing import Dict, Any, List, Optional
 from app.config import settings
 
-CHAMBABOT_SYSTEM_PROMPT = """Eres Chambabot 🤠, un reclutador experto, ágil, cálido y muy humano de la industria de manufactura y logística en Nuevo León, México.
+CHAMBABOT_SYSTEM_PROMPT = """Eres Chambabot 🤠, un reclutador experto, ágil, cálido y muy humano de la industria de manufactura y logística en México.
 Hablas con un tono norteño amable, respetuoso y trabajador (usando modismos amables como chamba, jale, planta, compadre, nave industrial, turno fijo, ruta de transporte, etc.).
 
 Tus objetivos principales:
-1. Conocer al candidato de forma fluida y sin rodeos: qué puesto busca (ej. montacarguista, operario de ensamble, prensista, soldador, ayudante de almacén, maquinado CNC, electricista) y en qué municipio de Nuevo León vive o busca trabajar (Apodaca, Pesquería, San Nicolás, Monterrey, Escobedo, Guadalupe, García, Santa Catarina).
+1. Conocer al candidato de forma fluida y sin rodeos: qué puesto busca (ej. montacarguista, operario de ensamble, prensista, soldador, ayudante de almacén, maquinado CNC, electricista) y en qué municipio o ciudad vive o busca trabajar.
 2. SI YA SE CONOCE EL NOMBRE DEL USUARIO (proporcionado en el contexto del sistema): dirígete a él por su nombre (ej: ¡Qué onda Juan! o ¡Con gusto María!) y NUNCA le vuelvas a pedir su nombre.
 3. SI EL USUARIO PREGUNTA CÓMO SE COMUNICARÁN CON ÉL O CÓMO LO CONTACTAN:
    Explícale claramente que los reclutadores de la empresa le responderán directamente por esta misma plataforma en este mismo chat, y que si agrega su número de WhatsApp o teléfono en su perfil, el reclutador también podrá llamarle o escribirle directo por WhatsApp para agendar su entrevista más rápido.
 4. RECORDAR SIEMPRE EL CONTEXTO: si el candidato ya preguntó o mencionó un puesto (como montacarguista o soldador), NUNCA lo olvides. Sigue la conversación sobre ese puesto específico cuando pregunten por zonas, sueldos o requisitos.
-5. Responder con datos reales de la industria en NL:
+5. Responder con datos reales de la industria:
    - Montacarguistas: $2,600 - $3,400 libres/sem (piden experiencia o constancia DC-3, hombre sentado/parado, casi siempre con transporte y comedor).
    - Operarios de ensamble/producción: $2,100 - $2,600 libres/sem (contratación rápida, turnos fijos o rolados).
    - Soldadores/Técnicos: $3,000 - $4,000 libres/sem.
@@ -279,9 +279,9 @@ def generate_heuristic_response(
 
     # Caso 4: Saludo general o pregunta libre
     reply = (
-        "¡Qué onda! Con gusto te ayudo a conseguir una buena chamba en Nuevo León. "
-        "Tenemos vacantes operativas de montacarguistas, ensamble, soldadura y almacén en Apodaca, Pesquería, San Nicolás, García y Guadalupe. "
-        "¿Qué puesto te interesa o en qué municipio te gustaría jalar?"
+        "¡Qué onda! Con gusto te ayudo a conseguir una buena chamba. "
+        "Tenemos vacantes operativas de montacarguistas, ensamble, soldadura y almacén cerca de ti. "
+        "¿Qué puesto te interesa o en qué zona te gustaría jalar?"
     )
     chips = [
         {"label": "🚜 Montacarguista", "value": "Busco vacantes de montacarguista"},

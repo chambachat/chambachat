@@ -52,7 +52,7 @@ export default function PlantLocationToolbar({
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-500" />
-            Zonas Industriales Frecuentes en NL:
+            Zonas industriales frecuentes:
           </span>
           <span className="text-[11px] text-slate-400 font-medium">Clic para centrar</span>
         </div>

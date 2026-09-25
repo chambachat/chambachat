@@ -63,7 +63,7 @@ export default function RoutesHeader({
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider">
             <Bus className="w-4 h-4" />
-            <span>Logística de Personal & Movilidad NL</span>
+            <span>Logística de Personal & Movilidad</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
             <span>Rutas de Transporte de Planta</span>

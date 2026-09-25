@@ -58,7 +58,7 @@ export default function JobDetailModal({
           </h2>
           <p className="text-xs text-slate-500 flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-            <span>{job.municipio}, Nuevo León</span>
+            <span>{job.municipio}</span>
             {job.distancia_km && <span>&bull; a ~{job.distancia_km} km de tu zona</span>}
           </p>
         </div>

@@ -73,7 +73,7 @@ export default function AnalyticsDashboard() {
           Dashboard de Rotación y Retención Laboral
         </h1>
         <p className="text-sm text-slate-600 max-w-2xl mt-1">
-          Análisis del histórico de contrataciones en plantas de manufactura de Nuevo León. Evidencia empírica del anclaje de lealtad generado por turnos fijos y beneficios clave.
+          Análisis del histórico de contrataciones en plantas de manufactura. Evidencia empírica del anclaje de lealtad generado por turnos fijos y beneficios clave.
         </p>
       </div>
 
@@ -88,7 +88,7 @@ export default function AnalyticsDashboard() {
             <span className="text-3xl font-black text-slate-900">{data.promedio_permanencia_meses}</span>
             <span className="text-xs font-bold text-emerald-600">meses</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Mercado operativo Nuevo León</p>
+          <p className="text-[11px] text-slate-400 mt-1">Mercado operativo</p>
         </div>
 
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
@@ -197,7 +197,7 @@ export default function AnalyticsDashboard() {
         <div className="lg:col-span-7 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-500" />
-            Causas Raíz de Deserción en Manufactura (Nuevo León)
+            Causas Raíz de Deserción en Manufactura
           </h3>
 
           <div className="space-y-3">

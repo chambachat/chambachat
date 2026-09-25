@@ -145,7 +145,7 @@ def answer_job_question(job: Job, question: str) -> str:
         prest = ", ".join(job.prestaciones or []) or "prestaciones de ley"
         return f"Las prestaciones de esta vacante son: {prest}."
     if re.search(r"donde|ubicacion|direccion|planta|queda", q):
-        return f"La planta está ubicada en el municipio de {job.municipio}, Nuevo León{(', ' + job.direccion) if job.direccion else ''}. El reclutador te dará referencias exactas para tu entrevista."
+        return f"La planta está ubicada en el municipio de {job.municipio}{(', ' + job.direccion) if job.direccion else ''}. El reclutador te dará referencias exactas para tu entrevista."
     return (
         f"¡Hola! El reclutador de {job.empresa_nombre} se encuentra atendiendo operaciones en planta, pero tu mensaje quedó registrado. "
         f"Mientras tanto, si tienes dudas sobre sueldos (${job.sueldo_semanal_libre:,.0f}/sem), turnos o rutas de transporte, ¡aquí sigo con gusto para ayudarte!"

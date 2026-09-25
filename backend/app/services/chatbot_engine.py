@@ -21,20 +21,25 @@ DEFAULT_PROMPTS = {
     "welcome": {
         "step_order": 1,
         "titulo_admin": "Mensaje Inicial / Saludo",
-        "prompt_texto": "¡Qué onda! Bienvenido a Chambachat 🤠 Te ayudo a encontrar jale operativo en Nuevo León rápido y cerca de tu casa. ¿Qué puesto te interesa o en qué municipio buscas?",
+        "prompt_texto": "¡Qué onda! Bienvenido a Chambachat 🤠 Te ayudo a encontrar jale operativo rápido y cerca de tu casa. ¿Qué puesto te interesa o en qué zona buscas?",
         "opciones": [
             {"label": "🚜 Montacarguista", "value": "Busco vacantes de montacarguista"},
-            {"label": "🏭 Ensamble en Apodaca", "value": "Busco de operario en Apodaca"},
-            {"label": "📦 Almacén y Embarques", "value": "Busco jale de almacén"},
-            {"label": "⏱️ Con Turnos Fijos", "value": "Busco vacantes con turnos fijos"}
+            {"label": "🏭 Operador de producción", "value": "Busco vacantes de operador de producción"},
+            {"label": "📦 Almacén y embarques", "value": "Busco jale de almacén"},
+            {"label": "⏱️ Con turnos fijos", "value": "Busco vacantes con turnos fijos"}
         ]
     }
 }
 
+# Texto de bienvenida de versiones anteriores: si sigue en la base, se reemplaza por el nuevo al arrancar
+LEGACY_WELCOME_TEXTS = {
+    "¡Qué onda! Bienvenido a Chambachat 🤠 Te ayudo a encontrar jale operativo en Nuevo León rápido y cerca de tu casa. ¿Qué puesto te interesa o en qué municipio buscas?",
+}
+
 WELCOME_OPTIONS = [
     {"label": "🚜 Montacarguista", "value": "Busco vacantes de montacarguista"},
-    {"label": "🏭 Ensamble en Apodaca", "value": "Busco de operario en Apodaca"},
-    {"label": "📦 Almacén y Embarques", "value": "Busco jale de almacén"},
+    {"label": "🏭 Operador de producción", "value": "Busco vacantes de operador de producción"},
+    {"label": "📦 Almacén y embarques", "value": "Busco jale de almacén"},
 ]
 
 MUNICIPIOS_DETECTABLES = [

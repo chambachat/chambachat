@@ -41,7 +41,7 @@ export default function CompanyMetrics({ teamData, selectedCompany, onOpenLocati
           <div className="mt-2">
             <span className="text-sm font-black text-slate-900 block truncate">{selectedCompany?.municipio || 'Apodaca'}</span>
             <div className="flex items-center justify-between mt-0.5">
-              <span className="text-[10px] text-slate-400">Nuevo León, México</span>
+              <span className="text-[10px] text-slate-400">México</span>
               {selectedCompany?.latitud && selectedCompany?.longitud ? (
                 <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
                   <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />

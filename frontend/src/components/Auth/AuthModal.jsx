@@ -184,7 +184,7 @@ export default function AuthModal({
             {step === 'verify' 
               ? 'Ingresa el código que te enviamos para activar tu cuenta.'
               : invitation ? 'Confirma tu correo para aceptar la invitación.'
-              : 'Plataforma industrial para candidatos operativos y reclutadores de Nuevo León.'}
+              : 'Plataforma industrial para candidatos operativos y reclutadores.'}
           </p>
         </div>
 
@@ -267,7 +267,7 @@ export default function AuthModal({
         )}
 
         <p className="text-[10px] text-center text-slate-400 pt-1">
-          Plataforma segura para el ecosistema laboral e industrial de Nuevo León.
+          Plataforma segura para el ecosistema laboral e industrial.
         </p>
       </div>
     </div>
