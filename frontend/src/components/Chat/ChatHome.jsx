@@ -23,10 +23,38 @@ export default function ChatHome(props) {
     setMode(getChatMode(currentUser));
   }, [currentUser?.email, currentUser?.role]);
 
-  // Bloquear el desplazamiento de la página: el encabezado con el menú queda fijo y solo se mueven los mensajes
+  // Bloquear el desplazamiento de la página: el encabezado con el menú queda fijo y solo se mueven los mensajes.
+  // En iPhone, Safari desplaza la página al abrir/cerrar el teclado aunque el scroll esté bloqueado:
+  // se regresa arriba y la raíz del chat toma la altura realmente visible (visualViewport).
   useEffect(() => {
-    document.documentElement.classList.add('chat-lock');
-    return () => document.documentElement.classList.remove('chat-lock');
+    const root = document.documentElement;
+    root.classList.add('chat-lock');
+    const resetScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+    };
+    const onFocusOut = () => setTimeout(resetScroll, 80);
+    const vv = window.visualViewport;
+    const onViewport = () => {
+      if (vv) root.style.setProperty('--chat-vh', `${Math.round(vv.height)}px`);
+      resetScroll();
+    };
+    if (vv) {
+      vv.addEventListener('resize', onViewport);
+      vv.addEventListener('scroll', onViewport);
+      onViewport();
+    }
+    window.addEventListener('scroll', resetScroll, { passive: true });
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      if (vv) {
+        vv.removeEventListener('resize', onViewport);
+        vv.removeEventListener('scroll', onViewport);
+      }
+      window.removeEventListener('scroll', resetScroll);
+      document.removeEventListener('focusout', onFocusOut);
+      root.style.removeProperty('--chat-vh');
+      root.classList.remove('chat-lock');
+    };
   }, []);
 
   const switchTo = (next) => {

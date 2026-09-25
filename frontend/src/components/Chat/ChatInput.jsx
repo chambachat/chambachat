@@ -11,7 +11,7 @@ export default function ChatInput({ value, onChange, onSend, options, onSelectOp
   };
 
   return (
-    <div className="p-3 sm:p-4 bg-gradient-to-t from-white via-white to-transparent w-full shrink-0">
+    <div className="chat-input-safe p-3 sm:p-4 bg-gradient-to-t from-white via-white to-transparent w-full shrink-0">
       <div className="max-w-3xl mx-auto w-full">
         {options && options.length > 0 && (
           <div className="pl-0 sm:pl-10 pb-2 space-y-1.5 w-full min-w-0">

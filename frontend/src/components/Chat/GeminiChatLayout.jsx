@@ -194,7 +194,7 @@ export default function GeminiChatLayout({
   const hasMessages = Boolean(activeSession?.messages && activeSession.messages.length > 0);
 
   return (
-    <div className="flex h-[100dvh] w-full max-w-full bg-[#fcfdfd] text-slate-800 font-sans overflow-hidden">
+    <div className="chat-app-root flex w-full max-w-full bg-[#fcfdfd] text-slate-800 font-sans overflow-hidden">
       <ChatSidebar
         sessions={sessions}
         activeSessionId={activeSessionId}

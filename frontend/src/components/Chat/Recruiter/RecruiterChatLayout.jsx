@@ -103,7 +103,7 @@ export default function RecruiterChatLayout({ currentUser, onOpenEmpresa, onOpen
   };
 
   return (
-    <div className="flex h-[100dvh] w-full max-w-full bg-[#fcfdfd] text-slate-800 font-sans overflow-hidden">
+    <div className="chat-app-root flex w-full max-w-full bg-[#fcfdfd] text-slate-800 font-sans overflow-hidden">
       <RecruiterSidebar
         applications={inbox.applications}
         loading={inbox.loading}

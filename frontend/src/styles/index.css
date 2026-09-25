@@ -90,3 +90,23 @@ html.chat-lock body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+
+/* Raíz del chat: ocupa exactamente el alto visible (en iPhone cambia con el teclado) y respeta las zonas seguras */
+.chat-app-root {
+  height: 100dvh;
+  height: var(--chat-vh, 100dvh);
+  padding-top: env(safe-area-inset-top);
+}
+html.chat-lock .chat-app-root {
+  position: fixed;
+  inset: 0;
+}
+/* La caja de texto no se esconde bajo la barra de inicio del iPhone */
+.chat-input-safe {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 640px) {
+  .chat-input-safe {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}
