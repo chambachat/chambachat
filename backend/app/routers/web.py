@@ -52,7 +52,7 @@ def _jsonld_base(path: str, title: str) -> List[Dict]:
         {
             "@context": "https://schema.org", "@type": "Organization", "name": SITE_NAME, "url": f"{PUBLIC_BASE_URL}/",
             "logo": f"{PUBLIC_BASE_URL}/logo-chambachat.png", "email": CONTACT_EMAIL,
-            "description": "Plataforma de reclutamiento operativo por chat: vacantes de manufactura y logística con chat directo entre candidatos y reclutadores.",
+            "description": "Plataforma de reclutamiento operativo por chat: vacantes operativas con chat directo entre candidatos y reclutadores.",
             "areaServed": "MX",
         },
         {"@context": "https://schema.org", "@type": "WebSite", "name": SITE_NAME, "url": f"{PUBLIC_BASE_URL}/", "inLanguage": "es-MX"},
@@ -97,7 +97,7 @@ def layout(page: Dict) -> str:
 </main>
 <footer><div class="wrap">
   <div class="cols">
-    <div><strong style="color:#fff;font-size:18px">Chamba<span style="color:var(--lime)">Chat</span></strong><p>Reclutamiento operativo por chat: vacantes de manufactura y logística con chat directo entre candidatos y reclutadores, entrevista rápida con IA y empresas verificadas ante el SAT.</p><p>Contacto: <a href="mailto:{CONTACT_EMAIL}" style="display:inline">{CONTACT_EMAIL}</a></p></div>
+    <div><strong style="color:#fff;font-size:18px">Chamba<span style="color:var(--lime)">Chat</span></strong><p>Reclutamiento operativo por chat: vacantes operativas con chat directo entre candidatos y reclutadores, entrevista rápida con IA y empresas verificadas ante el SAT.</p><p>Contacto: <a href="mailto:{CONTACT_EMAIL}" style="display:inline">{CONTACT_EMAIL}</a></p></div>
     <div><a href="/web/candidatos">Para candidatos</a><a href="/web/empresas">Para empresas</a><a href="/vacantes">Vacantes activas</a><a href="/web/planes">Planes</a></div>
     <div><a href="/">Abrir el chat</a><a href="/">Portal de empresa</a><a href="/web/aviso-de-privacidad">Aviso de privacidad</a><a href="/web/terminos">Términos y condiciones</a></div>
   </div>
