@@ -246,13 +246,6 @@ export default function UserProfileModal({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
-            >
-              Cerrar
-            </button>
-            <button
-              type="button"
               onClick={() => {
                 onClose();
                 onReturnToChat?.();
