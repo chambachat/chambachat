@@ -212,9 +212,32 @@ export default function App() {
         />
       )}
 
-      {currentView === 'admin' && <AdminView onBack={() => setCurrentView('chat')} />}
+      {currentView === 'admin' && (
+        (currentUser?.email?.endsWith('@chambachat.com'))
+          ? <AdminView onBack={() => setCurrentView('chat')} />
+          : <div className="p-8 text-center h-screen flex flex-col items-center justify-center bg-slate-50">
+              <h2 className="text-2xl font-bold text-rose-500 mb-4">Acceso Restringido</h2>
+              <p className="mb-6">Debes iniciar sesión con tu cuenta de @chambachat.com</p>
+              <button className="px-6 py-2 bg-emerald-600 text-white rounded-xl" onClick={() => setCurrentView('chat')}>Volver al inicio</button>
+            </div>
+      )}
 
-      {currentView === 'scraper' && <ScraperTool onBack={() => setCurrentView('chat')} />}
+      {currentView === 'scraper' && (
+        (currentUser?.email?.endsWith('@chambachat.com'))
+          ? <ScraperTool onBack={() => setCurrentView('chat')} />
+          : <div className="p-8 text-center h-screen flex flex-col items-center justify-center bg-slate-50">
+              <h2 className="text-2xl font-bold text-rose-500 mb-4">Acceso Restringido</h2>
+              <p className="mb-6">Debes iniciar sesión con tu cuenta de @chambachat.com para usar el crawler masivo.</p>
+              <div className="flex gap-4">
+                <button className="px-6 py-2 bg-slate-200 text-slate-800 font-semibold rounded-xl" onClick={() => setCurrentView('chat')}>Volver al inicio</button>
+                <button className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl" onClick={() => {
+                  setAuthInitialRole('candidate');
+                  setAuthPrompt({ title: 'Acceso Restringido', message: 'Inicia sesión con tu cuenta @chambachat.com' });
+                  setIsAuthModalOpen(true);
+                }}>Iniciar Sesión</button>
+              </div>
+            </div>
+      )}
 
       <UserProfileModal
         isOpen={isProfileOpen}

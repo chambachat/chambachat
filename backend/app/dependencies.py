@@ -111,17 +111,14 @@ def get_current_user_optional(
 
 def require_role(*allowed_roles: str):
     """
-    Factory de dependency que restringe acceso a usuarios con roles específicos.
-
-    Uso:
-        @router.get("/admin/data", dependencies=[Depends(require_role("admin"))])
-        def admin_data(): ...
+    Factory de dependency que restringe acceso a usuarios con roles específicos o dominio chambachat.com
     """
     def _checker(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role not in allowed_roles:
+        is_chambachat = current_user.email and current_user.email.endswith("@chambachat.com")
+        if not is_chambachat and current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Acceso denegado. Se requiere rol: {', '.join(allowed_roles)}. "
+                detail=f"Acceso denegado. Se requiere cuenta @chambachat.com o rol: {', '.join(allowed_roles)}. "
                        f"Tu rol actual es: {current_user.role}.",
             )
         return current_user

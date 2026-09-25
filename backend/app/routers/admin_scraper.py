@@ -28,8 +28,8 @@ class ScrapeResponse(BaseModel):
 @router.post("/run", response_model=ScrapeResponse)
 async def run_scraper(request: ScrapeRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Solo admins. Toma una URL, extrae datos, usa Gemini y guarda."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
+    if current_user.role != "admin" and not current_user.email.endswith("@chambachat.com"):
+        raise HTTPException(status_code=403, detail="Not authorized. Requires @chambachat.com domain.")
         
     extracted_data = await scrape_and_analyze_url(request.url)
     
@@ -69,8 +69,8 @@ class ScrapeSearchResponse(BaseModel):
 
 @router.post("/search-and-run", response_model=ScrapeSearchResponse)
 async def search_and_run(request: ScrapeSearchRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
+    if current_user.role != "admin" and not current_user.email.endswith("@chambachat.com"):
+        raise HTTPException(status_code=403, detail="Not authorized. Requires @chambachat.com domain.")
         
     logs = []
     logs.append(f"Buscando '{request.keyword}' en {request.platform}...")
