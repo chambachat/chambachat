@@ -80,7 +80,6 @@ export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
       <input
         type="file"
         accept="image/*"
-        capture="environment"
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
