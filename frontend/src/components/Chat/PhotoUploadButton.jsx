@@ -2,12 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Camera, Loader2 } from 'lucide-react';
 
 export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
-  const fileInputRef = useRef(null);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleClick = () => {
-    fileInputRef.current?.click();
-  };
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -75,21 +70,62 @@ export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
     }
   };
 
+  const [showMenu, setShowMenu] = useState(false);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+
+  // Cerrar menú al hacer clic fuera (opcional, pero con onBlur del botón suele bastar, o manejándolo simple)
+  
   return (
-    <>
+    <div className="relative">
       <input
         type="file"
         accept="image/*"
-        ref={fileInputRef}
+        capture="environment"
+        ref={cameraInputRef}
         onChange={handleFileChange}
         className="hidden"
       />
+      <input
+        type="file"
+        accept="image/*"
+        ref={galleryInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      
+      {showMenu && (
+        <div className="absolute bottom-12 left-0 mb-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+          <button 
+            type="button"
+            className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-semibold text-slate-700 flex items-center gap-2 border-b border-slate-100"
+            onClick={() => { setShowMenu(false); cameraInputRef.current?.click(); }}
+          >
+            📸 Tomar Foto
+          </button>
+          <button 
+            type="button"
+            className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-semibold text-slate-700 flex items-center gap-2"
+            onClick={() => { setShowMenu(false); galleryInputRef.current?.click(); }}
+          >
+            🖼️ Elegir del Carrete
+          </button>
+        </div>
+      )}
+
+      {showMenu && (
+        <div 
+          className="fixed inset-0 z-40"
+          onClick={() => setShowMenu(false)}
+        />
+      )}
+
       <button
         type="button"
         disabled={disabled || isProcessing}
-        onClick={handleClick}
-        className="p-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center shrink-0"
-        title="Tomar foto de vacante"
+        onClick={() => setShowMenu(!showMenu)}
+        className="p-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center shrink-0 relative z-50"
+        title="Subir foto de vacante"
       >
         {isProcessing ? (
           <Loader2 className="w-5 h-5 animate-spin" />
@@ -97,6 +133,6 @@ export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
           <Camera className="w-5 h-5" />
         )}
       </button>
-    </>
+    </div>
   );
 }
