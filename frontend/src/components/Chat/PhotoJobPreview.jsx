@@ -5,8 +5,8 @@ import { CATEGORIAS, TIPOS_TURNO, DIAS_LABORALES } from '../../constants/jobCata
 export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSubmitting }) {
   const [showRawText, setShowRawText] = useState(false);
   const [formData, setFormData] = useState({
-    titulo_puesto: extraction.titulo_puesto || '',
-    empresa: extraction.empresa || '',
+    titulo: extraction.titulo || '',
+    empresa_nombre: extraction.empresa_nombre || '',
     sueldo_semanal_libre: extraction.sueldo_semanal_libre || '',
     categoria: extraction.categoria || '',
     tipo_turno: extraction.tipo_turno || '',
@@ -50,8 +50,8 @@ export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSu
           <label className="block text-xs font-semibold text-gray-500 mb-1">Título del puesto *</label>
           <input
             type="text"
-            name="titulo_puesto"
-            value={formData.titulo_puesto}
+            name="titulo"
+            value={formData.titulo}
             onChange={handleChange}
             required
             className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -62,8 +62,8 @@ export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSu
           <label className="block text-xs font-semibold text-gray-500 mb-1">Empresa</label>
           <input
             type="text"
-            name="empresa"
-            value={formData.empresa}
+            name="empresa_nombre"
+            value={formData.empresa_nombre}
             onChange={handleChange}
             className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
           />
@@ -148,25 +148,25 @@ export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSu
         </div>
 
         {/* Contact info read-only */}
-        {(extraction.telefono || extraction.whatsapp || extraction.email) && (
+        {(extraction.contacto?.telefono || extraction.contacto?.whatsapp || extraction.contacto?.email) && (
           <div className="bg-gray-50 p-3 rounded border border-gray-100 flex flex-col gap-2">
             <span className="text-xs font-semibold text-gray-500">Contacto detectado</span>
-            {extraction.telefono && (
+            {extraction.contacto?.telefono && (
               <div className="flex items-center gap-2 text-gray-700">
                 <Phone className="w-4 h-4 text-emerald-600" />
-                <span>{extraction.telefono}</span>
+                <span>{extraction.contacto?.telefono}</span>
               </div>
             )}
-            {extraction.whatsapp && (
+            {extraction.contacto?.whatsapp && (
               <div className="flex items-center gap-2 text-gray-700">
                 <MessageCircle className="w-4 h-4 text-emerald-600" />
-                <span>{extraction.whatsapp}</span>
+                <span>{extraction.contacto?.whatsapp}</span>
               </div>
             )}
-            {extraction.email && (
+            {extraction.contacto?.email && (
               <div className="flex items-center gap-2 text-gray-700">
                 <Mail className="w-4 h-4 text-emerald-600" />
-                <span>{extraction.email}</span>
+                <span>{extraction.contacto?.email}</span>
               </div>
             )}
           </div>
