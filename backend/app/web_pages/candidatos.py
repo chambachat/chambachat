@@ -18,8 +18,8 @@ def build():
     body = f"""
 <div class="hero"><div class="wrap">
   <span class="pill">Para candidatos · gratis</span>
-  <h1>Encuentra chamba operativa platicando, como en WhatsApp</h1>
-  <p>Montacargas, ensamble, almacén, soldadura, empaque, calidad y más. Chambot te muestra sueldo libre semanal, turno, prestaciones y transporte, y te pasa directo con el reclutador.</p>
+  <h1>Encuentra chamba operativa platicando</h1>
+  <p>Montacargas, ensamble, almacén, soldadura, empaque, calidad, ayudante general y más. Chambot te muestra sueldo libre semanal, turno, prestaciones y transporte, y te pasa directo con el reclutador.</p>
   <div class="cta"><a class="btn lime" href="/">Empezar a buscar</a><a class="btn ghost" href="/vacantes">Ver vacantes activas</a></div>
 </div></div>
 

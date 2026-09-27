@@ -2,13 +2,13 @@
 
 FAQ = [
     ("¿Qué es ChambaChat?",
-     "Es una plataforma de reclutamiento operativo por chat. Los candidatos platican con Chambot, un asistente con inteligencia artificial que les muestra vacantes de manufactura y logística cerca de su casa y los conecta por chat directo con los reclutadores. Las empresas publican vacantes, reciben postulaciones y atienden a los candidatos desde un portal y desde el mismo chat."),
+     "Es una plataforma de reclutamiento operativo por chat. Los candidatos platican con Chambot, un asistente con inteligencia artificial que les muestra vacantes operativas cerca de su casa y los conecta por chat directo con los reclutadores. Las empresas publican vacantes, reciben postulaciones y atienden a los candidatos desde un portal y desde el mismo chat."),
     ("¿Tiene costo para los candidatos?",
      "No. Buscar vacantes, postularse y chatear con los reclutadores es gratis para las personas que buscan trabajo."),
     ("¿Qué tipo de vacantes hay?",
      "Puestos operativos: montacarguistas, operadores de producción y ensamble, almacén y embarques, soldadores, empaque, inspección de calidad, mantenimiento, choferes y ayudantes generales, entre otros."),
     ("¿Cómo sé que una vacante es real?",
-     "Cada empresa se registra con su Constancia de Situación Fiscal, cuyo código QR se valida en línea contra el portal del SAT. Las vacantes muestran sueldo libre semanal, turno, prestaciones y transporte, y los reclutadores responden por chat con su nombre."),
+     "Hay dos maneras, Una es que un Chambeador sube una oferta que encotro y la otra es que cada empresa se registra con su Constancia de Situación Fiscal, cuyo código QR se valida en línea contra el portal del SAT. Las vacantes muestran sueldo libre semanal, turno, prestaciones y transporte, y los reclutadores responden por chat con su nombre."),
     ("¿Me pueden pedir edad, sexo o foto?",
      "No. Las vacantes de ChambaChat no incluyen requisitos de edad, sexo, estado civil ni foto, en línea con la Ley Federal del Trabajo. La entrevista rápida solo pregunta lo que la vacante necesita: experiencia, escolaridad, certificaciones, turno, ubicación y disponibilidad."),
 ]
@@ -24,7 +24,7 @@ def build():
 <div class="hero"><div class="wrap">
   <span class="pill">Reclutamiento operativo por chat</span>
   <h1>Chamba cerca de tu casa, sin vueltas: por chat y con el reclutador de la planta</h1>
-  <p>ChambaChat conecta a operarios con vacantes de manufactura y logística. Chambot te propone las plantas con menor tiempo de traslado, te hace una entrevista rápida y te pasa directo con el reclutador. Todo en un chat, desde el celular.</p>
+  <p>ChambaChat conecta a operarios con vacantes afines. Chambot te propone las plantas con menor tiempo de traslado, te hace una entrevista rápida y te pasa directo con el reclutador. Todo en un chat, desde el celular.</p>
   <div class="cta"><a class="btn lime" href="/">Buscar chamba ahora</a><a class="btn ghost" href="/web/empresas">Soy empresa</a></div>
 </div></div>
 
@@ -51,7 +51,7 @@ def build():
 
 <section><div class="wrap">
   <h2>Para empresas y plantas</h2>
-  <p class="lead">Un portal para publicar vacantes estructuradas, compartir un enlace de campaña y atender candidatos desde el chat, con compatibilidad calculada por la entrevista de Chambot.</p>
+  <p class="lead">Un portal para publicar vacantes estructuradas,tener tu propio  BOT gratis que puedes compartir un enlace de campaña y atender candidatos desde el chat, con compatibilidad calculada por la entrevista de Chambot.</p>
   <div class="grid c4">
     <div class="card"><div class="ic">🏭</div><h3>Vacantes estructuradas</h3><p>Categoría, turno, sueldo, prestaciones y requisitos en catálogos: la IA empareja mejor.</p></div>
     <div class="card"><div class="ic">⚡</div><h3>Smart Link</h3><p>Un enlace con código verificador para tus campañas en redes y volantes: todo el tráfico entra al chat de tu planta.</p></div>
@@ -66,6 +66,7 @@ def build():
   <div class="grid c3">
     <div class="card"><h3>Empresas verificadas ante el SAT</h3><p>El registro pide la Constancia de Situación Fiscal y valida su QR en línea contra el portal del SAT.</p></div>
     <div class="card"><h3>Sin discriminación</h3><p>Las vacantes no piden edad, sexo, estado civil ni foto, conforme a la Ley Federal del Trabajo.</p></div>
+    <div class="card"><h3>Si un usuario sube una vacante por medio de una fotografia te lo haremos saber</p></div>
     <div class="card"><h3>Control de la conversación</h3><p>Candidatos y empresas pueden bloquearse mutuamente si hay acoso o insistencia, y la comunicación se corta de inmediato.</p></div>
   </div>
 </div></section>
