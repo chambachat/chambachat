@@ -66,7 +66,7 @@ def build():
   <div class="grid c3">
     <div class="card"><h3>Empresas verificadas ante el SAT</h3><p>El registro pide la Constancia de Situación Fiscal y valida su QR en línea contra el portal del SAT.</p></div>
     <div class="card"><h3>Sin discriminación</h3><p>Las vacantes no piden edad, sexo, estado civil ni foto, conforme a la Ley Federal del Trabajo.</p></div>
-    <div class="card"><h3>Si un usuario sube una vacante por medio de una fotografia te lo haremos saber</p></div>
+    <div class="card"><h3>Vacantes comunitarias</h3><p>Si un usuario sube una vacante por medio de una fotografía, te lo haremos saber para que la reclames como tuya.</p></div>
     <div class="card"><h3>Control de la conversación</h3><p>Candidatos y empresas pueden bloquearse mutuamente si hay acoso o insistencia, y la comunicación se corta de inmediato.</p></div>
   </div>
 </div></section>
