@@ -129,6 +129,8 @@ app.include_router(favorites.router)
 app.include_router(blocks.router)
 app.include_router(profile.router)
 app.include_router(job_photos.router)
+from app.routers import debug_logs
+app.include_router(debug_logs.router)
 # Páginas HTML indexables servidas desde el servidor (SEO): /vacantes, sitemap, robots y sitio informativo /web.
 # Se registran antes del mount del frontend para que no caigan en el index.html de la SPA.
 app.include_router(seo.router)
