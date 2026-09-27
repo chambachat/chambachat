@@ -9,6 +9,7 @@ import PhotoJobPreview from './PhotoJobPreview';
 import AuthModal from '../Auth/AuthModal';
 import JobDetailModal from '../Jobs/JobDetailModal';
 import LocationPickerModal from './LocationPickerModal';
+import JobFeedView from '../Feed/JobFeedView';
 
 import { useChatSession } from '../../hooks/useChatSession';
 import { usePhotoJob } from '../../hooks/usePhotoJob';
@@ -40,6 +41,7 @@ export default function GeminiChatLayout({
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [candidateLocation, setCandidateLocation] = useState(readStoredLocation);
   const [inputMessage, setInputMessage] = useState('');
+  const [feedMode, setFeedMode] = useState(false);
 
   const {
     sessions,
@@ -227,8 +229,18 @@ export default function GeminiChatLayout({
           onLogin={() => setIsAuthModalOpen(true)}
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
+          feedMode={feedMode}
+          onToggleFeed={() => setFeedMode(f => !f)}
         />
 
+        {feedMode ? (
+          <JobFeedView
+            currentUser={currentUser}
+            onStartDirectChat={startDirectChat}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+          />
+        ) : (
+        <>
         <ChatScrollArea sessionKey={activeSession?.id} messages={activeSession?.messages || []} isTyping={!isDirect && isTyping}>
           {!hasMessages ? (
             <ChatWelcome onPrompt={handleSendMessage} />
@@ -293,6 +305,8 @@ export default function GeminiChatLayout({
           footer={isDirect ? 'Tus mensajes llegan a los reclutadores de la planta; si tardan, Chambot te apoya con los datos de la vacante.' : undefined}
           onPhotoSelected={!isDirect ? handlePhotoSelected : undefined}
         />
+        </>
+        )}
       </main>
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onAuthenticated={handleUserAuthenticated} />

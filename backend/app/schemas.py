@@ -1103,3 +1103,35 @@ class JobCommentResponse(BaseModel):
     texto: str
     created_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+# ─── Feed Explorar ──────────────────────────────────────────────────
+
+class JobFeedItem(BaseModel):
+    """Vacante enriquecida para el feed Explorar."""
+    id: int
+    titulo: str
+    empresa_nombre: str = "Empresa no identificada"
+    descripcion: Optional[str] = None
+    sueldo_semanal_libre: Optional[float] = None
+    categoria: Optional[str] = None
+    tipo_turno: Optional[str] = None
+    dias_laborales: Optional[str] = None
+    municipio: Optional[str] = None
+    transporte_incluido: bool = False
+    escolaridad_minima: Optional[str] = None
+    experiencia_minima: Optional[str] = None
+    prestaciones: List[str] = []
+    origen: str = "empresa"
+    created_at: Optional[datetime] = None
+    # Enriquecidos para el feed
+    likes_count: int = 0
+    comments_count: int = 0
+    user_liked: bool = False
+    reportada_por: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class LikeToggleResponse(BaseModel):
+    """Respuesta del toggle de like."""
+    liked: bool
+    likes_count: int

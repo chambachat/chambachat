@@ -601,3 +601,25 @@ export async function addJobComment(jobId, texto) {
   }
   return res.json();
 }
+
+
+// ─── Feed Explorar ──────────────────────────────────────────────────
+
+export async function getFeedJobs(offset = 0, limit = 10) {
+  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  const res = await fetch(`${API_BASE}/feed?${params}`, { headers: authHeaders() });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function toggleJobLike(jobId) {
+  const res = await fetch(`${API_BASE}/feed/${jobId}/like`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'No se pudo dar like');
+  }
+  return res.json();
+}

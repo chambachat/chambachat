@@ -1,12 +1,14 @@
 import React from 'react';
-import { Menu, User } from 'lucide-react';
+import { Menu, User, MessageCircle, Compass } from 'lucide-react';
 
 export default function TopNavbar({ 
   currentUser, 
   onOpenPerfil, 
   onLogin, 
   sidebarOpen, 
-  setSidebarOpen 
+  setSidebarOpen,
+  feedMode = false,
+  onToggleFeed
 }) {
   return (
     <header className="h-14 border-b border-slate-100 px-3 sm:px-4 flex items-center justify-between bg-white/95 backdrop-blur z-10 w-full min-w-0 shrink-0">
@@ -25,11 +27,39 @@ export default function TopNavbar({
             alt="ChambaChat"
             className="h-8 sm:h-9 w-8 sm:w-9 object-contain shrink-0"
           />
-          <span className="font-brand text-lg brand-navy truncate">
+          <span className="font-brand text-lg brand-navy truncate hidden sm:inline">
             Chamba<span className="brand-green">Chat</span>
           </span>
         </div>
       </div>
+
+      {/* Toggle Chat / Explorar — estilo ChatGPT */}
+      {onToggleFeed && (
+        <div className="flex items-center bg-slate-100 rounded-full p-0.5 shrink-0">
+          <button
+            onClick={() => feedMode && onToggleFeed()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+              !feedMode 
+                ? 'bg-white text-slate-800 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span>Chat</span>
+          </button>
+          <button
+            onClick={() => !feedMode && onToggleFeed()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+              feedMode 
+                ? 'bg-white text-slate-800 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>Explorar</span>
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 shrink-0">
         {!currentUser ? (

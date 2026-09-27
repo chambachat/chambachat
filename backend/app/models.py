@@ -439,3 +439,14 @@ class JobComment(Base):
     user_name = Column(String(255), nullable=True)
     texto = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class JobLike(Base):
+    """Like de un usuario a una vacante (feed Explorar)."""
+    __tablename__ = "job_likes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("job_id", "user_id", name="uq_job_like"),)
