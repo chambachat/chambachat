@@ -71,25 +71,15 @@ def _build_extraction_prompt() -> str:
         "Eres un experto en ofertas laborales operativas de manufactura y logística en México.\n"
         "Analiza esta foto de un anuncio de empleo (puede ser una lona, poster, volante, "
         "pantalla, pizarrón o publicación impresa).\n\n"
-        "INSTRUCCIONES:
-"
-        "1. Transcribe TODO el texto visible en la imagen, incluyendo números de teléfono, emails y direcciones.
-"
-        "2. Extrae los datos de la oferta laboral. Infiere el nombre del puesto basado en el contexto (ej. si dice 'Buscamos meseros, cocineras, etc.', puedes poner 'Personal para Restaurante' o 'Ayudante General').
-"
-        "3. Para el nombre de la empresa, busca cualquier marca, nombre de negocio, restaurante o tienda (ej. 'La Enramada', 'Abarrotes Don Julio'). Si no dice, déjalo null.
-"
-        "4. Para los campos de catálogo, elige la opción MÁS CERCANA de la lista proporcionada.
-"
-        "5. Si el sueldo aparece como mensual, divídelo entre 4.33 para obtener el semanal.
-"
-        "6. Si el sueldo aparece como quincenal, divídelo entre 2.17 para obtener el semanal.
-"
-        "7. Si no puedes identificar un dato, déjalo como null.
-"
-        "8. Si la imagen NO contiene una oferta laboral, pon es_oferta_laboral=false.
-
-"
+        "INSTRUCCIONES:\n"
+        "1. Transcribe TODO el texto visible en la imagen, incluyendo números de teléfono, emails y direcciones.\n"
+        "2. Extrae los datos de la oferta laboral. Infiere el nombre del puesto basado en el contexto (ej. si dice 'Buscamos meseros, cocineras, etc.', puedes poner 'Personal para Restaurante' o 'Ayudante General').\n"
+        "3. Para el nombre de la empresa, busca cualquier marca, nombre de negocio, restaurante o tienda (ej. 'La Enramada', 'Abarrotes Don Julio'). Si no dice, déjalo null.\n"
+        "4. Para los campos de catálogo, elige la opción MÁS CERCANA de la lista proporcionada.\n"
+        "5. Si el sueldo aparece como mensual, divídelo entre 4.33 para obtener el semanal.\n"
+        "6. Si el sueldo aparece como quincenal, divídelo entre 2.17 para obtener el semanal.\n"
+        "7. Si no puedes identificar un dato, déjalo como null.\n"
+        "8. Si la imagen NO contiene una oferta laboral, pon es_oferta_laboral=false.\n\n"
         "CATÁLOGO DE CAMPOS:\n\n"
         f"Categorías (elige una): {cats}\n\n"
         f"Tipos de turno: {turnos}\n\n"
