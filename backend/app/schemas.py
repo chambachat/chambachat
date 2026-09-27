@@ -1055,6 +1055,7 @@ class JobPhotoExtraction(BaseModel):
     longitud: Optional[float] = None
     contacto: ExtractedContact = ExtractedContact()
     texto_crudo: Optional[str] = None
+    photo_log_id: Optional[int] = None
     confianza: float = Field(0.0, ge=0.0, le=1.0)
     campos_detectados: int = 0
     campos_totales: int = 15
@@ -1084,3 +1085,4 @@ class JobFromPhotoConfirm(BaseModel):
     fuente_contacto_email: Optional[str] = None
     fuente_contacto_whatsapp: Optional[str] = None
     texto_ocr: Optional[str] = None
+    photo_log_id: Optional[int] = None

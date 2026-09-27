@@ -404,3 +404,23 @@ class AuraEvent(Base):
     description = Column(String(255), nullable=True)
     reference_id = Column(Integer, nullable=True)  # job_id, application_id, etc.
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class JobPhotoLog(Base):
+    """
+    Guarda una versión comprimida de las fotos subidas por los usuarios,
+    incluso si falló el análisis (para debuggeo o uso futuro).
+    """
+    __tablename__ = "job_photo_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True, index=True)
+    
+    # Base64 o BINARY. Usamos LargeBinary
+    file_data = Column(LargeBinary, nullable=False)
+    
+    # Metadatos
+    success = Column(Boolean, default=False)
+    error_message = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)

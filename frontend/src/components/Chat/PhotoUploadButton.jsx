@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
 
 export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -98,17 +98,19 @@ export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
         <div className="absolute bottom-12 left-0 mb-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
           <button 
             type="button"
-            className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-semibold text-slate-700 flex items-center gap-2 border-b border-slate-100"
+            className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-semibold text-slate-700 flex items-center gap-3 border-b border-slate-100 transition-colors"
             onClick={() => { setShowMenu(false); cameraInputRef.current?.click(); }}
           >
-            📸 Tomar Foto
+            <Camera className="w-4 h-4 text-emerald-600" />
+            Tomar Foto
           </button>
           <button 
             type="button"
-            className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-semibold text-slate-700 flex items-center gap-2"
+            className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-semibold text-slate-700 flex items-center gap-3 transition-colors"
             onClick={() => { setShowMenu(false); galleryInputRef.current?.click(); }}
           >
-            🖼️ Elegir del Carrete
+            <ImageIcon className="w-4 h-4 text-emerald-600" />
+            Elegir de Galería
           </button>
         </div>
       )}
@@ -124,7 +126,7 @@ export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
         type="button"
         disabled={disabled || isProcessing}
         onClick={() => setShowMenu(!showMenu)}
-        className="p-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center shrink-0 relative z-50"
+        className="p-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center shrink-0 relative z-50"
         title="Subir foto de vacante"
       >
         {isProcessing ? (
