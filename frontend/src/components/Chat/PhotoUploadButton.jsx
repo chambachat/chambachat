@@ -109,6 +109,9 @@ export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
       
       {showMenu && (
         <div className="absolute bottom-12 left-0 mb-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+          <div className="px-4 py-2 bg-emerald-50 border-b border-slate-100">
+            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">📸 Cazar chamba</span>
+          </div>
           <button 
             type="button"
             className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-semibold text-slate-700 flex items-center gap-3 border-b border-slate-100 transition-colors"
