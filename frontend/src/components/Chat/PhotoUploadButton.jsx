@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
+import exifr from 'exifr';
 
 export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -12,17 +13,29 @@ export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
 
     try {
       // 1. Get location
+      // 1. Get location from EXIF, fallback to Geolocation API
       let gpsCoords = {};
       try {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
-        });
-        gpsCoords = {
-          latitud: position.coords.latitude,
-          longitud: position.coords.longitude,
-        };
+        const exifGps = await exifr.gps(file);
+        if (exifGps && exifGps.latitude && exifGps.longitude) {
+          gpsCoords = {
+            latitud: exifGps.latitude,
+            longitud: exifGps.longitude,
+          };
+          console.log("Coordenadas obtenidas del EXIF de la foto:", gpsCoords);
+        } else {
+          // Fallback a ubicación del navegador si la foto no trae metadatos
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+          });
+          gpsCoords = {
+            latitud: position.coords.latitude,
+            longitud: position.coords.longitude,
+          };
+          console.log("Coordenadas obtenidas del navegador:", gpsCoords);
+        }
       } catch (err) {
-        console.warn("Ubicación no disponible:", err);
+        console.warn("No se pudo obtener la ubicación (ni de EXIF ni del navegador):", err);
       }
 
       // 2. Compress and resize image
