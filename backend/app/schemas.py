@@ -234,7 +234,7 @@ class JobBase(JobStructuredFields):
     company_id: Optional[int] = None
     titulo: str
     descripcion: Optional[str] = None
-    sueldo_semanal_libre: float
+    sueldo_semanal_libre: Optional[float] = None
     turnos_fijos: bool = False
     apoyo_inea: bool = False
     transporte_incluido: bool = True
@@ -1067,7 +1067,7 @@ class JobFromPhotoConfirm(BaseModel):
     titulo: str
     empresa_nombre: str = "Empresa no identificada"
     descripcion: Optional[str] = None
-    sueldo_semanal_libre: float = Field(..., gt=0)
+    sueldo_semanal_libre: Optional[float] = Field(None, ge=0)
     categoria: Optional[str] = None
     tipo_turno: Optional[str] = None
     dias_laborales: Optional[str] = None
@@ -1086,3 +1086,20 @@ class JobFromPhotoConfirm(BaseModel):
     fuente_contacto_whatsapp: Optional[str] = None
     texto_ocr: Optional[str] = None
     photo_log_id: Optional[int] = None
+
+
+# ─── Comentarios comunitarios en vacantes ────────────────────────────
+
+class JobCommentCreate(BaseModel):
+    """Request para agregar un comentario a una vacante."""
+    texto: str = Field(..., min_length=3, max_length=500)
+
+class JobCommentResponse(BaseModel):
+    """Respuesta de un comentario de vacante."""
+    id: int
+    job_id: int
+    user_email: str
+    user_name: Optional[str] = None
+    texto: str
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)

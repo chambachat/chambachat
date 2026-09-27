@@ -70,7 +70,7 @@ export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSu
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Sueldo semanal libre *</label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Sueldo semanal libre</label>
           <div className="relative">
             <span className="absolute left-3 top-2 text-gray-500">$</span>
             <input
@@ -78,7 +78,7 @@ export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSu
               name="sueldo_semanal_libre"
               value={formData.sueldo_semanal_libre}
               onChange={handleChange}
-              required
+              placeholder="Si no viene en la foto, déjalo vacío"
               className="w-full border border-gray-300 rounded pl-7 pr-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             />
           </div>

@@ -45,7 +45,7 @@ class Job(Base):
     empresa_nombre = Column(String(255), default="Manufactura Monterrey")
     titulo = Column(String(255), nullable=False)
     descripcion = Column(Text, nullable=True)
-    sueldo_semanal_libre = Column(Float, nullable=False)
+    sueldo_semanal_libre = Column(Float, nullable=True)
     turnos_fijos = Column(Boolean, default=False)
     apoyo_inea = Column(Boolean, default=False, index=True)
     transporte_incluido = Column(Boolean, default=True)
@@ -423,4 +423,19 @@ class JobPhotoLog(Base):
     success = Column(Boolean, default=False)
     error_message = Column(Text, nullable=True)
     
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class JobComment(Base):
+    """
+    Comentarios comunitarios en vacantes. Los usuarios pueden aportar
+    información faltante (sueldo, horarios, experiencias) sobre una vacante.
+    """
+    __tablename__ = "job_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    user_email = Column(String(255), nullable=False)
+    user_name = Column(String(255), nullable=True)
+    texto = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

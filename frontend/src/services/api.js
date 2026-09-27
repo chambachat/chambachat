@@ -581,3 +581,23 @@ export async function confirmPhotoJob(jobData) {
 }
 
 
+// ─── Comentarios comunitarios en vacantes ────────────────────────────
+
+export async function getJobComments(jobId) {
+  const res = await fetch(`${API_BASE}/jobs/${jobId}/comments`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function addJobComment(jobId, texto) {
+  const res = await fetch(`${API_BASE}/jobs/${jobId}/comments`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'No se pudo agregar el comentario');
+  }
+  return res.json();
+}
