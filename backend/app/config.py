@@ -55,7 +55,7 @@ class Settings(BaseModel):
 
     # Gemini Vision (análisis de fotos de ofertas laborales callejeras)
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     GEMINI_API_URL: str = os.getenv(
         "GEMINI_API_URL",
         "https://generativelanguage.googleapis.com/v1beta",
