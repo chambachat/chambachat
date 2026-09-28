@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import FeedCard from './FeedCard';
 import JobComments from '../Jobs/JobComments';
-import { getFeedJobs, toggleJobLike, reportJob } from '../../services/api';
+import { getFeedJobs, toggleJobLike, reportJob, trackJobView } from '../../services/api';
 
 const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
   const [jobs, setJobs] = useState([]);
@@ -73,6 +73,12 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, [activeIndex]);
+
+  // Track vistas de vacantes
+  useEffect(() => {
+    const job = jobs[activeIndex];
+    if (job?.id) trackJobView(job.id);
+  }, [activeIndex, jobs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLike = async (jobId) => {
     // Optimistic update

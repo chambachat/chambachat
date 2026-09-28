@@ -740,3 +740,39 @@ export async function uploadJobPhoto(jobId, file) {
   }
   return res.json();
 }
+
+// ─── Analytics Tracking & Admin ─────────────────────────────────────
+
+export function trackActiveUser() {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+  fetch(`${API_BASE}/admin/analytics/track-active`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  }).catch(() => {});
+}
+
+export function trackJobView(jobId) {
+  const token = localStorage.getItem('token');
+  if (!token || !jobId) return;
+  fetch(`${API_BASE}/admin/analytics/track-view?job_id=${jobId}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  }).catch(() => {});
+}
+
+export async function getAnalyticsOverview() {
+  return _json(await fetch(`${API_BASE}/admin/analytics/overview`, { headers: authHeaders() }), 'Error al cargar overview');
+}
+
+export async function getAnalyticsDAU(days = 30) {
+  return _json(await fetch(`${API_BASE}/admin/analytics/dau?days=${days}`, { headers: authHeaders() }), 'Error al cargar DAU');
+}
+
+export async function getAnalyticsJobs(days = 30) {
+  return _json(await fetch(`${API_BASE}/admin/analytics/jobs?days=${days}`, { headers: authHeaders() }), 'Error al cargar jobs');
+}
+
+export async function getAnalyticsViews(days = 30) {
+  return _json(await fetch(`${API_BASE}/admin/analytics/views?days=${days}`, { headers: authHeaders() }), 'Error al cargar views');
+}

@@ -1,9 +1,17 @@
-import React from 'react';
-import { ArrowLeft, Settings2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Settings2, BarChart3 } from 'lucide-react';
 import FlowOrchestrator from './FlowOrchestrator';
+import SiteAnalytics from './SiteAnalytics';
 
-/** Vista del panel de administración de prompts del chatbot. */
+const TABS = [
+  { key: 'analytics', label: 'Estadísticas', icon: BarChart3 },
+  { key: 'prompts', label: 'Prompts', icon: Settings2 },
+];
+
+/** Vista del panel de administración: estadísticas y prompts del chatbot. */
 export default function AdminView({ onBack }) {
+  const [activeTab, setActiveTab] = useState('analytics');
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
       <div className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 shadow-sm">
@@ -15,15 +23,28 @@ export default function AdminView({ onBack }) {
             <ArrowLeft className="w-4 h-4 text-emerald-600" />
             <span>Volver al Chat</span>
           </button>
-          <div className="flex items-center gap-2">
-            <Settings2 className="w-4 h-4 text-emerald-600" />
-            <span className="text-sm font-black text-slate-900">Panel de Administración de Prompts</span>
+          <div className="flex items-center gap-1">
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                  activeTab === t.key
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <t.icon className="w-3.5 h-3.5" />
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 pb-16">
-        <FlowOrchestrator onTestChat={onBack} />
+      <div className="flex-1 pb-16 p-4">
+        {activeTab === 'analytics' && <SiteAnalytics />}
+        {activeTab === 'prompts' && <FlowOrchestrator onTestChat={onBack} />}
       </div>
     </div>
   );

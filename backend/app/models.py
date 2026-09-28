@@ -504,3 +504,30 @@ class JobReport(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint("job_id", "user_id", name="uq_job_report"),)
+
+
+# ─── Analytics / Tracking ─────────────────────────────────────────────
+
+class DailyActiveUser(Base):
+    """Un registro por usuario por día. Permite contar DAU por rol."""
+    __tablename__ = "daily_active_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # "candidate" | "recruiter"
+
+    __table_args__ = (UniqueConstraint("user_id", "date", name="uq_dau"),)
+
+
+class JobView(Base):
+    """Registra cada vista única de una vacante por un usuario en un día."""
+    __tablename__ = "job_views"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    date = Column(Date, nullable=False, index=True)
+
+    __table_args__ = (UniqueConstraint("job_id", "user_id", "date", name="uq_job_view"),)
+

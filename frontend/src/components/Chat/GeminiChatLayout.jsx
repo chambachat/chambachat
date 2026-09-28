@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getStoredUser, setStoredUser, signOut, syncUserWithBackend, getCurrentUser } from '../../services/authService';
-import { updateMyLocation, AUTH_EXPIRED_EVENT } from '../../services/api';
+import { updateMyLocation, AUTH_EXPIRED_EVENT, trackActiveUser } from '../../services/api';
 import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
 import { directInputPlaceholder } from '../../services/directChat';
 import { loadAllSessions, updateSession } from '../../services/chatStorage';
@@ -117,6 +117,7 @@ export default function GeminiChatLayout({
   // Al montar, refrescar datos del usuario desde el backend (aura, avatar, etc.)
   useEffect(() => {
     if (!currentUser) return;
+    trackActiveUser(); // Registrar DAU
     getCurrentUser().then(fresh => {
       if (fresh) {
         setCurrentUser(fresh);
