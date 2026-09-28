@@ -1129,6 +1129,7 @@ class JobFeedItem(BaseModel):
     comments_count: int = 0
     user_liked: bool = False
     reportada_por: Optional[str] = None
+    has_photo: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 class LikeToggleResponse(BaseModel):

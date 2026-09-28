@@ -9,11 +9,12 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Job, JobComment, JobLike, User
+from app.models import Job, JobComment, JobLike, JobPhotoLog, User
 from app.dependencies import get_current_user_optional, get_current_user
 from app.schemas import JobFeedItem, LikeToggleResponse
 
@@ -78,6 +79,15 @@ def get_feed(
         reporters = db.query(User.email, User.nombre).filter(User.email.in_(emails)).all()
         reporter_map = {r.email: r.nombre for r in reporters}
 
+    # Jobs con foto disponible
+    photo_job_ids = set(
+        row[0] for row in
+        db.query(JobPhotoLog.job_id)
+        .filter(JobPhotoLog.job_id.in_(job_ids), JobPhotoLog.success.is_(True))
+        .distinct()
+        .all()
+    )
+
     result = []
     for job in jobs:
         item = JobFeedItem(
@@ -100,6 +110,7 @@ def get_feed(
             comments_count=comments_counts.get(job.id, 0),
             user_liked=job.id in user_liked_ids,
             reportada_por=reporter_map.get(job.reportada_por_email) if job.reportada_por_email else None,
+            has_photo=job.id in photo_job_ids,
         )
         result.append(item)
 
@@ -136,3 +147,17 @@ def toggle_like(
     logger.info("Like toggle: job=%d user=%s liked=%s total=%d", job_id, current_user.email, liked, total)
 
     return LikeToggleResponse(liked=liked, likes_count=total)
+
+
+@router.get("/{job_id}/photo")
+def get_job_photo(job_id: int, db: Session = Depends(get_db)):
+    """Sirve la foto comprimida de una vacante comunitaria (si existe)."""
+    photo = (
+        db.query(JobPhotoLog)
+        .filter(JobPhotoLog.job_id == job_id, JobPhotoLog.success.is_(True))
+        .order_by(JobPhotoLog.id.desc())
+        .first()
+    )
+    if not photo or not photo.file_data:
+        raise HTTPException(status_code=404, detail="Sin foto")
+    return Response(content=photo.file_data, media_type="image/jpeg")

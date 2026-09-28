@@ -34,18 +34,32 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, currentUser, isActive 
   const isCommunity = job.origen === 'foto_comunitaria';
   const liked = job.user_liked;
 
+  const photoUrl = job.has_photo ? `/api/v1/feed/${job.id}/photo` : null;
+
   return (
     <div className="relative w-full h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden flex flex-col justify-end pb-20 px-4">
+      {/* Foto de fondo (si existe) */}
+      {photoUrl && (
+        <>
+          <img
+            src={photoUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover opacity-30"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80" />
+        </>
+      )}
       {/* Top Left Indicator */}
-      <div className="absolute top-6 left-4">
+      <div className="absolute top-6 left-4 z-10">
         <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${isCommunity ? 'bg-lime-900/50 text-lime-400' : 'bg-emerald-900/50 text-emerald-400'}`}>
           {isCommunity ? <Camera size={14} /> : <Building2 size={14} />}
-          {isCommunity ? '📸 Comunitaria' : '🏭 Empresa'}
+          {isCommunity ? 'Comunitaria' : 'Empresa'}
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-col gap-3 max-w-[80%] z-10 relative">
+      <div className="flex flex-col gap-3 max-w-[80%] z-10 relative drop-shadow-lg">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">{job.empresa_nombre || 'Empresa Anónima'}</h3>
           <h1 className="text-2xl sm:text-3xl font-bold leading-tight">{job.titulo}</h1>

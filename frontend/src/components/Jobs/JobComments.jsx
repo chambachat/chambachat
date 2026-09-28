@@ -6,7 +6,7 @@ import { getJobComments, addJobComment } from '../../services/api';
  * Sección de comentarios comunitarios para una vacante.
  * Cualquiera puede leer; solo usuarios logueados pueden comentar.
  */
-export default function JobComments({ jobId, currentUser }) {
+export default function JobComments({ jobId, currentUser, onCommentAdded }) {
   const [comments, setComments] = useState([]);
   const [texto, setTexto] = useState('');
   const [sending, setSending] = useState(false);
@@ -26,6 +26,7 @@ export default function JobComments({ jobId, currentUser }) {
       const newComment = await addJobComment(jobId, texto.trim());
       setComments(prev => [...prev, newComment]);
       setTexto('');
+      if (onCommentAdded) onCommentAdded();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -92,7 +93,6 @@ export default function JobComments({ jobId, currentUser }) {
             type="text"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Ej: Ahí pagan $2,800 semanal..."
             maxLength={500}
             className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
           />

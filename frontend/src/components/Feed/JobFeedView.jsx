@@ -169,6 +169,13 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
               <JobComments 
                 jobId={activeJobComments.id} 
                 currentUser={currentUser}
+                onCommentAdded={() => {
+                  setJobs(prev => prev.map(j =>
+                    j.id === activeJobComments.id
+                      ? { ...j, comments_count: (j.comments_count || 0) + 1 }
+                      : j
+                  ));
+                }}
               />
             </div>
           </div>
