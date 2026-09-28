@@ -450,3 +450,24 @@ class JobLike(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint("job_id", "user_id", name="uq_job_like"),)
+
+
+class VacancyClaim(Base):
+    """Solicitud de una empresa para reclamar una vacante comunitaria."""
+    __tablename__ = "vacancy_claims"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    claimed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Verificación
+    verification_method = Column(String(20), nullable=False)  # "email" | "whatsapp" | "sms"
+    verification_target = Column(String(255), nullable=False)  # El email o teléfono verificado
+    verification_code_hash = Column(String(255), nullable=True)
+    verification_attempts = Column(Integer, default=0)
+    verification_status = Column(String(20), default="pending")  # "pending" | "verified" | "expired" | "rejected"
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    verified_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)

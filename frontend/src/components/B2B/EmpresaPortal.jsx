@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, MessageSquare, Users2, Bus, Briefcase, Calculator, Star, BarChart3 } from 'lucide-react';
+import { Menu, MessageSquare, Users2, Bus, Briefcase, Calculator, Star, BarChart3, ShieldCheck } from 'lucide-react';
 import { setFocusApplication, setChatMode } from '../../services/recruiterChat';
 import EmpresaSidebar from './EmpresaSidebar';
 import CandidateApplications from './CandidateApplications';
@@ -9,12 +9,14 @@ import JobsManager from './JobsManager';
 import RetentionPredictor from './RetentionPredictor';
 import FavoriteCandidates from './FavoriteCandidates';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import ClaimVacancies from './ClaimVacancies';
 
 export const B2B_TABS = [
   { id: 'team', label: 'Equipo y Empresa', icon: Users2, badge: 'Team', desc: 'Plantas, reclutadores y Smart Link' },
   { id: 'candidates', label: 'Candidatos preferidos', icon: Star, badge: 'Fav', desc: 'Talento guardado para retomar' },
   { id: 'routes', label: 'Rutas de Transporte', icon: Bus, badge: 'GPS', desc: 'Trazado y horarios' },
   { id: 'jobs', label: 'Bolsa de Vacantes', icon: Briefcase, desc: 'Puestos vigentes' },
+  { id: 'claims', label: 'Reclamar Vacantes', icon: ShieldCheck, desc: 'Vacantes comunitarias de tu empresa' },
   // Ocultos del menú por ahora (los componentes siguen disponibles para reactivarlos)
   { id: 'predictor', label: 'Predictor de Retención', icon: Calculator, desc: 'Predicción IA', hidden: true },
   { id: 'applications', label: 'Postulaciones & Chat', icon: MessageSquare, desc: 'Sustituido por el chat de empresa', hidden: true },
@@ -37,6 +39,8 @@ function PortalContent({ tab, currentUser, activeCompany, onCompanyChanged, onSe
       return <RetentionPredictor />;
     case 'candidates':
       return <FavoriteCandidates activeCompany={activeCompany} onOpenChat={onOpenChat} />;
+    case 'claims':
+      return <ClaimVacancies />;
     case 'analytics':
       return <AnalyticsDashboard />;
     default:

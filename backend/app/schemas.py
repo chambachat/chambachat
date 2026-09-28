@@ -1139,3 +1139,34 @@ class LikeToggleResponse(BaseModel):
     """Respuesta del toggle de like."""
     liked: bool
     likes_count: int
+
+
+# ─── Reclamar Vacante Comunitaria ────────────────────────────────────
+
+class ClaimableVacancy(BaseModel):
+    """Vacante comunitaria que la empresa puede reclamar."""
+    job_id: int
+    titulo: str
+    empresa_nombre: Optional[str] = None
+    municipio: Optional[str] = None
+    match_field: str  # "telefono" | "email" | "whatsapp"
+    match_value_masked: str  # "81****5903" o "r***@gmail.com"
+    created_at: Optional[datetime] = None
+    has_photo: bool = False
+
+class ClaimStartRequest(BaseModel):
+    verification_method: str = "email"  # "email" (Phase 1)
+
+class ClaimStartResponse(BaseModel):
+    claim_id: int
+    verification_method: str
+    target_masked: str
+    message: str
+
+class ClaimVerifyRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=6)
+
+class ClaimVerifyResponse(BaseModel):
+    success: bool
+    job_id: int
+    message: str

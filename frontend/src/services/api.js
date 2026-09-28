@@ -648,3 +648,43 @@ export async function toggleJobLike(jobId) {
   }
   return res.json();
 }
+
+// ─── Reclamar Vacantes Comunitarias ─────────────────────────────────
+
+export async function discoverClaimableVacancies() {
+  const res = await fetch(`${API_BASE}/claims/discover`, { headers: authHeaders() });
+  if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado.'); }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(parseErrorDetail(err, 'Error buscando vacantes reclamables'));
+  }
+  return res.json();
+}
+
+export async function startVacancyClaim(jobId, method = 'email') {
+  const res = await fetch(`${API_BASE}/claims/${jobId}/start`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ verification_method: method }),
+  });
+  if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado.'); }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(parseErrorDetail(err, 'Error al iniciar la verificación'));
+  }
+  return res.json();
+}
+
+export async function verifyVacancyClaim(jobId, code) {
+  const res = await fetch(`${API_BASE}/claims/${jobId}/verify`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado.'); }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(parseErrorDetail(err, 'Error al verificar'));
+  }
+  return res.json();
+}
