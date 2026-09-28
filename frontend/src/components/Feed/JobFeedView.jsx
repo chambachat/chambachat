@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import FeedCard from './FeedCard';
 import JobComments from '../Jobs/JobComments';
-import { getFeedJobs, toggleJobLike } from '../../services/api';
+import { getFeedJobs, toggleJobLike, reportJob } from '../../services/api';
 
 const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
   const [jobs, setJobs] = useState([]);
@@ -105,6 +105,20 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
     }
   };
 
+  const handleReport = async (jobId) => {
+    if (!currentUser) { onOpenAuth(); return; }
+    if (!window.confirm('¿Deseas reportar esta vacante como falsa, ofensiva o spam?')) return;
+    try {
+      const res = await reportJob(jobId);
+      alert(res.message);
+      if (res.paused) {
+        setJobs(prev => prev.filter(j => j.id !== jobId));
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const closeComments = () => setActiveJobComments(null);
 
   if (!loading && jobs.length === 0) {
@@ -142,6 +156,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
               onLike={handleLike}
               onOpenComments={setActiveJobComments}
               onApply={handleApply}
+              onReport={handleReport}
             />
           </div>
         ))}

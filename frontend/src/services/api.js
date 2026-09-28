@@ -688,3 +688,19 @@ export async function verifyVacancyClaim(jobId, code) {
   }
   return res.json();
 }
+
+// ─── Reportar Vacante ───────────────────────────────────────────────
+
+export async function reportJob(jobId, motivo = 'falsa', detalle = '') {
+  const params = new URLSearchParams({ motivo, detalle });
+  const res = await fetch(`${API_BASE}/feed/${jobId}/report?${params}`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado.'); }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(parseErrorDetail(err, 'Error al reportar'));
+  }
+  return res.json();
+}

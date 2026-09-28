@@ -1060,6 +1060,7 @@ class JobPhotoExtraction(BaseModel):
     campos_detectados: int = 0
     campos_totales: int = 15
     es_oferta_laboral: bool = True
+    motivo_rechazo: Optional[str] = None  # "contenido_inapropiado" | "screenshot_digital" | "montaje_digital" | "no_es_oferta"
 
 
 class JobFromPhotoConfirm(BaseModel):

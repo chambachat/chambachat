@@ -9,6 +9,7 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -73,6 +74,20 @@ async def analyze_photo(
     import base64
     from app.services.job_vision_service import _preprocess_image
     from app.models import JobPhotoLog
+
+    # Rate limiting: máximo 3 fotos por día por usuario
+    from datetime import datetime, timedelta
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    uploads_today = (
+        db.query(func.count(JobPhotoLog.id))
+        .filter(JobPhotoLog.user_id == current_user.id, JobPhotoLog.created_at >= today_start)
+        .scalar()
+    )
+    if uploads_today >= 3:
+        raise HTTPException(
+            status_code=429,
+            detail="Has alcanzado el límite de 3 fotos por día. Intenta mañana.",
+        )
     
     # 1. Comprimir la imagen antes de intentar guardarla o mandarla a Gemini
     processed_b64, mime_type = "", ""
@@ -112,11 +127,18 @@ async def analyze_photo(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     if not extraction.es_oferta_laboral:
-        photo_log.error_message = "No parece contener una oferta de empleo"
+        motivo = extraction.motivo_rechazo or "no_es_oferta"
+        messages = {
+            "contenido_inapropiado": "La imagen contiene contenido inapropiado y no puede ser publicada.",
+            "screenshot_digital": "La imagen parece ser un screenshot de otra app. Por favor toma una foto directa del anuncio impreso (lona, volante, poster).",
+            "montaje_digital": "La imagen parece ser un montaje o documento digital. Solo se aceptan fotos de anuncios físicos reales.",
+            "no_es_oferta": "La imagen no parece contener una oferta de empleo. Intenta con otra foto.",
+        }
+        photo_log.error_message = f"Rechazada: {motivo}"
         db.commit()
         raise HTTPException(
             status_code=422,
-            detail="La imagen no parece contener una oferta de empleo. Intenta con otra foto.",
+            detail=messages.get(motivo, messages["no_es_oferta"]),
         )
         
     photo_log.success = True

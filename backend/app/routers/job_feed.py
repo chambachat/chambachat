@@ -14,7 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Job, JobComment, JobLike, JobPhotoLog, User
+from app.models import Job, JobComment, JobLike, JobPhotoLog, JobReport, User
 from app.dependencies import get_current_user_optional, get_current_user
 from app.schemas import JobFeedItem, LikeToggleResponse
 
@@ -163,3 +163,58 @@ def get_job_photo(job_id: int, db: Session = Depends(get_db)):
     if not photo or not photo.file_data:
         raise HTTPException(status_code=404, detail="Sin foto")
     return Response(content=photo.file_data, media_type="image/jpeg")
+
+
+@router.post("/{job_id}/report")
+def report_job(
+    job_id: int,
+    motivo: str = "falsa",
+    detalle: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Denuncia una vacante. 5 reportes de usuarios o 1 de @chambachat.com la pausa."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Vacante no encontrada")
+
+    # Evitar duplicados
+    existing = db.query(JobReport).filter(
+        JobReport.job_id == job_id, JobReport.user_id == current_user.id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Ya reportaste esta vacante")
+
+    valid_motivos = {"falsa", "ofensiva", "spam", "otro"}
+    if motivo not in valid_motivos:
+        motivo = "otro"
+
+    report = JobReport(
+        job_id=job_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        motivo=motivo,
+        detalle=detalle[:500] if detalle else None,
+    )
+    db.add(report)
+    db.flush()
+
+    # Auto-pause: 1 reporte de @chambachat.com O 5 de usuarios regulares
+    is_admin_report = current_user.email.endswith("@chambachat.com")
+    total_reports = db.query(func.count(JobReport.id)).filter(JobReport.job_id == job_id).scalar()
+
+    paused = False
+    if is_admin_report or total_reports >= 5:
+        job.activa = False
+        paused = True
+        logger.info("Job %d auto-paused: reports=%d admin=%s", job_id, total_reports, is_admin_report)
+
+    db.commit()
+
+    return {
+        "reported": True,
+        "total_reports": total_reports,
+        "paused": paused,
+        "message": "Vacante pausada por reportes. Gracias por ayudar a mantener la comunidad segura." if paused
+                   else "Reporte registrado. Gracias por ayudar a mantener la comunidad segura.",
+    }

@@ -72,14 +72,26 @@ def _build_extraction_prompt() -> str:
         "Analiza esta foto de un anuncio de empleo (puede ser una lona, poster, volante, "
         "pantalla, pizarrón o publicación impresa).\n\n"
         "INSTRUCCIONES:\n"
+        "0. VALIDACIÓN DE SEGURIDAD (evalúa ANTES de extraer datos):\n"
+        "   a) Si la imagen contiene contenido sexual, desnudos, violencia explícita, "
+        "      drogas, armas o cualquier material ofensivo: pon es_oferta_laboral=false "
+        "      y motivo_rechazo='contenido_inapropiado'.\n"
+        "   b) Si la imagen es un screenshot de otra app (WhatsApp, Facebook, Instagram, "
+        "      una página web, etc.) y NO una foto directa de un anuncio físico real: "
+        "      pon es_oferta_laboral=false y motivo_rechazo='screenshot_digital'.\n"
+        "   c) Si la imagen parece un montaje, texto generado por computadora, o un "
+        "      documento creado digitalmente (no una foto de un anuncio real): "
+        "      pon es_oferta_laboral=false y motivo_rechazo='montaje_digital'.\n"
+        "   d) Si la imagen NO contiene una oferta laboral (ej. selfie, paisaje, comida): "
+        "      pon es_oferta_laboral=false y motivo_rechazo='no_es_oferta'.\n"
+        "   Solo si pasa la validación, continúa con la extracción.\n\n"
         "1. Transcribe TODO el texto visible en la imagen, incluyendo números de teléfono, emails y direcciones.\n"
         "2. Extrae los datos de la oferta laboral. Infiere el nombre del puesto basado en el contexto (ej. si dice 'Buscamos meseros, cocineras, etc.', puedes poner 'Personal para Restaurante' o 'Ayudante General').\n"
         "3. Para el nombre de la empresa, busca cualquier marca, nombre de negocio, restaurante o tienda (ej. 'La Enramada', 'Abarrotes Don Julio'). Si no dice, déjalo null.\n"
         "4. Para los campos de catálogo, elige la opción MÁS CERCANA de la lista proporcionada.\n"
         "5. Si el sueldo aparece como mensual, divídelo entre 4.33 para obtener el semanal.\n"
         "6. Si el sueldo aparece como quincenal, divídelo entre 2.17 para obtener el semanal.\n"
-        "7. Si no puedes identificar un dato, déjalo como null.\n"
-        "8. Si la imagen NO contiene una oferta laboral, pon es_oferta_laboral=false.\n\n"
+        "7. Si no puedes identificar un dato, déjalo como null.\n\n"
         "CATÁLOGO DE CAMPOS:\n\n"
         f"Categorías (elige una): {cats}\n\n"
         f"Tipos de turno: {turnos}\n\n"
@@ -93,6 +105,7 @@ def _build_extraction_prompt() -> str:
         "Devuelve SOLO un JSON válido con esta estructura exacta:\n"
         "{\n"
         '  "es_oferta_laboral": true,\n'
+        '  "motivo_rechazo": null,\n'
         '  "titulo": "nombre del puesto",\n'
         '  "empresa_nombre": "nombre de la empresa o null",\n'
         '  "descripcion": "resumen breve de la oferta",\n'
@@ -354,11 +367,13 @@ async def analyze_job_photo(
 
     # 3. Verificar si es una oferta laboral
     if not raw.get("es_oferta_laboral", True):
+        motivo = raw.get("motivo_rechazo", "no_es_oferta")
         return JobPhotoExtraction(
             es_oferta_laboral=False,
             texto_crudo=raw.get("texto_crudo"),
             confianza=0.0,
             campos_detectados=0,
+            motivo_rechazo=motivo,
         )
 
     # 4. Normalizar al catálogo de ChambaChat

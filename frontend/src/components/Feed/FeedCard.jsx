@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, MessageSquare, Send, MapPin, Clock, Bus, Camera, Building2, ChevronUp, Phone } from 'lucide-react';
+import { Heart, MessageSquare, Send, MapPin, Clock, Bus, Camera, Building2, ChevronUp, Phone, Flag } from 'lucide-react';
 
 const formatRelativeTime = (dateString) => {
   if (!dateString) return '';
@@ -20,7 +20,7 @@ const formatCurrency = (amount) => {
   return amount.toLocaleString('es-MX');
 };
 
-const FeedCard = ({ job, onLike, onOpenComments, onApply, currentUser, isActive }) => {
+const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, currentUser, isActive }) => {
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [likeAnimating, setLikeAnimating] = useState(false);
 
@@ -160,6 +160,16 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, currentUser, isActive 
             <span className="text-xs font-semibold drop-shadow-md">Postularme</span>
           </button>
         )}
+
+        <button
+          onClick={() => onReport && onReport(job.id)}
+          className="flex flex-col items-center gap-1 group opacity-50 hover:opacity-100 transition-opacity"
+        >
+          <div className="p-2 rounded-full bg-slate-800/40 backdrop-blur-sm">
+            <Flag size={20} className="text-white group-hover:text-red-400 transition-colors" />
+          </div>
+          <span className="text-[10px] font-semibold drop-shadow-md">Reportar</span>
+        </button>
       </div>
 
       {/* Swipe up indicator */}

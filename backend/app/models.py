@@ -471,3 +471,18 @@ class VacancyClaim(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     verified_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
+
+
+class JobReport(Base):
+    """Denuncia de un usuario sobre una vacante (contenido falso, ofensivo, etc.)."""
+    __tablename__ = "job_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    user_email = Column(String(255), nullable=False)
+    motivo = Column(String(50), nullable=False)  # "falsa" | "ofensiva" | "spam" | "otro"
+    detalle = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("job_id", "user_id", name="uq_job_report"),)
