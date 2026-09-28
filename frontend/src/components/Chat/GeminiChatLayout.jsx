@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getStoredUser, setStoredUser, signOut, syncUserWithBackend } from '../../services/authService';
+import { getStoredUser, setStoredUser, signOut, syncUserWithBackend, getCurrentUser } from '../../services/authService';
 import { updateMyLocation, AUTH_EXPIRED_EVENT } from '../../services/api';
 import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
 import { directInputPlaceholder } from '../../services/directChat';
@@ -114,6 +114,17 @@ export default function GeminiChatLayout({
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
   }, []);
 
+  // Al montar, refrescar datos del usuario desde el backend (aura, avatar, etc.)
+  useEffect(() => {
+    if (!currentUser) return;
+    getCurrentUser().then(fresh => {
+      if (fresh) {
+        setCurrentUser(fresh);
+        setStoredUser(fresh);
+      }
+    }).catch(() => { /* ignorar si no hay conexión */ });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   /** Agrega mensajes locales a la sesión activa y los persiste. */
   const appendToActiveSession = (newMessages, extra = {}) => {
     if (!activeSession) return;
@@ -125,7 +136,7 @@ export default function GeminiChatLayout({
   const {
     photoExtraction, isAnalyzingPhoto, isConfirmingPhoto,
     handlePhotoSelected, handleConfirmPhotoJob, handleDiscardPhoto,
-  } = usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast, onUserUpdated: setCurrentUser });
+  } = usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast, onUserUpdated: (user) => { setCurrentUser(user); setStoredUser(user); } });
 
   /** "Chat directo con el reclutador": abre una conversación nueva y separada para esa planta y vacante. */
   const handleApplyJob = async (job) => {
