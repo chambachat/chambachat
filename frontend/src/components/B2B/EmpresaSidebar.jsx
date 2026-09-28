@@ -1,8 +1,8 @@
 import React from 'react';
 import { X, Building2, ShieldCheck, ChevronRight, ArrowLeft, LogOut } from 'lucide-react';
 
-function ActivePlantCard({ currentUser, onManage }) {
-  const hasCompany = Boolean(currentUser?.empresa_nombre);
+function ActivePlantCard({ activeCompany, onManage }) {
+  const hasCompany = Boolean(activeCompany?.nombre);
   return (
     <div className={`p-3 mx-3 my-3 rounded-2xl border transition ${
       hasCompany ? 'bg-gradient-to-r from-emerald-50/70 to-teal-50/40 border-emerald-200/80' : 'bg-amber-50/70 border-amber-200/80'
@@ -22,7 +22,7 @@ function ActivePlantCard({ currentUser, onManage }) {
         )}
       </div>
       <span className="text-xs font-black text-slate-900 block truncate">
-        {currentUser?.empresa_nombre || 'Sin empresa dada de alta'}
+        {activeCompany?.nombre || 'Sin empresa dada de alta'}
       </span>
       <button
         type="button"
@@ -38,7 +38,7 @@ function ActivePlantCard({ currentUser, onManage }) {
   );
 }
 
-export default function EmpresaSidebar({ open, onClose, currentUser, tabs, activeTab, onSelectTab, onBackToChat, onLogout }) {
+export default function EmpresaSidebar({ open, onClose, currentUser, activeCompany, tabs, activeTab, onSelectTab, onBackToChat, onLogout }) {
   const select = (tabId) => {
     onSelectTab(tabId);
     onClose();
@@ -65,7 +65,7 @@ export default function EmpresaSidebar({ open, onClose, currentUser, tabs, activ
         </button>
       </div>
 
-      <ActivePlantCard currentUser={currentUser} onManage={() => select('team')} />
+      <ActivePlantCard activeCompany={activeCompany} onManage={() => select('team')} />
 
       <div className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
         <span className="text-[10px] font-bold text-slate-400 px-3 uppercase tracking-wider block mb-1">Módulos del Portal</span>

@@ -66,6 +66,7 @@ export default function EmpresaPortal({ currentUser, activeTab, onSelectTab, act
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentUser={currentUser}
+        activeCompany={activeCompany}
         tabs={VISIBLE_B2B_TABS}
         activeTab={activeTab}
         onSelectTab={onSelectTab}
