@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getStoredUser, setStoredUser, signOut, syncUserWithBackend } from '../../services/authService';
-import { updateMyLocation } from '../../services/api';
+import { updateMyLocation, AUTH_EXPIRED_EVENT } from '../../services/api';
 import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
 import { directInputPlaceholder } from '../../services/directChat';
 import { loadAllSessions, updateSession } from '../../services/chatStorage';
@@ -100,6 +100,18 @@ export default function GeminiChatLayout({
     };
     window.addEventListener(LOCATION_UPDATED_EVENT, onUpdated);
     return () => window.removeEventListener(LOCATION_UPDATED_EVENT, onUpdated);
+  }, []);
+
+  // Auto-abrir login cuando el token expire (401 desde cualquier API call)
+  useEffect(() => {
+    const onExpired = () => {
+      signOut().then(() => {
+        setCurrentUser(null);
+        setIsAuthModalOpen(true);
+      });
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
   }, []);
 
   /** Agrega mensajes locales a la sesión activa y los persiste. */

@@ -14,6 +14,27 @@ function authHeaders(extra = {}) {
 
 const API_BASE = '/api/v1';
 
+// ─── 401 global handler ─────────────────────────────────────────────
+// Emite un evento custom para que la app abra el modal de login
+export const AUTH_EXPIRED_EVENT = 'chambachat:auth-expired';
+
+function emitAuthExpired() {
+  window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+}
+
+/**
+ * Extrae un mensaje legible de la respuesta de error del backend.
+ * Maneja tanto `detail: "string"` como `detail: [{msg: "...", ...}]` de Pydantic.
+ */
+function parseErrorDetail(errBody, fallback = 'Error desconocido') {
+  if (!errBody || !errBody.detail) return fallback;
+  if (typeof errBody.detail === 'string') return errBody.detail;
+  if (Array.isArray(errBody.detail)) {
+    return errBody.detail.map(d => d.msg || JSON.stringify(d)).join('. ');
+  }
+  return fallback;
+}
+
 export async function predictRetention(data) {
   const res = await fetch(`${API_BASE}/predict-retention`, {
     method: 'POST',
@@ -561,8 +582,9 @@ export async function analyzeJobPhoto(imageBase64, gpsCoords = {}) {
     }),
   });
   if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesión nuevamente.'); }
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || 'Error al analizar la foto');
+    throw new Error(parseErrorDetail(err, 'Error al analizar la foto'));
   }
   return res.json();
 }
@@ -574,8 +596,9 @@ export async function confirmPhotoJob(jobData) {
     body: JSON.stringify(jobData),
   });
   if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesión nuevamente.'); }
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || 'Error al publicar la vacante');
+    throw new Error(parseErrorDetail(err, 'Error al publicar la vacante'));
   }
   return res.json();
 }
@@ -596,8 +619,9 @@ export async function addJobComment(jobId, texto) {
     body: JSON.stringify({ texto }),
   });
   if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesión nuevamente.'); }
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || 'No se pudo agregar el comentario');
+    throw new Error(parseErrorDetail(err, 'No se pudo agregar el comentario'));
   }
   return res.json();
 }
@@ -618,8 +642,9 @@ export async function toggleJobLike(jobId) {
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
   });
   if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesión nuevamente.'); }
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || 'No se pudo dar like');
+    throw new Error(parseErrorDetail(err, 'No se pudo dar like'));
   }
   return res.json();
 }

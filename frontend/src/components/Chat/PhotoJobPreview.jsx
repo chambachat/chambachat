@@ -30,7 +30,14 @@ export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSu
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onConfirm({ ...extraction, ...formData });
+    const payload = { ...extraction, ...formData };
+    // Sueldo vacío → null (el backend acepta nullable)
+    if (payload.sueldo_semanal_libre === '' || payload.sueldo_semanal_libre === undefined) {
+      payload.sueldo_semanal_libre = null;
+    } else {
+      payload.sueldo_semanal_libre = Number(payload.sueldo_semanal_libre);
+    }
+    onConfirm(payload);
   };
 
   return (
