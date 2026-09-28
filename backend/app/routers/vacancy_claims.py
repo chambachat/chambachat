@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Job, Company, CompanyMember, VacancyClaim, JobPhotoLog, User
+from app.models import Job, Company, CompanyMember, VacancyClaim, JobPhotoLog, User, JobApplication, ApplicationMessage
 from app.dependencies import get_current_user
 from app.schemas import (
     ClaimableVacancy, ClaimStartRequest, ClaimStartResponse,
@@ -290,15 +290,35 @@ def verify_claim(
     claim.verification_status = "verified"
     claim.verified_at = datetime.utcnow()
 
+    # Notificar a candidatos que ya postularon
+    existing_apps = (
+        db.query(JobApplication)
+        .filter(JobApplication.job_id == job_id)
+        .all()
+    )
+    for app in existing_apps:
+        db.add(ApplicationMessage(
+            application_id=app.id,
+            sender_type="recruiter",
+            sender_name=f"Reclutamiento {company.nombre}",
+            mensaje=(
+                f"🎉 ¡Buenas noticias, {app.candidate_name}! "
+                f"La empresa {company.nombre} ha reclamado esta vacante en ChambaChat. "
+                f"Ahora un reclutador real revisará tu postulación y te responderá aquí mismo."
+            ),
+        ))
+
     db.commit()
 
+    n_apps = len(existing_apps)
     logger.info(
-        "Vacancy claimed! job=%d company=%s (%d) by=%s",
-        job_id, company.nombre, company.id, current_user.email,
+        "Vacancy claimed! job=%d company=%s (%d) by=%s existing_apps=%d",
+        job_id, company.nombre, company.id, current_user.email, n_apps,
     )
 
+    apps_msg = f" {n_apps} candidato(s) ya postularon y fueron notificados." if n_apps > 0 else ""
     return ClaimVerifyResponse(
         success=True,
         job_id=job_id,
-        message=f"¡Vacante '{job.titulo}' reclamada! Ya aparece en tu bolsa de vacantes.",
+        message=f"¡Vacante '{job.titulo}' reclamada!{apps_msg} Ya aparece en tu bolsa de vacantes.",
     )
