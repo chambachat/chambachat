@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, X } from 'lucide-react';
 import FeedCard from './FeedCard';
 import JobComments from '../Jobs/JobComments';
 import { getFeedJobs, toggleJobLike, reportJob, trackJobView } from '../../services/api';
@@ -11,15 +12,21 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeJobComments, setActiveJobComments] = useState(null);
 
+  // Búsqueda
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeQuery, setActiveQuery] = useState('');
+  const searchInputRef = useRef(null);
+
   const containerRef = useRef(null);
   const observerRef = useRef(null);
   const limit = 10;
 
-  const loadJobs = async (currentOffset) => {
+  const loadJobs = async (currentOffset, query = activeQuery) => {
     if (loading || !hasMore) return;
     setLoading(true);
     try {
-      const newJobs = await getFeedJobs(currentOffset, limit);
+      const newJobs = await getFeedJobs(currentOffset, limit, query);
       if (newJobs.length < limit) {
         setHasMore(false);
       }
@@ -36,6 +43,40 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
     loadJobs(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Al abrir la búsqueda, enfocar el input
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
+
+  const handleSearch = () => {
+    const q = searchQuery.trim();
+    setActiveQuery(q);
+    setJobs([]);
+    setOffset(0);
+    setHasMore(true);
+    setActiveIndex(0);
+    // Reset scroll
+    if (containerRef.current) containerRef.current.scrollTop = 0;
+    // Load with new query
+    setLoading(false); // reset para que loadJobs funcione
+    setTimeout(() => loadJobs(0, q), 0);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setActiveQuery('');
+    setSearchOpen(false);
+    setJobs([]);
+    setOffset(0);
+    setHasMore(true);
+    setActiveIndex(0);
+    if (containerRef.current) containerRef.current.scrollTop = 0;
+    setLoading(false);
+    setTimeout(() => loadJobs(0, ''), 0);
+  };
 
   const handleObserver = useCallback((entries) => {
     const target = entries[0];
@@ -81,7 +122,6 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
   }, [activeIndex, jobs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLike = async (jobId) => {
-    // Optimistic update
     setJobs(prevJobs => prevJobs.map(job => {
       if (job.id === jobId) {
         const isLiked = !job.user_liked;
@@ -98,8 +138,6 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
       await toggleJobLike(jobId);
     } catch (error) {
       console.error('Error toggling like:', error);
-      // Revert optimistic update on error by refetching or simple reversal 
-      // (ignoring full robust rollback for brevity)
     }
   };
 
@@ -127,7 +165,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
 
   const closeComments = () => setActiveJobComments(null);
 
-  if (!loading && jobs.length === 0) {
+  if (!loading && jobs.length === 0 && !activeQuery) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-4">
         <p className="text-xl mb-4">No hay vacantes disponibles</p>
@@ -143,6 +181,71 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
 
   return (
     <div className="relative h-full w-full bg-black">
+      {/* ─── Barra de búsqueda (esquina superior derecha) ─── */}
+      <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+        {searchOpen ? (
+          <div className="flex items-center bg-black/70 backdrop-blur-md rounded-full border border-white/20 overflow-hidden animate-in slide-in-from-right">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Buscar vacante..."
+              className="bg-transparent text-white text-xs placeholder-white/50 px-3 py-2 w-44 sm:w-56 outline-none"
+            />
+            {(searchQuery || activeQuery) && (
+              <button
+                onClick={handleClearSearch}
+                className="p-1.5 text-white/60 hover:text-white transition"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              onClick={handleSearch}
+              className="p-2 text-emerald-400 hover:text-emerald-300 transition"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="p-2.5 bg-black/50 backdrop-blur-md rounded-full text-white/80 hover:text-white hover:bg-black/70 transition border border-white/10"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+
+      {/* Badge de búsqueda activa */}
+      {activeQuery && (
+        <div className="absolute top-14 right-3 z-30">
+          <button
+            onClick={handleClearSearch}
+            className="flex items-center gap-1.5 bg-emerald-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-emerald-400/30"
+          >
+            <span>🔍 "{activeQuery}"</span>
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
+      {/* Sin resultados de búsqueda */}
+      {!loading && jobs.length === 0 && activeQuery && (
+        <div className="h-full flex flex-col items-center justify-center text-white p-4">
+          <p className="text-lg font-bold mb-2">No hay resultados para "{activeQuery}"</p>
+          <p className="text-sm text-white/60 mb-4">Intenta con otra palabra o categoría</p>
+          <button 
+            onClick={handleClearSearch}
+            className="bg-emerald-600 px-4 py-2 rounded-lg font-medium text-sm"
+          >
+            Ver todas las vacantes
+          </button>
+        </div>
+      )}
+
       {/* Feed Container */}
       <div 
         ref={containerRef}

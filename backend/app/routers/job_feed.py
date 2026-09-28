@@ -27,18 +27,26 @@ router = APIRouter(prefix="/api/v1/feed", tags=["Feed"])
 def get_feed(
     offset: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=50),
+    q: Optional[str] = Query(None, max_length=120, description="Búsqueda por texto libre"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """Lista vacantes activas para el feed, enriquecidas con likes y comentarios."""
-    jobs = (
-        db.query(Job)
-        .filter(Job.activa.is_(True))
-        .order_by(Job.id.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    from sqlalchemy import or_
+    query = db.query(Job).filter(Job.activa.is_(True))
+
+    if q and q.strip():
+        for term in q.strip().split()[:5]:
+            like = f"%{term}%"
+            query = query.filter(or_(
+                Job.titulo.ilike(like),
+                Job.empresa_nombre.ilike(like),
+                Job.categoria.ilike(like),
+                Job.municipio.ilike(like),
+                Job.descripcion.ilike(like),
+            ))
+
+    jobs = query.order_by(Job.id.desc()).offset(offset).limit(limit).all()
 
     if not jobs:
         return []
