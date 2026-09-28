@@ -74,7 +74,7 @@ export default function TopNavbar({
         ) : (
           <div
             onClick={onOpenPerfil}
-            className="flex items-center gap-2 cursor-pointer p-1 pr-2 rounded-full hover:bg-slate-100 transition shrink-0 border border-transparent hover:border-slate-200"
+            className="flex items-center gap-1.5 cursor-pointer p-1 pr-2 rounded-full hover:bg-slate-100 transition shrink-0 border border-transparent hover:border-slate-200"
             title="Ver mi perfil"
           >
             <img
@@ -82,6 +82,11 @@ export default function TopNavbar({
               alt={currentUser.name}
               className="w-7 h-7 rounded-full bg-slate-200 border border-emerald-400 object-cover"
             />
+            {currentUser.aura_puntos > 0 && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black border border-amber-200">
+                ⭐ {currentUser.aura_puntos}
+              </span>
+            )}
             <span className="text-xs font-bold text-slate-800 hidden sm:inline truncate max-w-[120px]">
               {currentUser.name}
             </span>

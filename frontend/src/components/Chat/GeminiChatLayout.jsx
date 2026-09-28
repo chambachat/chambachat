@@ -125,7 +125,7 @@ export default function GeminiChatLayout({
   const {
     photoExtraction, isAnalyzingPhoto, isConfirmingPhoto,
     handlePhotoSelected, handleConfirmPhotoJob, handleDiscardPhoto,
-  } = usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast });
+  } = usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast, onUserUpdated: setCurrentUser });
 
   /** "Chat directo con el reclutador": abre una conversación nueva y separada para esa planta y vacante. */
   const handleApplyJob = async (job) => {
@@ -248,7 +248,7 @@ export default function GeminiChatLayout({
         {feedMode ? (
           <JobFeedView
             currentUser={currentUser}
-            onStartDirectChat={startDirectChat}
+            onStartDirectChat={(job) => { startDirectChat(job); setFeedMode(false); }}
             onOpenAuth={() => setIsAuthModalOpen(true)}
           />
         ) : (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { analyzeJobPhoto, confirmPhotoJob } from '../services/api';
+import { getCurrentUser } from '../services/authService';
 
 /**
  * Hook que maneja el flujo completo de foto → vacante comunitaria.
@@ -9,7 +10,7 @@ import { analyzeJobPhoto, confirmPhotoJob } from '../services/api';
  * 2. handleConfirmPhotoJob: publica la vacante con los datos editados por el usuario.
  * 3. handleDiscardPhoto: descarta la extracción actual.
  */
-export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast }) {
+export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast, onUserUpdated }) {
   const [photoExtraction, setPhotoExtraction] = useState(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [isConfirmingPhoto, setIsConfirmingPhoto] = useState(false);
@@ -49,6 +50,11 @@ export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSess
         text: `🎉 ¡Vacante publicada! "${job.titulo}" ya aparece en la bolsa de trabajo. +10 Aura ⭐`,
       }]);
       toast.success('¡Vacante publicada! +10 Aura ⭐');
+      // Refrescar usuario para actualizar Aura en el navbar
+      try {
+        const fresh = await getCurrentUser();
+        if (fresh && onUserUpdated) onUserUpdated(fresh);
+      } catch (_) { /* no bloquear si falla el refresh */ }
     } catch (err) {
       toast.error(err.message || 'No se pudo publicar la vacante');
     } finally {
