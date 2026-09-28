@@ -111,6 +111,8 @@ def get_feed(
             user_liked=job.id in user_liked_ids,
             reportada_por=reporter_map.get(job.reportada_por_email) if job.reportada_por_email else None,
             has_photo=job.id in photo_job_ids,
+            fuente_contacto_telefono=job.fuente_contacto_telefono if job.origen == "foto_comunitaria" else None,
+            fuente_contacto_whatsapp=job.fuente_contacto_whatsapp if job.origen == "foto_comunitaria" else None,
         )
         result.append(item)
 

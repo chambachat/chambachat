@@ -1130,6 +1130,9 @@ class JobFeedItem(BaseModel):
     user_liked: bool = False
     reportada_por: Optional[str] = None
     has_photo: bool = False
+    # Contacto para vacantes comunitarias
+    fuente_contacto_telefono: Optional[str] = None
+    fuente_contacto_whatsapp: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class LikeToggleResponse(BaseModel):

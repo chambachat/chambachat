@@ -248,7 +248,7 @@ export default function GeminiChatLayout({
         {feedMode ? (
           <JobFeedView
             currentUser={currentUser}
-            onStartDirectChat={(job) => { startDirectChat(job); setFeedMode(false); }}
+            onStartDirectChat={async (job) => { await startDirectChat(job); setFeedMode(false); }}
             onOpenAuth={() => setIsAuthModalOpen(true)}
           />
         ) : (

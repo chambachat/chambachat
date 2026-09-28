@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, MessageSquare, Send, MapPin, Clock, Bus, Camera, Building2, ChevronUp } from 'lucide-react';
+import { Heart, MessageSquare, Send, MapPin, Clock, Bus, Camera, Building2, ChevronUp, Phone } from 'lucide-react';
 
 const formatRelativeTime = (dateString) => {
   if (!dateString) return '';
@@ -135,15 +135,31 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, currentUser, isActive 
           <span className="text-xs font-semibold drop-shadow-md">{job.comments_count || 0}</span>
         </button>
 
-        <button 
-          onClick={() => onApply(job)}
-          className="flex flex-col items-center gap-1 group"
-        >
-          <div className="p-3 rounded-full bg-emerald-600/80 backdrop-blur-sm">
-            <Send size={28} className="text-white group-hover:scale-110 transition-transform" />
-          </div>
-          <span className="text-xs font-semibold drop-shadow-md">Postularme</span>
-        </button>
+        {isCommunity && (job.fuente_contacto_telefono || job.fuente_contacto_whatsapp) ? (
+          <a 
+            href={job.fuente_contacto_whatsapp 
+              ? `https://wa.me/52${job.fuente_contacto_whatsapp.replace(/\D/g,'')}?text=Hola, vi la vacante de ${encodeURIComponent(job.titulo)} en ChambaChat`
+              : `tel:${job.fuente_contacto_telefono}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1 group"
+          >
+            <div className="p-3 rounded-full bg-emerald-600/80 backdrop-blur-sm">
+              <Phone size={28} className="text-white group-hover:scale-110 transition-transform" />
+            </div>
+            <span className="text-xs font-semibold drop-shadow-md">Contactar</span>
+          </a>
+        ) : (
+          <button 
+            onClick={() => onApply(job)}
+            className="flex flex-col items-center gap-1 group"
+          >
+            <div className="p-3 rounded-full bg-emerald-600/80 backdrop-blur-sm">
+              <Send size={28} className="text-white group-hover:scale-110 transition-transform" />
+            </div>
+            <span className="text-xs font-semibold drop-shadow-md">Postularme</span>
+          </button>
+        )}
       </div>
 
       {/* Swipe up indicator */}
