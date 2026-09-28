@@ -90,6 +90,11 @@ class Job(Base):
     company = relationship("Company", backref="jobs", foreign_keys=[empresa_id])
     hiring_records = relationship("HiringHistory", back_populates="job", cascade="all, delete-orphan")
     applications = relationship("JobApplication", back_populates="job", cascade="all, delete-orphan")
+    photo_logs = relationship("JobPhotoLog", backref="job", foreign_keys="JobPhotoLog.job_id", lazy="select")
+
+    @property
+    def has_photo(self) -> bool:
+        return any(p.success for p in (self.photo_logs or []))
 
 
 class HiringHistory(Base):
@@ -221,6 +226,19 @@ class Company(Base):
     invitations = relationship("CompanyInvitation", back_populates="company", cascade="all, delete-orphan")
     routes = relationship("TransportRoute", back_populates="company", cascade="all, delete-orphan")
     shifts = relationship("CompanyShift", back_populates="company", cascade="all, delete-orphan", order_by="CompanyShift.id")
+    logo = relationship("CompanyLogo", back_populates="company", uselist=False, cascade="all, delete-orphan")
+
+
+class CompanyLogo(Base):
+    """Logo de empresa almacenado como JPEG comprimido en la DB."""
+    __tablename__ = "company_logos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    file_data = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    company = relationship("Company", back_populates="logo")
 
 
 

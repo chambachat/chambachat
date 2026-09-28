@@ -289,6 +289,7 @@ class JobResponse(JobBase):
     empresa_id: Optional[int] = None
     created_at: Optional[datetime] = None
     origen: str = "empresa"
+    has_photo: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

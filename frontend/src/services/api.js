@@ -704,3 +704,39 @@ export async function reportJob(jobId, motivo = 'falsa', detalle = '') {
   }
   return res.json();
 }
+
+// ─── Upload Logo / Foto Vacante ─────────────────────────────────────
+
+export async function uploadCompanyLogo(companyId, file) {
+  const form = new FormData();
+  form.append('file', file);
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_BASE}/companies/${companyId}/logo`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado.'); }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(parseErrorDetail(err, 'Error al subir logo'));
+  }
+  return res.json();
+}
+
+export async function uploadJobPhoto(jobId, file) {
+  const form = new FormData();
+  form.append('file', file);
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_BASE}/jobs/${jobId}/photo`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado.'); }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(parseErrorDetail(err, 'Error al subir foto'));
+  }
+  return res.json();
+}

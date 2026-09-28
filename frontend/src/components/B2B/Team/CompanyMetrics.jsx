@@ -1,9 +1,52 @@
-import React from 'react';
-import { Users, Mail, MapPin, FileCheck, CheckCircle2, ShieldCheck } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Users, Mail, MapPin, FileCheck, CheckCircle2, ShieldCheck, Camera, Building2 } from 'lucide-react';
+import { uploadCompanyLogo } from '../../../services/api';
 
-export default function CompanyMetrics({ teamData, selectedCompany, onOpenLocation }) {
+export default function CompanyMetrics({ teamData, selectedCompany, onOpenLocation, onCompanyUpdated }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedCompany?.id) return;
+    setUploading(true);
+    try {
+      const res = await uploadCompanyLogo(selectedCompany.id, file);
+      if (onCompanyUpdated) onCompanyUpdated({ ...selectedCompany, logo_url: res.logo_url });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const logoSrc = selectedCompany?.logo_url
+    ? `${selectedCompany.logo_url}?t=${Date.now()}`
+    : null;
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* Logo de Empresa */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col items-center justify-center gap-2">
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+        {logoSrc ? (
+          <img src={logoSrc} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-slate-200" />
+        ) : (
+          <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center">
+            <Building2 className="w-8 h-8 text-slate-300" />
+          </div>
+        )}
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1"
+        >
+          <Camera className="w-3 h-3" />
+          {uploading ? 'Subiendo...' : (logoSrc ? 'Cambiar Logo' : 'Subir Logo')}
+        </button>
+      </div>
+
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-500">Miembros Activos</span>

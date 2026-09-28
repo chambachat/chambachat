@@ -1,11 +1,11 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Job, Company, CompanyMember, CompanyShift
+from app.models import Job, Company, CompanyMember, CompanyShift, User
 from app.schemas import JobCreate, JobResponse, JobUpdate, JobCatalogResponse
 from app.constants import job_catalog
 from app.services.geo import MUNICIPIOS_NL_COORDS
@@ -254,3 +254,62 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Vacante no encontrada")
     return job
+
+
+# ─── FOTO DE VACANTE (empresa) ────────────────────────────────────────
+
+@router.post("/{job_id}/photo")
+async def upload_job_photo(
+    job_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Sube o reemplaza la foto de una vacante de empresa. Max 2 MB."""
+    from app.models import JobPhotoLog
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Vacante no encontrada")
+    if not job.empresa_id:
+        raise HTTPException(status_code=403, detail="Solo vacantes de empresa pueden subir fotos desde aquí")
+    require_company_member(db, job.empresa_id, current_user)
+
+    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(status_code=400, detail="Solo se aceptan imágenes JPEG, PNG o WebP")
+
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="La imagen no debe superar 2 MB")
+
+    # Comprimir a JPEG max 1280px
+    import io
+    from PIL import Image, ImageOps
+    img = Image.open(io.BytesIO(content))
+    img = ImageOps.exif_transpose(img)
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    img.thumbnail((1280, 1280))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=75)
+    compressed = buf.getvalue()
+
+    # Reemplazar foto existente si hay
+    existing = (
+        db.query(JobPhotoLog)
+        .filter(JobPhotoLog.job_id == job_id, JobPhotoLog.success == True)
+        .order_by(JobPhotoLog.id.desc())
+        .first()
+    )
+    if existing:
+        existing.file_data = compressed
+    else:
+        db.add(JobPhotoLog(
+            user_id=current_user.id,
+            job_id=job_id,
+            file_data=compressed,
+            success=True,
+        ))
+
+    db.commit()
+    return {"message": "Foto de vacante actualizada", "photo_url": f"/api/v1/feed/{job_id}/photo"}

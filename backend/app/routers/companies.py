@@ -539,3 +539,61 @@ def delete_company_shift(company_id: int, shift_id: int, db: Session = Depends(g
     db.delete(shift)
     db.commit()
     return StatusMessageResponse(message=f"Turno '{nombre}' eliminado correctamente")
+
+
+# ─── LOGO DE EMPRESA ──────────────────────────────────────────────────
+
+@router.post("/{company_id}/logo")
+async def upload_company_logo(
+    company_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Sube o reemplaza el logo de la empresa. Acepta JPEG/PNG, max 2 MB."""
+    from app.models import CompanyLogo
+    require_company_member(db, company_id, current_user)
+
+    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(status_code=400, detail="Solo se aceptan imágenes JPEG, PNG o WebP")
+
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="La imagen no debe superar 2 MB")
+
+    # Comprimir a JPEG max 400px
+    import io
+    from PIL import Image, ImageOps
+    img = Image.open(io.BytesIO(content))
+    img = ImageOps.exif_transpose(img)
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    img.thumbnail((400, 400))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=80)
+    compressed = buf.getvalue()
+
+    # Upsert
+    existing = db.query(CompanyLogo).filter(CompanyLogo.company_id == company_id).first()
+    if existing:
+        existing.file_data = compressed
+    else:
+        db.add(CompanyLogo(company_id=company_id, file_data=compressed))
+
+    # Actualizar logo_url en la empresa
+    company = _get_company_or_404(db, company_id)
+    company.logo_url = f"/api/v1/companies/{company_id}/logo"
+    db.commit()
+
+    return {"message": "Logo actualizado", "logo_url": company.logo_url}
+
+
+@router.get("/{company_id}/logo")
+def get_company_logo(company_id: int, db: Session = Depends(get_db)):
+    """Sirve el logo comprimido como JPEG."""
+    from app.models import CompanyLogo
+    from fastapi.responses import Response
+    logo = db.query(CompanyLogo).filter(CompanyLogo.company_id == company_id).first()
+    if not logo:
+        raise HTTPException(status_code=404, detail="Sin logo")
+    return Response(content=logo.file_data, media_type="image/jpeg")
