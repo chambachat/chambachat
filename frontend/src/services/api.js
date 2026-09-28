@@ -776,3 +776,19 @@ export async function getAnalyticsJobs(days = 30) {
 export async function getAnalyticsViews(days = 30) {
   return _json(await fetch(`${API_BASE}/admin/analytics/views?days=${days}`, { headers: authHeaders() }), 'Error al cargar views');
 }
+
+export async function getAnalyticsDAUMonthly(months = 12) {
+  return _json(await fetch(`${API_BASE}/admin/analytics/dau-monthly?months=${months}`, { headers: authHeaders() }), 'Error al cargar DAU mensual');
+}
+
+export async function getAnalyticsJobsMonthly(months = 12) {
+  return _json(await fetch(`${API_BASE}/admin/analytics/jobs-monthly?months=${months}`, { headers: authHeaders() }), 'Error al cargar jobs mensuales');
+}
+
+export async function getAnalyticsViewsMonthly(months = 12) {
+  return _json(await fetch(`${API_BASE}/admin/analytics/views-monthly?months=${months}`, { headers: authHeaders() }), 'Error al cargar vistas mensuales');
+}
+
+export async function getAnalyticsAppsMonthly(months = 12) {
+  return _json(await fetch(`${API_BASE}/admin/analytics/applications-monthly?months=${months}`, { headers: authHeaders() }), 'Error al cargar postulaciones mensuales');
+}

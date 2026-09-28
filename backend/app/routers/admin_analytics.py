@@ -274,3 +274,132 @@ def get_top_viewed_jobs(
         })
 
     return result
+
+
+# ─── Tendencia mensual DAU (admin) ────────────────────────────────────
+
+@router.get("/dau-monthly")
+def get_dau_monthly(
+    months: int = 12,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Usuarios activos únicos por mes, desglosados por rol."""
+    _require_admin(current_user)
+    cutoff = date.today() - timedelta(days=months * 31)
+
+    # Extraer año-mes y contar distintos user_id
+    rows = (
+        db.query(
+            func.strftime("%Y-%m", DailyActiveUser.date).label("month"),
+            DailyActiveUser.role,
+            func.count(distinct(DailyActiveUser.user_id)),
+        )
+        .filter(DailyActiveUser.date >= cutoff)
+        .group_by("month", DailyActiveUser.role)
+        .order_by("month")
+        .all()
+    )
+
+    by_month = {}
+    for m, role, cnt in rows:
+        if m not in by_month:
+            by_month[m] = {"month": m, "candidates": 0, "recruiters": 0, "total": 0}
+        if role == "candidate":
+            by_month[m]["candidates"] = cnt
+        else:
+            by_month[m]["recruiters"] = cnt
+        by_month[m]["total"] += cnt
+
+    return list(by_month.values())
+
+
+# ─── Tendencia mensual vacantes (admin) ────────────────────────────────
+
+@router.get("/jobs-monthly")
+def get_jobs_monthly(
+    months: int = 12,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Vacantes nuevas por mes, desglosadas por origen."""
+    _require_admin(current_user)
+    cutoff = datetime.utcnow() - timedelta(days=months * 31)
+
+    rows = (
+        db.query(
+            func.strftime("%Y-%m", Job.created_at).label("month"),
+            Job.origen,
+            func.count(Job.id),
+        )
+        .filter(Job.created_at >= cutoff)
+        .group_by("month", Job.origen)
+        .order_by("month")
+        .all()
+    )
+
+    by_month = {}
+    for m, origen, cnt in rows:
+        if m not in by_month:
+            by_month[m] = {"month": m, "empresa": 0, "foto_comunitaria": 0, "scraping": 0, "reclamada": 0, "total": 0}
+        if origen in by_month[m]:
+            by_month[m][origen] = cnt
+        by_month[m]["total"] += cnt
+
+    return list(by_month.values())
+
+
+# ─── Tendencia mensual vistas (admin) ──────────────────────────────────
+
+@router.get("/views-monthly")
+def get_views_monthly(
+    months: int = 12,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Vistas únicas de vacantes por mes."""
+    _require_admin(current_user)
+    cutoff = date.today() - timedelta(days=months * 31)
+
+    rows = (
+        db.query(
+            func.strftime("%Y-%m", JobView.date).label("month"),
+            func.count(distinct(JobView.user_id)).label("unique_viewers"),
+            func.count(JobView.id).label("total_views"),
+        )
+        .filter(JobView.date >= cutoff)
+        .group_by("month")
+        .order_by("month")
+        .all()
+    )
+
+    return [
+        {"month": m, "unique_viewers": uv, "total_views": tv}
+        for m, uv, tv in rows
+    ]
+
+
+# ─── Tendencia mensual postulaciones (admin) ──────────────────────────
+
+@router.get("/applications-monthly")
+def get_applications_monthly(
+    months: int = 12,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Postulaciones por mes."""
+    _require_admin(current_user)
+    cutoff = datetime.utcnow() - timedelta(days=months * 31)
+
+    rows = (
+        db.query(
+            func.strftime("%Y-%m", JobApplication.created_at).label("month"),
+            func.count(JobApplication.id),
+        )
+        .filter(JobApplication.created_at >= cutoff)
+        .group_by("month")
+        .order_by("month")
+        .all()
+    )
+
+    return [{"month": m, "total": cnt} for m, cnt in rows]
