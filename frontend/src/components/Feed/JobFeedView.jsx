@@ -97,11 +97,11 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
     }
   };
 
-  const handleApply = (job) => {
+  const handleApply = async (job) => {
     if (!currentUser) {
       onOpenAuth();
     } else {
-      onStartDirectChat(job);
+      await onStartDirectChat(job);
     }
   };
 

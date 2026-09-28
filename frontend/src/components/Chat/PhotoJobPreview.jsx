@@ -37,6 +37,12 @@ export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSu
     } else {
       payload.sueldo_semanal_libre = Number(payload.sueldo_semanal_libre);
     }
+    // Mapear contacto nested → campos planos del backend
+    if (payload.contacto) {
+      payload.fuente_contacto_telefono = payload.contacto.telefono || null;
+      payload.fuente_contacto_whatsapp = payload.contacto.whatsapp || null;
+      payload.fuente_contacto_email = payload.contacto.email || null;
+    }
     onConfirm(payload);
   };
 
