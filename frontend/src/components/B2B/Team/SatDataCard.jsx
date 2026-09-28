@@ -31,11 +31,22 @@ export default function SatDataCard({ satData }) {
           </div>
         </div>
 
-        <span className="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-black rounded-full uppercase tracking-wider">
-          {is32D 
-            ? (satData.sentido_opinion ? `OPINIÓN ${satData.sentido_opinion}` : 'POSITIVO') 
-            : (satData.estatus_padron || 'ACTIVO')}
-        </span>
+        {(() => {
+          const estatus = is32D
+            ? (satData.sentido_opinion ? `OPINIÓN ${satData.sentido_opinion}` : 'POSITIVO')
+            : (satData.estatus_padron || 'ACTIVO');
+          const upper = estatus.toUpperCase();
+          const badColor = upper.includes('CANCELADO') || upper.includes('NO_LOCALIZADO') || upper.includes('NEGATIVO')
+            ? 'bg-red-600'
+            : upper.includes('SUSPENDIDO') || upper.includes('NO_EMITIDA')
+              ? 'bg-amber-500'
+              : 'bg-emerald-600';
+          return (
+            <span className={`px-2.5 py-0.5 ${badColor} text-white text-[10px] font-black rounded-full uppercase tracking-wider`}>
+              {estatus}
+            </span>
+          );
+        })()}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-emerald-100">
