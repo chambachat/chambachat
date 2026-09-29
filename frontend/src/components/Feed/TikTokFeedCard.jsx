@@ -1,5 +1,5 @@
 import React from 'react';
-import { TikTokEmbed } from 'react-tiktok';
+import { TikTok } from 'react-tiktok';
 
 const TikTokFeedCard = ({ video, isActive }) => {
   return (
@@ -10,7 +10,7 @@ const TikTokFeedCard = ({ video, isActive }) => {
       
       {/* TikTok Player */}
       <div className="w-full h-full max-h-[85vh] flex items-center justify-center pointer-events-auto">
-        <TikTokEmbed url={video.tiktok_url} width="100%" />
+        <TikTok url={video.tiktok_url} width="100%" />
       </div>
 
       <div className="absolute bottom-20 left-4 right-20 z-10 text-left pointer-events-none">

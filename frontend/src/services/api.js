@@ -3,7 +3,7 @@ import { getStoredToken } from './authService';
 /**
  * Construye headers con autenticación JWT.
  */
-function authHeaders(extra = {}) {
+export function authHeaders(extra = {}) {
   const headers = { 'Content-Type': 'application/json', ...extra };
   const token = getStoredToken();
   if (token) {
