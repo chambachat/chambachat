@@ -740,7 +740,7 @@ export async function reportJob(jobId, motivo = 'falsa', detalle = '') {
 export async function uploadCompanyLogo(companyId, file) {
   const form = new FormData();
   form.append('file', file);
-  const token = localStorage.getItem('token');
+  const token = getStoredToken();
   const res = await fetch(`${API_BASE}/companies/${companyId}/logo`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${token}` },
@@ -757,7 +757,7 @@ export async function uploadCompanyLogo(companyId, file) {
 export async function uploadJobPhoto(jobId, file) {
   const form = new FormData();
   form.append('file', file);
-  const token = localStorage.getItem('token');
+  const token = getStoredToken();
   const res = await fetch(`${API_BASE}/jobs/${jobId}/photo`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${token}` },
@@ -774,7 +774,7 @@ export async function uploadJobPhoto(jobId, file) {
 // ─── Analytics Tracking & Admin ─────────────────────────────────────
 
 export function trackActiveUser() {
-  const token = localStorage.getItem('token');
+  const token = getStoredToken();
   if (!token) return;
   fetch(`${API_BASE}/admin/analytics/track-active`, {
     method: 'POST',
@@ -783,7 +783,7 @@ export function trackActiveUser() {
 }
 
 export function trackJobView(jobId) {
-  const token = localStorage.getItem('token');
+  const token = getStoredToken();
   if (!token || !jobId) return;
   fetch(`${API_BASE}/admin/analytics/track-view?job_id=${jobId}`, {
     method: 'POST',
