@@ -627,6 +627,34 @@ export async function addJobComment(jobId, texto) {
 }
 
 
+// ─── Company FAQs ───────────────────────────────────────────────────
+
+export async function getCompanyFAQs(companyId) {
+  return _json(await fetch(`${API_BASE}/companies/${companyId}/faqs`, { headers: authHeaders() }), 'Error al cargar FAQs');
+}
+
+export async function createCompanyFAQ(companyId, data) {
+  return _json(await fetch(`${API_BASE}/companies/${companyId}/faqs`, {
+    method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }), 'Error al crear FAQ');
+}
+
+export async function updateCompanyFAQ(companyId, faqId, data) {
+  return _json(await fetch(`${API_BASE}/companies/${companyId}/faqs/${faqId}`, {
+    method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }), 'Error al actualizar FAQ');
+}
+
+export async function deleteCompanyFAQ(companyId, faqId) {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/faqs/${faqId}`, {
+    method: 'DELETE', headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Error al eliminar FAQ');
+}
+
+
 // ─── Feed Explorar ──────────────────────────────────────────────────
 
 export async function getFeedJobs(offset = 0, limit = 10, q = '') {

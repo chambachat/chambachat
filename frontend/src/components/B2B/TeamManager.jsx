@@ -15,6 +15,7 @@ import InviteMemberModal from './Team/InviteMemberModal';
 import CompanyFormModal from './Team/CompanyFormModal';
 import ShiftsPanel from './Team/ShiftsPanel';
 import ShiftFormModal from './Team/ShiftFormModal';
+import CompanyFAQs from './Team/CompanyFAQs';
 
 export default function TeamManager({ currentUser, onCompanyChanged }) {
   const toast = useToast();
@@ -131,6 +132,8 @@ export default function TeamManager({ currentUser, onCompanyChanged }) {
           }
         }}
       />
+
+      <CompanyFAQs companyId={selectedCompany?.id} />
 
       <InviteMemberModal
         isOpen={isInviteModalOpen}

@@ -597,3 +597,127 @@ def get_company_logo(company_id: int, db: Session = Depends(get_db)):
     if not logo:
         raise HTTPException(status_code=404, detail="Sin logo")
     return Response(content=logo.file_data, media_type="image/jpeg")
+
+
+# ─── FAQs de la empresa ──────────────────────────────────────────────
+
+from pydantic import BaseModel, Field
+from app.models import CompanyFAQ
+
+class FAQCreate(BaseModel):
+    pregunta: str = Field(..., min_length=3, max_length=500)
+    respuesta: str = Field(..., min_length=1, max_length=2000)
+    orden: int = 0
+
+class FAQUpdate(BaseModel):
+    pregunta: Optional[str] = Field(None, min_length=3, max_length=500)
+    respuesta: Optional[str] = Field(None, min_length=1, max_length=2000)
+    orden: Optional[int] = None
+    activa: Optional[bool] = None
+
+class FAQResponse(BaseModel):
+    id: int
+    company_id: int
+    pregunta: str
+    respuesta: str
+    orden: int
+    activa: bool
+    class Config:
+        from_attributes = True
+
+
+@router.get("/{company_id}/faqs", response_model=List[FAQResponse])
+def list_faqs(
+    company_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lista las FAQs de una empresa (solo miembros activos)."""
+    require_company_member(db, current_user, company_id)
+    return (
+        db.query(CompanyFAQ)
+        .filter(CompanyFAQ.company_id == company_id)
+        .order_by(CompanyFAQ.orden, CompanyFAQ.id)
+        .all()
+    )
+
+
+@router.post("/{company_id}/faqs", response_model=FAQResponse, status_code=201)
+def create_faq(
+    company_id: int,
+    payload: FAQCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Crea una nueva FAQ para la empresa."""
+    require_company_member(db, current_user, company_id)
+    # Máximo 30 FAQs por empresa
+    count = db.query(CompanyFAQ).filter(CompanyFAQ.company_id == company_id).count()
+    if count >= 30:
+        raise HTTPException(status_code=400, detail="Máximo 30 preguntas frecuentes por empresa")
+    faq = CompanyFAQ(
+        company_id=company_id,
+        pregunta=payload.pregunta.strip(),
+        respuesta=payload.respuesta.strip(),
+        orden=payload.orden,
+    )
+    db.add(faq)
+    db.commit()
+    db.refresh(faq)
+    return faq
+
+
+@router.put("/{company_id}/faqs/{faq_id}", response_model=FAQResponse)
+def update_faq(
+    company_id: int,
+    faq_id: int,
+    payload: FAQUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Edita una FAQ existente."""
+    require_company_member(db, current_user, company_id)
+    faq = db.query(CompanyFAQ).filter(CompanyFAQ.id == faq_id, CompanyFAQ.company_id == company_id).first()
+    if not faq:
+        raise HTTPException(status_code=404, detail="FAQ no encontrada")
+    if payload.pregunta is not None:
+        faq.pregunta = payload.pregunta.strip()
+    if payload.respuesta is not None:
+        faq.respuesta = payload.respuesta.strip()
+    if payload.orden is not None:
+        faq.orden = payload.orden
+    if payload.activa is not None:
+        faq.activa = payload.activa
+    db.commit()
+    db.refresh(faq)
+    return faq
+
+
+@router.delete("/{company_id}/faqs/{faq_id}", status_code=204)
+def delete_faq(
+    company_id: int,
+    faq_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Elimina una FAQ."""
+    require_company_member(db, current_user, company_id)
+    faq = db.query(CompanyFAQ).filter(CompanyFAQ.id == faq_id, CompanyFAQ.company_id == company_id).first()
+    if not faq:
+        raise HTTPException(status_code=404, detail="FAQ no encontrada")
+    db.delete(faq)
+    db.commit()
+
+
+# ─── FAQs públicas (para el chatbot) ─────────────────────────────────
+
+@router.get("/{company_id}/faqs/public")
+def get_public_faqs(company_id: int, db: Session = Depends(get_db)):
+    """FAQs activas de una empresa (endpoint público para el chatbot)."""
+    faqs = (
+        db.query(CompanyFAQ)
+        .filter(CompanyFAQ.company_id == company_id, CompanyFAQ.activa.is_(True))
+        .order_by(CompanyFAQ.orden, CompanyFAQ.id)
+        .all()
+    )
+    return [{"pregunta": f.pregunta, "respuesta": f.respuesta} for f in faqs]

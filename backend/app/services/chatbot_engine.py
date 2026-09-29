@@ -230,6 +230,57 @@ def _response(chat_session: ChatSession, data: Dict[str, Any], history: List[Dic
     return base
 
 
+def _inject_company_faqs(db: Session, data: dict):
+    """Carga FAQs de empresas relevantes y las inyecta en data para el LLM."""
+    try:
+        from app.models import CompanyFAQ, Company
+        # Determinar empresa(s) relevantes: si el candidato ya tiene un puesto o municipio
+        puesto = data.get("puesto_deseado", "")
+        municipio = data.get("municipio", "")
+        if not puesto and not municipio:
+            return
+
+        # Buscar empresas que tengan vacantes activas que coincidan
+        jobs_q = db.query(Job).filter(Job.activa.is_(True), Job.empresa_id.isnot(None))
+        if puesto:
+            jobs_q = jobs_q.filter(Job.titulo.ilike(f"%{puesto}%"))
+        if municipio:
+            jobs_q = jobs_q.filter(Job.municipio.ilike(f"%{municipio}%"))
+        relevant_jobs = jobs_q.limit(10).all()
+
+        if not relevant_jobs:
+            # Fallback: cualquier empresa activa con FAQs
+            jobs_q = db.query(Job).filter(Job.activa.is_(True), Job.empresa_id.isnot(None)).limit(5)
+            relevant_jobs = jobs_q.all()
+
+        company_ids = list({j.empresa_id for j in relevant_jobs if j.empresa_id})
+        if not company_ids:
+            return
+
+        # Cargar FAQs activas de esas empresas
+        faqs = (
+            db.query(CompanyFAQ)
+            .filter(CompanyFAQ.company_id.in_(company_ids), CompanyFAQ.activa.is_(True))
+            .order_by(CompanyFAQ.company_id, CompanyFAQ.orden)
+            .limit(20)
+            .all()
+        )
+        if not faqs:
+            return
+
+        # Nombre de la empresa (si es una sola, ponerla como referencia)
+        empresa_nombres = []
+        for cid in company_ids[:3]:
+            c = db.query(Company).filter(Company.id == cid).first()
+            if c:
+                empresa_nombres.append(c.nombre)
+
+        data["company_faqs"] = [{"q": f.pregunta, "a": f.respuesta} for f in faqs]
+        data["empresa_nombre_faqs"] = ", ".join(empresa_nombres) if empresa_nombres else "las empresas"
+    except Exception as e:
+        logger.warning("Error cargando company FAQs: %s", e)
+
+
 async def process_chat_message(
     db: Session,
     session_id: str = None,
@@ -393,6 +444,9 @@ async def process_chat_message(
                 bot_messages.append("¡Listo! Tu perfil quedó completo. ¿Seguimos con las vacantes?")
                 options = list(WELCOME_OPTIONS)
         else:
+            # Cargar FAQs de empresas relevantes para inyectar al contexto del chatbot
+            if not data.get("company_faqs"):
+                _inject_company_faqs(db, data)
             llm = await query_deepseek_chat(conversation_history=history, user_message=input_text, context_data=data)
             bot_messages.append(_shorten_reply(llm["reply_text"]))
             for k, v in (llm.get("extracted_profile") or {}).items():

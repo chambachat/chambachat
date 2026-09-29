@@ -97,6 +97,16 @@ async def query_deepseek_chat(
         if conocido:
             ctx_lines.append("- Perfil ya registrado del candidato: " + "; ".join(conocido) + ". NO vuelvas a preguntar estos datos.")
         ctx_lines.append("- No pidas tú datos de perfil (escolaridad, experiencia, certificaciones, disponibilidad, teléfono, edad): el sistema los pregunta por su cuenta con botones.")
+
+        # Inyectar FAQs de la empresa si están disponibles
+        company_faqs = context_data.get("company_faqs")
+        if company_faqs:
+            faq_empresa = context_data.get("empresa_nombre_faqs", "la empresa")
+            faq_lines = [f"  P: {faq['q']}  R: {faq['a']}" for faq in company_faqs[:15]]
+            ctx_lines.append(
+                f"- PREGUNTAS FRECUENTES de {faq_empresa} (usa esta información para responder dudas del candidato sobre la empresa, NO inventes datos que no estén aquí):\n"
+                + "\n".join(faq_lines)
+            )
         
         if ctx_lines:
             messages.append({

@@ -227,6 +227,7 @@ class Company(Base):
     routes = relationship("TransportRoute", back_populates="company", cascade="all, delete-orphan")
     shifts = relationship("CompanyShift", back_populates="company", cascade="all, delete-orphan", order_by="CompanyShift.id")
     logo = relationship("CompanyLogo", back_populates="company", uselist=False, cascade="all, delete-orphan")
+    faqs = relationship("CompanyFAQ", back_populates="company", cascade="all, delete-orphan", order_by="CompanyFAQ.orden")
 
 
 class CompanyLogo(Base):
@@ -531,3 +532,19 @@ class JobView(Base):
 
     __table_args__ = (UniqueConstraint("job_id", "user_id", "date", name="uq_job_view"),)
 
+
+# ─── Company FAQs ─────────────────────────────────────────────────────
+
+class CompanyFAQ(Base):
+    """Preguntas frecuentes de una empresa (uniforme, comedor, transporte, etc.)."""
+    __tablename__ = "company_faqs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    pregunta = Column(String(500), nullable=False)
+    respuesta = Column(Text, nullable=False)
+    orden = Column(Integer, default=0)
+    activa = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    company = relationship("Company", back_populates="faqs")
