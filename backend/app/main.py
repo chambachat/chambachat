@@ -160,7 +160,9 @@ def health_check():
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 
 from fastapi.responses import FileResponse
-@app.get("/admin/scraper")
+@app.get("/admin/scraper", include_in_schema=False)
+@app.get("/admin", include_in_schema=False)
+@app.get("/admin/", include_in_schema=False)
 async def serve_scraper_ui():
     index_file = os.path.join(frontend_dist, "index.html")
     if os.path.exists(index_file):

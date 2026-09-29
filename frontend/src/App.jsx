@@ -21,8 +21,11 @@ const EMPRESA_AUTH_PROMPT = {
 export default function App() {
   const toast = useToast();
 
-  // 'chat' es la pantalla principal por defecto
-  const initialView = (typeof window !== 'undefined' && window.location.pathname.includes('/admin/scraper')) ? 'scraper' : 'chat';
+  let initialView = 'chat';
+  if (typeof window !== 'undefined') {
+    if (window.location.pathname.startsWith('/admin/scraper')) initialView = 'scraper';
+    else if (window.location.pathname.startsWith('/admin')) initialView = 'admin';
+  }
   const [currentView, setCurrentView] = useState(initialView);
   const [empresaTab, setEmpresaTab] = useState('team');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -232,8 +235,20 @@ export default function App() {
           ? <AdminView onBack={() => setCurrentView('chat')} />
           : <div className="p-8 text-center h-screen flex flex-col items-center justify-center bg-slate-50">
               <h2 className="text-2xl font-bold text-rose-500 mb-4">Acceso Restringido</h2>
-              <p className="mb-6">Debes iniciar sesión con tu cuenta de @chambachat.com</p>
-              <button className="px-6 py-2 bg-emerald-600 text-white rounded-xl" onClick={() => setCurrentView('chat')}>Volver al inicio</button>
+              <p className="mb-6">Debes iniciar sesión con tu cuenta de @chambachat.com para entrar al panel de control.</p>
+              <div className="flex gap-4">
+                <button className="px-6 py-2 bg-slate-200 text-slate-800 font-semibold rounded-xl" onClick={() => setCurrentView('chat')}>Volver al inicio</button>
+                <button 
+                  className="px-6 py-2 bg-emerald-600 font-semibold text-white rounded-xl" 
+                  onClick={() => {
+                    setAuthPrompt({ title: 'Acceso Admin', message: 'Inicia sesión con tu cuenta @chambachat.com' });
+                    setAuthInitialRole('candidate');
+                    setIsAuthModalOpen(true);
+                  }}
+                >
+                  Iniciar Sesión
+                </button>
+              </div>
             </div>
       )}
 

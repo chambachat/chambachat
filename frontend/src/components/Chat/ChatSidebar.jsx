@@ -195,18 +195,6 @@ export default function ChatSidebar({
             <span className="text-[11px]">Acerca de ChambaChat</span>
           </a>
 
-          {currentUser?.email?.endsWith('@chambachat.com') && (
-            <button
-              onClick={() => {
-                if (typeof window !== 'undefined' && window.innerWidth < 768) onToggleSidebar();
-                onOpenAdmin();
-              }}
-              className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-400 hover:text-slate-600 transition"
-            >
-              <Settings className="w-3 h-3" />
-              <span className="text-[11px]">Admin Flujos</span>
-            </button>
-          )}
         </div>
       </aside>
 
