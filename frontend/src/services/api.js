@@ -657,9 +657,10 @@ export async function deleteCompanyFAQ(companyId, faqId) {
 
 // ─── Feed Explorar ──────────────────────────────────────────────────
 
-export async function getFeedJobs(offset = 0, limit = 10, q = '') {
+export async function getFeedJobs(offset = 0, limit = 10, q = '', seed = null) {
   const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
   if (q.trim()) params.set('q', q.trim());
+  if (seed !== null) params.set('seed', String(seed));
   const res = await fetch(`${API_BASE}/feed?${params}`, { headers: authHeaders() });
   if (!res.ok) return [];
   return res.json();

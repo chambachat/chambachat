@@ -1,12 +1,15 @@
 """
 Router para el feed "Explorar" — vista tipo TikTok de vacantes.
 
-GET  /api/v1/feed              → Listado paginado de vacantes con likes/comentarios
+GET  /api/v1/feed              → Listado con shuffle ponderado por relevancia
 POST /api/v1/feed/{id}/like    → Toggle like (dar/quitar)
 """
 
 import logging
+import random
+import math
 from typing import List, Optional
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -23,18 +26,110 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/feed", tags=["Feed"])
 
 
+# ─── Scoring helpers ──────────────────────────────────────────────────
+
+def _haversine(lat1, lon1, lat2, lon2):
+    """Distancia en km entre dos puntos."""
+    if None in (lat1, lon1, lat2, lon2):
+        return 999.0
+    R = 6371.0
+    d_lat = math.radians(lat2 - lat1)
+    d_lon = math.radians(lon2 - lon1)
+    a = math.sin(d_lat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lon / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _score_job(job: Job, user: Optional[User], likes_map: dict) -> float:
+    """Calcula un score de relevancia para una vacante vs el usuario en sesión."""
+    score = 50.0  # base
+
+    # 1. Cercanía geográfica (max +30)
+    if user and user.latitud and user.longitud and job.latitud and job.longitud:
+        dist_km = _haversine(user.latitud, user.longitud, job.latitud, job.longitud)
+        if dist_km <= 5:
+            score += 30.0
+        elif dist_km <= 15:
+            score += 20.0
+        elif dist_km <= 30:
+            score += 10.0
+        elif dist_km <= 50:
+            score += 5.0
+    elif user and user.municipio and job.municipio:
+        if user.municipio.lower().strip() == (job.municipio or "").lower().strip():
+            score += 25.0
+
+    # 2. Match de puesto deseado (max +35)
+    puesto = ""
+    if user and user.perfil_operativo and isinstance(user.perfil_operativo, dict):
+        puesto = (user.perfil_operativo.get("puesto_deseado") or "").lower().strip()
+    if puesto:
+        titulo = (job.titulo or "").lower()
+        cat = (job.categoria or "").lower()
+        desc = (job.descripcion or "").lower()
+        if puesto in titulo or any(w in titulo for w in puesto.split() if len(w) > 3):
+            score += 35.0
+        elif puesto in cat or any(w in cat for w in puesto.split() if len(w) > 3):
+            score += 25.0
+        elif puesto in desc:
+            score += 15.0
+
+    # 3. Recencia (max +15): las más nuevas tienen bonus
+    age_days = (datetime.utcnow() - (job.created_at or datetime.utcnow())).days
+    if age_days <= 1:
+        score += 15.0
+    elif age_days <= 3:
+        score += 12.0
+    elif age_days <= 7:
+        score += 8.0
+    elif age_days <= 14:
+        score += 4.0
+
+    # 4. Engagement: likes como señal de calidad (max +10)
+    likes = likes_map.get(job.id, 0)
+    score += min(10.0, likes * 2.0)
+
+    # 5. Tiene foto = más atractiva visualmente (+5)
+    if getattr(job, '_has_photo', False):
+        score += 5.0
+
+    # 6. Empresa verificada (+3)
+    if job.empresa_id:
+        score += 3.0
+
+    return score
+
+
+def _weighted_shuffle(items: list, scores: list, seed: int = None) -> list:
+    """
+    Shuffle ponderado: items con mayor score tienden a quedar primero
+    pero con aleatoriedad para que no sea siempre el mismo orden.
+    Fórmula: sort_key = score + random(0, max_score * 0.4)
+    """
+    if not items:
+        return []
+    rng = random.Random(seed)
+    max_score = max(scores) if scores else 1.0
+    noise_range = max_score * 0.4  # 40% de ruido aleatorio
+    paired = list(zip(items, scores))
+    paired.sort(key=lambda x: -(x[1] + rng.uniform(0, noise_range)))
+    return [item for item, _ in paired]
+
+
 @router.get("", response_model=List[JobFeedItem])
 def get_feed(
     offset: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=50),
     q: Optional[str] = Query(None, max_length=120, description="Búsqueda por texto libre"),
+    seed: Optional[int] = Query(None, description="Semilla para reproducir el mismo shuffle dentro de una sesión"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
-    """Lista vacantes activas para el feed, enriquecidas con likes y comentarios."""
+    """Feed con shuffle ponderado por relevancia del usuario."""
     from sqlalchemy import or_
+
     query = db.query(Job).filter(Job.activa.is_(True))
 
+    # Búsqueda por texto
     if q and q.strip():
         for term in q.strip().split()[:5]:
             like = f"%{term}%"
@@ -46,58 +141,74 @@ def get_feed(
                 Job.descripcion.ilike(like),
             ))
 
-    jobs = query.order_by(Job.id.desc()).offset(offset).limit(limit).all()
+    # Cargar TODAS las vacantes activas para scoring (el shuffle necesita ver todo)
+    all_jobs = query.all()
 
-    if not jobs:
+    if not all_jobs:
         return []
 
-    job_ids = [j.id for j in jobs]
+    all_job_ids = [j.id for j in all_jobs]
 
-    # Conteo de likes por vacante
+    # Likes para scoring + display
     likes_counts = dict(
         db.query(JobLike.job_id, func.count(JobLike.id))
-        .filter(JobLike.job_id.in_(job_ids))
+        .filter(JobLike.job_id.in_(all_job_ids))
         .group_by(JobLike.job_id)
         .all()
     )
 
-    # Conteo de comentarios por vacante
+    # Jobs con foto
+    photo_job_ids = set(
+        row[0] for row in
+        db.query(JobPhotoLog.job_id)
+        .filter(JobPhotoLog.job_id.in_(all_job_ids), JobPhotoLog.success.is_(True))
+        .distinct()
+        .all()
+    )
+    for j in all_jobs:
+        j._has_photo = j.id in photo_job_ids
+
+    # Calcular scores y hacer shuffle ponderado
+    scores = [_score_job(j, current_user, likes_counts) for j in all_jobs]
+    session_seed = seed if seed is not None else random.randint(0, 999999)
+    shuffled = _weighted_shuffle(all_jobs, scores, seed=session_seed)
+
+    # Paginar sobre el resultado shuffled
+    page = shuffled[offset:offset + limit]
+
+    if not page:
+        return []
+
+    page_ids = [j.id for j in page]
+
+    # Comentarios
     comments_counts = dict(
         db.query(JobComment.job_id, func.count(JobComment.id))
-        .filter(JobComment.job_id.in_(job_ids))
+        .filter(JobComment.job_id.in_(page_ids))
         .group_by(JobComment.job_id)
         .all()
     )
 
-    # Likes del usuario actual
+    # User likes
     user_liked_ids = set()
     if current_user:
         user_liked_ids = set(
             row[0] for row in
             db.query(JobLike.job_id)
-            .filter(JobLike.job_id.in_(job_ids), JobLike.user_id == current_user.id)
+            .filter(JobLike.job_id.in_(page_ids), JobLike.user_id == current_user.id)
             .all()
         )
 
-    # Nombres de quien reportó (para fotos comunitarias)
+    # Reporter names
     reporter_map = {}
-    community_jobs = [j for j in jobs if j.origen == "foto_comunitaria" and j.reportada_por_email]
+    community_jobs = [j for j in page if j.origen == "foto_comunitaria" and j.reportada_por_email]
     if community_jobs:
         emails = [j.reportada_por_email for j in community_jobs]
         reporters = db.query(User.email, User.nombre).filter(User.email.in_(emails)).all()
         reporter_map = {r.email: r.nombre for r in reporters}
 
-    # Jobs con foto disponible
-    photo_job_ids = set(
-        row[0] for row in
-        db.query(JobPhotoLog.job_id)
-        .filter(JobPhotoLog.job_id.in_(job_ids), JobPhotoLog.success.is_(True))
-        .distinct()
-        .all()
-    )
-
     result = []
-    for job in jobs:
+    for job in page:
         item = JobFeedItem(
             id=job.id,
             titulo=job.titulo,

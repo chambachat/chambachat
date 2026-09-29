@@ -22,11 +22,14 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
   const observerRef = useRef(null);
   const limit = 10;
 
+  // Semilla de sesión: genera un orden único cada vez que entras al feed
+  const sessionSeedRef = useRef(Math.floor(Math.random() * 999999));
+
   const loadJobs = async (currentOffset, query = activeQuery) => {
     if (loading || !hasMore) return;
     setLoading(true);
     try {
-      const newJobs = await getFeedJobs(currentOffset, limit, query);
+      const newJobs = await getFeedJobs(currentOffset, limit, query, sessionSeedRef.current);
       if (newJobs.length < limit) {
         setHasMore(false);
       }
@@ -58,10 +61,9 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
     setOffset(0);
     setHasMore(true);
     setActiveIndex(0);
-    // Reset scroll
+    sessionSeedRef.current = Math.floor(Math.random() * 999999); // nuevo shuffle
     if (containerRef.current) containerRef.current.scrollTop = 0;
-    // Load with new query
-    setLoading(false); // reset para que loadJobs funcione
+    setLoading(false);
     setTimeout(() => loadJobs(0, q), 0);
   };
 
@@ -73,6 +75,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
     setOffset(0);
     setHasMore(true);
     setActiveIndex(0);
+    sessionSeedRef.current = Math.floor(Math.random() * 999999); // nuevo shuffle
     if (containerRef.current) containerRef.current.scrollTop = 0;
     setLoading(false);
     setTimeout(() => loadJobs(0, ''), 0);
