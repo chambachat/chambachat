@@ -222,3 +222,25 @@ export async function getCurrentUser() {
   }
   return null;
 }
+
+
+// ─── Accept Terms ────────────────────────────────────────────────────
+
+export async function acceptTerms() {
+  const token = getStoredToken();
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_BASE}/auth/accept-terms`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const user = await res.json();
+      setStoredUser(user);
+      return user;
+    }
+  } catch (e) {
+    console.error('Error aceptando términos:', e);
+  }
+  return null;
+}

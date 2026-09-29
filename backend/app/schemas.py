@@ -582,6 +582,7 @@ class AuthUserResponse(BaseModel):
     avatar_url: Optional[str] = None
     tag_inea: Optional[bool] = False
     aura_puntos: int = 0
+    terminos_aceptados: bool = False
 
     @field_validator("role", mode="before")
     @classmethod

@@ -28,6 +28,7 @@ class User(Base):
     google_id = Column(String(255), nullable=True)
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    terminos_aceptados_at = Column(DateTime, nullable=True)  # NULL = no ha aceptado T&C
 
     aura = relationship("UserAura", back_populates="user", uselist=False)
     hiring_records = relationship("HiringHistory", back_populates="user", cascade="all, delete-orphan")
@@ -35,6 +36,10 @@ class User(Base):
     @property
     def aura_puntos(self) -> int:
         return self.aura.total_points if self.aura else 0
+
+    @property
+    def terminos_aceptados(self) -> bool:
+        return self.terminos_aceptados_at is not None
 
 
 class Job(Base):

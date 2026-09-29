@@ -5,9 +5,10 @@ import AdminView from './components/Admin/AdminView';
 import ScraperTool from './components/Admin/ScraperTool';
 import UserProfileModal from './components/UserProfile/UserProfileModal';
 import AuthModal from './components/Auth/AuthModal';
+import TermsAcceptModal from './components/Auth/TermsAcceptModal';
 import LocationPickerModal from './components/Chat/LocationPickerModal';
 import CandidateResumeModal from './components/UserProfile/CandidateResumeModal';
-import { getStoredUser, setStoredUser, signOut } from './services/authService';
+import { getStoredUser, setStoredUser, signOut, acceptTerms } from './services/authService';
 import { acceptCompanyInvitation, getInvitationByToken, updateMyLocation } from './services/api';
 import { readStoredLocation, saveStoredLocation, locationFromUser, formatLocation } from './services/candidateLocation';
 import { useToast } from './components/ui/Toast';
@@ -37,6 +38,20 @@ export default function App() {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isResumeOpen, setIsResumeOpen] = useState(false);
   const [resumeVersion, setResumeVersion] = useState(0);
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
+
+  // ¿Debe mostrar modal de T&C? Solo si está logueado y NO ha aceptado
+  const showTermsModal = !!(currentUser && currentUser.terminos_aceptados === false);
+
+  const handleAcceptTerms = async () => {
+    setAcceptingTerms(true);
+    const updated = await acceptTerms();
+    if (updated) {
+      setCurrentUser(updated);
+      setStoredUser(updated);
+    }
+    setAcceptingTerms(false);
+  };
 
   /** Abre el modal de login como reclutador y guarda la acción a ejecutar al autenticarse. */
   const requireRecruiterAuth = (prompt, action) => {
@@ -312,6 +327,10 @@ export default function App() {
           }
         }}
       />
+
+      {showTermsModal && (
+        <TermsAcceptModal onAccept={handleAcceptTerms} loading={acceptingTerms} />
+      )}
     </div>
   );
 }

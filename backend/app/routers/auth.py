@@ -395,3 +395,19 @@ def update_my_location(req: UserLocationUpdate, db: Session = Depends(get_db), c
     db.commit()
     db.refresh(current_user)
     return AuthUserResponse.model_validate(current_user)
+
+
+# ─── Accept Terms & Conditions ───────────────────────────────────────
+
+@router.post("/accept-terms", response_model=AuthUserResponse)
+def accept_terms(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Registra que el usuario aceptó los Términos y Condiciones."""
+    if not current_user.terminos_aceptados_at:
+        current_user.terminos_aceptados_at = datetime.utcnow()
+        db.commit()
+        db.refresh(current_user)
+        logger.info("Términos aceptados: user=%s (id=%d)", current_user.email, current_user.id)
+    return AuthUserResponse.model_validate(current_user)
