@@ -17,7 +17,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Job, JobComment, JobLike, JobPhotoLog, JobReport, User
+from app.models import Job, JobComment, JobLike, JobPhotoLog, JobReport, User, PlatformVideo, UserVideoQueue
 from app.dependencies import get_current_user_optional, get_current_user
 from app.schemas import JobFeedItem, LikeToggleResponse
 
@@ -234,6 +234,33 @@ def get_feed(
             fuente_contacto_whatsapp=job.fuente_contacto_whatsapp if job.origen == "foto_comunitaria" else None,
         )
         result.append(item)
+
+    # Inyectar video de TikTok si hay alguno en la cola del usuario y estamos en la primera página
+    if offset == 0 and current_user:
+        queued_video = (
+            db.query(UserVideoQueue)
+            .filter(UserVideoQueue.user_id == current_user.id, UserVideoQueue.viewed.is_(False))
+            .first()
+        )
+        if queued_video:
+            video = db.query(PlatformVideo).filter(PlatformVideo.id == queued_video.video_id, PlatformVideo.is_active.is_(True)).first()
+            if video:
+                # Marcar como visto
+                queued_video.viewed = True
+                db.commit()
+
+                # Crear un item mock para el video
+                video_item = JobFeedItem(
+                    id=-video.id,  # IDs negativos para videos
+                    titulo=video.title,
+                    empresa_nombre="ChambaChat",
+                    descripcion=video.title,
+                    is_tiktok=True,
+                    tiktok_url=video.tiktok_url
+                )
+                # Inyectarlo aleatoriamente en los primeros 3 resultados
+                insert_idx = random.randint(1, min(3, len(result)))
+                result.insert(insert_idx, video_item)
 
     return result
 

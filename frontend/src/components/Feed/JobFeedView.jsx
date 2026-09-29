@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
 import FeedCard from './FeedCard';
+import TikTokFeedCard from './TikTokFeedCard';
 import JobComments from '../Jobs/JobComments';
 import PhotoUploadButton from '../Chat/PhotoUploadButton';
 import { getFeedJobs, toggleJobLike, reportJob, trackJobView } from '../../services/api';
@@ -262,15 +263,22 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
             className="h-full w-full"
             style={{ scrollSnapAlign: 'start' }}
           >
-            <FeedCard 
-              job={job}
-              currentUser={currentUser}
-              isActive={index === activeIndex}
-              onLike={handleLike}
-              onOpenComments={setActiveJobComments}
-              onApply={handleApply}
-              onReport={handleReport}
-            />
+            {job.is_tiktok ? (
+              <TikTokFeedCard 
+                video={job} 
+                isActive={index === activeIndex} 
+              />
+            ) : (
+              <FeedCard 
+                job={job}
+                currentUser={currentUser}
+                isActive={index === activeIndex}
+                onLike={handleLike}
+                onOpenComments={setActiveJobComments}
+                onApply={handleApply}
+                onReport={handleReport}
+              />
+            )}
           </div>
         ))}
 

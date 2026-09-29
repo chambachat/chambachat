@@ -553,3 +553,28 @@ class CompanyFAQ(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     company = relationship("Company", back_populates="faqs")
+
+
+# ─── Platform Videos ──────────────────────────────────────────────────
+
+class PlatformVideo(Base):
+    """Videos de TikTok educativos de ChambaChat."""
+    __tablename__ = "platform_videos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False)
+    tiktok_url = Column(String(500), nullable=False)
+    keywords = Column(String(500), nullable=True)  # coma separadas, ej: "puntos aura, aplicar, perfil"
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class UserVideoQueue(Base):
+    """Cola de videos pendientes de mostrar en el feed del candidato."""
+    __tablename__ = "user_video_queue"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    video_id = Column(Integer, ForeignKey("platform_videos.id", ondelete="CASCADE"))
+    added_at = Column(DateTime, default=datetime.utcnow)
+    viewed = Column(Boolean, default=False)

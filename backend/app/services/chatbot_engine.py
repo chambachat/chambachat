@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from app.models import BotFlowConfig, ChatSession, Job, User
+from app.models import BotFlowConfig, ChatSession, Job, User, PlatformVideo, UserVideoQueue
 from app.services.deepseek_engine import query_deepseek_chat
 from app.services.geo import get_municipio_coords
 from app.services.matchmaking import match_jobs_for_candidate
@@ -280,6 +280,28 @@ def _inject_company_faqs(db: Session, data: dict):
     except Exception as e:
         logger.warning("Error cargando company FAQs: %s", e)
 
+def _queue_relevant_video(db: Session, user_id: int, input_text: str):
+    """Revisa si el mensaje del usuario tiene palabras clave de algún video activo, y lo pone en cola."""
+    if not input_text:
+        return
+    text_lower = input_text.lower()
+    videos = db.query(PlatformVideo).filter(PlatformVideo.is_active.is_(True)).all()
+    for v in videos:
+        if v.keywords:
+            keys = [k.strip().lower() for k in v.keywords.split(",") if k.strip()]
+            for k in keys:
+                if k in text_lower:
+                    # Checar si ya está en cola o lo vio
+                    existing = db.query(UserVideoQueue).filter(
+                        UserVideoQueue.user_id == user_id,
+                        UserVideoQueue.video_id == v.id
+                    ).first()
+                    if not existing:
+                        db.add(UserVideoQueue(user_id=user_id, video_id=v.id))
+                        db.commit()
+                    return  # Solo encolar uno por mensaje
+
+
 
 async def process_chat_message(
     db: Session,
@@ -452,6 +474,11 @@ async def process_chat_message(
             for k, v in (llm.get("extracted_profile") or {}).items():
                 if v and k not in ("latitud", "longitud"):
                     data[k] = v
+            
+            # Revisar si aplica algún video tutorial (solo si el usuario está logueado)
+            if profile_user:
+                _queue_relevant_video(db, profile_user.id, input_text)
+
             options = list(llm.get("suggested_chips") or [])
             should_ask_login = bool(llm.get("should_ask_login", False))
             if loc_known:

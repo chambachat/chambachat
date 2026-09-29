@@ -1136,6 +1136,10 @@ class JobFeedItem(BaseModel):
     # Contacto para vacantes comunitarias
     fuente_contacto_telefono: Optional[str] = None
     fuente_contacto_whatsapp: Optional[str] = None
+    
+    # Soporte para inyectar videos de TikTok en el feed
+    is_tiktok: bool = False
+    tiktok_url: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class LikeToggleResponse(BaseModel):
@@ -1173,3 +1177,27 @@ class ClaimVerifyResponse(BaseModel):
     success: bool
     job_id: int
     message: str
+
+
+# ─── Platform Videos ──────────────────────────────────────────────────
+
+class PlatformVideoCreate(BaseModel):
+    title: str
+    tiktok_url: str
+    keywords: Optional[str] = None
+    is_active: bool = True
+
+class PlatformVideoUpdate(BaseModel):
+    title: Optional[str] = None
+    tiktok_url: Optional[str] = None
+    keywords: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class PlatformVideoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    tiktok_url: str
+    keywords: Optional[str] = None
+    is_active: bool
+    created_at: datetime
