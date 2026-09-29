@@ -195,7 +195,7 @@ export default function ChatSidebar({
             <span className="text-[11px]">Acerca de ChambaChat</span>
           </a>
 
-          {currentUser?.role === 'admin' && (
+          {currentUser?.email?.endsWith('@chambachat.com') && (
             <button
               onClick={() => {
                 if (typeof window !== 'undefined' && window.innerWidth < 768) onToggleSidebar();
