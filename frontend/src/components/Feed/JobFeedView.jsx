@@ -292,9 +292,10 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
 
       {/* Floating Photo Upload Button */}
       {onPhotoSelected && (
-        <div className="absolute bottom-6 left-0 right-0 flex justify-center z-30 pointer-events-none drop-shadow-xl">
-          <div className="pointer-events-auto bg-white rounded-full shadow-lg overflow-hidden border border-slate-200/50">
-            <PhotoUploadButton onPhotoSelected={onPhotoSelected} disabled={false} />
+        <div className="absolute bottom-20 left-0 right-0 flex justify-center z-30 pointer-events-none drop-shadow-xl">
+          <div className="pointer-events-auto flex items-center bg-white pl-4 pr-1 py-1 rounded-full shadow-2xl border border-slate-200/50 gap-2">
+            <span className="text-sm font-bold text-slate-700 tracking-tight">📸 Cazar chamba</span>
+            <PhotoUploadButton onPhotoSelected={onPhotoSelected} disabled={false} menuCenter={true} />
           </div>
         </div>
       )}

@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
 import exifr from 'exifr';
 
-export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
+export default function PhotoUploadButton({ onPhotoSelected, disabled, menuCenter = false }) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleFileChange = async (e) => {
@@ -108,7 +108,7 @@ export default function PhotoUploadButton({ onPhotoSelected, disabled }) {
       />
       
       {showMenu && (
-        <div className="absolute bottom-12 left-0 mb-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+        <div className={`absolute bottom-12 ${menuCenter ? 'left-1/2 -translate-x-1/2 -ml-2' : 'left-0'} mb-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50`}>
           <div className="px-4 py-2 bg-emerald-50 border-b border-slate-100">
             <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">📸 Cazar chamba</span>
           </div>
