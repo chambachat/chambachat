@@ -230,7 +230,7 @@ export async function acceptTerms() {
   const token = getStoredToken();
   if (!token) return null;
   try {
-    const res = await fetch(`${API_BASE}/auth/accept-terms`, {
+    const res = await fetch('/api/v1/auth/accept-terms', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
