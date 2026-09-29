@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
 import FeedCard from './FeedCard';
 import JobComments from '../Jobs/JobComments';
+import PhotoUploadButton from '../Chat/PhotoUploadButton';
 import { getFeedJobs, toggleJobLike, reportJob, trackJobView } from '../../services/api';
 
-const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
+const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelected }) => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -280,6 +281,15 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth }) => {
           </div>
         )}
       </div>
+
+      {/* Floating Photo Upload Button */}
+      {onPhotoSelected && (
+        <div className="absolute bottom-6 left-0 right-0 flex justify-center z-30 pointer-events-none drop-shadow-xl">
+          <div className="pointer-events-auto bg-white rounded-full shadow-lg overflow-hidden border border-slate-200/50">
+            <PhotoUploadButton onPhotoSelected={onPhotoSelected} disabled={false} />
+          </div>
+        </div>
+      )}
 
       {/* Comments Bottom Sheet Modal */}
       {activeJobComments && (

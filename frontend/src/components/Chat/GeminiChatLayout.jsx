@@ -262,6 +262,10 @@ export default function GeminiChatLayout({
             currentUser={currentUser}
             onStartDirectChat={async (job) => { await startDirectChat(job); setFeedMode(false); }}
             onOpenAuth={() => setIsAuthModalOpen(true)}
+            onPhotoSelected={(file) => {
+              handlePhotoSelected(file);
+              setFeedMode(false);
+            }}
           />
         ) : (
         <>
