@@ -30,18 +30,22 @@ export default function PhotoJobPreview({ extraction, onConfirm, onDiscard, isSu
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const payload = { ...extraction, ...formData };
-    // Sueldo vacío → null (el backend acepta nullable)
-    if (payload.sueldo_semanal_libre === '' || payload.sueldo_semanal_libre === undefined) {
-      payload.sueldo_semanal_libre = null;
+    const payload = { ...formData };
+    if (payload.sueldo_semanal_libre) {
+      payload.sueldo_semanal_libre = parseFloat(payload.sueldo_semanal_libre);
     } else {
-      payload.sueldo_semanal_libre = Number(payload.sueldo_semanal_libre);
+      payload.sueldo_semanal_libre = null;
     }
-    // Mapear contacto nested → campos planos del backend
-    if (payload.contacto) {
-      payload.fuente_contacto_telefono = payload.contacto.telefono || null;
-      payload.fuente_contacto_whatsapp = payload.contacto.whatsapp || null;
-      payload.fuente_contacto_email = payload.contacto.email || null;
+    payload.latitud = extraction.latitud;
+    payload.longitud = extraction.longitud;
+    payload.photo_log_id = extraction.photo_log_id;
+    payload.texto_ocr = extraction.raw_text;
+    
+    // Mapear contacto nested a campos planos del backend
+    if (extraction.contacto) {
+      payload.fuente_contacto_telefono = extraction.contacto.telefono || null;
+      payload.fuente_contacto_whatsapp = extraction.contacto.whatsapp || null;
+      payload.fuente_contacto_email = extraction.contacto.email || null;
     }
     onConfirm(payload);
   };

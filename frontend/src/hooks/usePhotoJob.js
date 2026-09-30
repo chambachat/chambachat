@@ -3,12 +3,7 @@ import { analyzeJobPhoto, confirmPhotoJob } from '../services/api';
 import { getCurrentUser } from '../services/authService';
 
 /**
- * Hook que maneja el flujo completo de foto → vacante comunitaria.
- * 
- * Flujo:
- * 1. handlePhotoSelected: comprime la foto, captura GPS, la envía al backend para análisis.
- * 2. handleConfirmPhotoJob: publica la vacante con los datos editados por el usuario.
- * 3. handleDiscardPhoto: descarta la extracción actual.
+ * Hook que maneja el flujo completo de foto -> vacante comunitaria.
  */
 export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast, onUserUpdated }) {
   const [photoExtraction, setPhotoExtraction] = useState(null);
@@ -18,7 +13,7 @@ export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSess
   const handlePhotoSelected = async ({ imageBase64, latitud, longitud }) => {
     if (!currentUser) { setIsAuthModalOpen(true); return; }
     setIsAnalyzingPhoto(true);
-    appendToActiveSession([{ role: 'user', text: '📸 Analizando foto de oferta laboral...' }]);
+    appendToActiveSession([{ role: 'user', text: '📷 Analizando foto de oferta laboral...' }]);
     try {
       const extraction = await analyzeJobPhoto(imageBase64, {
         latitud,
@@ -28,7 +23,7 @@ export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSess
       setPhotoExtraction(extraction);
       appendToActiveSession([{
         role: 'bot',
-        text: '✅ Encontré una oferta laboral en la foto. Revisa los datos y confirma para publicarla.',
+        text: '✨ Encontré una oferta laboral en la foto. Revisa los datos en el modal y confirma para publicarla.',
       }]);
     } catch (err) {
       appendToActiveSession([{
@@ -47,9 +42,9 @@ export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSess
       setPhotoExtraction(null);
       appendToActiveSession([{
         role: 'bot',
-        text: `🎉 ¡Vacante publicada! "${job.titulo}" ya aparece en la bolsa de trabajo. +10 Aura ⭐`,
+        text: `✅ ¡Vacante publicada! "${job.titulo}" ya aparece en la bolsa de trabajo. +10 Aura 🌟`,
       }]);
-      toast.success('¡Vacante publicada! +10 Aura ⭐');
+      toast.success('¡Vacante publicada! +10 Aura 🌟');
       // Refrescar usuario para actualizar Aura en el navbar
       try {
         const fresh = await getCurrentUser();

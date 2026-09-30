@@ -4,7 +4,7 @@ import { updateMyLocation, AUTH_EXPIRED_EVENT, trackActiveUser } from '../../ser
 import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
 import { directInputPlaceholder } from '../../services/directChat';
 import { loadAllSessions, updateSession } from '../../services/chatStorage';
-import PhotoJobPreview from './PhotoJobPreview';
+import PhotoJobModal from './PhotoJobModal';
 
 import AuthModal from '../Auth/AuthModal';
 import JobDetailModal from '../Jobs/JobDetailModal';
@@ -262,10 +262,8 @@ export default function GeminiChatLayout({
             currentUser={currentUser}
             onStartDirectChat={async (job) => { await startDirectChat(job); setFeedMode(false); }}
             onOpenAuth={() => setIsAuthModalOpen(true)}
-            onPhotoSelected={(file) => {
-              handlePhotoSelected(file);
-              setFeedMode(false);
-            }}
+            onPhotoSelected={(file) => { handlePhotoSelected(file); }}
+            onUserUpdated={(user) => { setCurrentUser(user); setStoredUser(user); }}
           />
         ) : (
         <>
@@ -310,14 +308,7 @@ export default function GeminiChatLayout({
                 />
               )}
 
-              {!isDirect && photoExtraction && (
-                <PhotoJobPreview
-                  extraction={photoExtraction}
-                  onConfirm={handleConfirmPhotoJob}
-                  onDiscard={handleDiscardPhoto}
-                  isSubmitting={isConfirmingPhoto}
-                />
-              )}
+
             </div>
           )}
         </ChatScrollArea>
@@ -336,6 +327,14 @@ export default function GeminiChatLayout({
         </>
         )}
       </main>
+
+      <PhotoJobModal
+        isOpen={Boolean(photoExtraction)}
+        extraction={photoExtraction}
+        onConfirm={handleConfirmPhotoJob}
+        onDiscard={handleDiscardPhoto}
+        isSubmitting={isConfirmingPhoto}
+      />
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onAuthenticated={handleUserAuthenticated} />
 

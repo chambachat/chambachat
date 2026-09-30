@@ -6,7 +6,9 @@ import JobComments from '../Jobs/JobComments';
 import PhotoUploadButton from '../Chat/PhotoUploadButton';
 import { getFeedJobs, toggleJobLike, reportJob, trackJobView, deleteJob } from '../../services/api';
 
-const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelected }) => {
+import { getCurrentUser } from '../../services/authService';
+
+const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelected, onUserUpdated }) => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -164,6 +166,9 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
       await deleteJob(jobId);
       setJobs(prev => prev.filter(j => j.id !== jobId));
       alert('Vacante eliminada exitosamente.');
+      getCurrentUser().then(user => {
+        if (user && onUserUpdated) onUserUpdated(user);
+      }).catch(e => console.error(e));
     } catch (err) {
       alert(err.message || 'Error al eliminar.');
     }

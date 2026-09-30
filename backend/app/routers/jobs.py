@@ -351,6 +351,9 @@ def delete_job(
     if job.origen == 'foto_comunitaria':
         if job.reportada_por_email != current_user.email:
             raise HTTPException(status_code=403, detail='No tienes permiso para eliminar esta vacante comunitaria')
+        # Restar puntos de aura
+        from app.routers.gamification import _grant_aura
+        _grant_aura(db=db, user=current_user, event_type="eliminar_foto_vacante", points=-10, description=f"Vacante comunitaria eliminada: {job.titulo}", reference_id=job.id)
     else:
         # Si es de empresa, validar permisos de reclutador...
         # Por ahora, nos enfocamos en que el candidato pueda borrar su lona.
