@@ -138,16 +138,16 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, currentUser,
         {isCommunity && (job.fuente_contacto_telefono || job.fuente_contacto_whatsapp) ? (
           <a 
             href={job.fuente_contacto_whatsapp 
-              ? `https://wa.me/52${job.fuente_contacto_whatsapp.replace(/\D/g,'')}?text=Hola, vi la vacante de ${encodeURIComponent(job.titulo)} en ChambaChat`
+              ? `https://wa.me/52${job.fuente_contacto_whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(`¡Hola! Vi su vacante de ${job.titulo} anunciada en ChambaChat.com y me interesa postularme. Mi nombre es ${currentUser?.nombre || currentUser?.full_name || 'un candidato'}.`)}`
               : `tel:${job.fuente_contacto_telefono}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex flex-col items-center gap-1 group"
           >
             <div className="p-3 rounded-full bg-emerald-600/80 backdrop-blur-sm">
-              <Phone size={28} className="text-white group-hover:scale-110 transition-transform" />
+              <Send size={28} className="text-white group-hover:scale-110 transition-transform" />
             </div>
-            <span className="text-xs font-semibold drop-shadow-md">Contactar</span>
+            <span className="text-xs font-semibold drop-shadow-md">Postularme</span>
           </a>
         ) : (
           <button 
