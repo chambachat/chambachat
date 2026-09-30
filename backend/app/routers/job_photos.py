@@ -1,7 +1,7 @@
 """
-Router para crear vacantes a partir de fotos callejeras.
+Endpoints para el flujo de vacantes comunitarias desde fotos.
 
-POST /api/v1/jobs/from-photo       → Analiza la foto y retorna un preview con datos extraídos.
+POST /api/v1/jobs/from-photo        → Analiza foto con Gemini Flash, devuelve extracción preliminar.
 POST /api/v1/jobs/from-photo/confirm → Crea la vacante final a partir de los datos confirmados por el usuario.
 """
 
@@ -75,18 +75,17 @@ async def analyze_photo(
     from app.services.job_vision_service import _preprocess_image
     from app.models import JobPhotoLog
 
-    # Rate limiting: máximo 3 fotos por día por usuario
-    from datetime import datetime, timedelta
+    # Rate limiting: ilimitado para admin, 20 fotos por día en beta
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     uploads_today = (
         db.query(func.count(JobPhotoLog.id))
         .filter(JobPhotoLog.user_id == current_user.id, JobPhotoLog.created_at >= today_start)
         .scalar()
     )
-    if uploads_today >= 3:
+    if current_user.role != 'admin' and uploads_today >= 20:
         raise HTTPException(
             status_code=429,
-            detail="Has alcanzado el límite de 3 fotos por día. Intenta mañana.",
+            detail="Has alcanzado el límite de 20 fotos por día. Intenta mañana.",
         )
     
     # 1. Comprimir la imagen antes de intentar guardarla o mandarla a Gemini
@@ -189,7 +188,6 @@ async def confirm_photo_job(
     )
     db.add(job)
     db.flush()
-
 
     # Registrar Aura
     total_aura = _grant_aura(

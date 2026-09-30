@@ -62,7 +62,7 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, onDelete, cu
       {/* Main Content Area */}
       <div className="flex flex-col gap-3 max-w-[80%] z-10 relative drop-shadow-lg">
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">{job.empresa_nombre || 'Empresa AnÃ³nima'}</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">{job.empresa_nombre || 'Empresa Anónima'}</h3>
           <h1 className="text-2xl sm:text-3xl font-bold leading-tight">{job.titulo}</h1>
         </div>
 
@@ -100,7 +100,7 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, onDelete, cu
             onClick={() => setShowFullDesc(!showFullDesc)}
             className="text-emerald-400 font-medium mt-1 text-xs hover:underline"
           >
-            {showFullDesc ? 'ver menos' : 'ver mÃ¡s'}
+            {showFullDesc ? 'ver menos' : 'ver más'}
           </button>
         </div>
 
@@ -140,7 +140,7 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, onDelete, cu
           (job.fuente_contacto_telefono || job.fuente_contacto_whatsapp) ? (
             <a 
               href={job.fuente_contacto_whatsapp 
-                ? `https://wa.me/52${job.fuente_contacto_whatsapp.toString().replace(/\D/g,'')}?text=${encodeURIComponent(`Â¡Hola! Vi su vacante de ${job.titulo} anunciada en ChambaChat.com y me interesa postularme. Mi nombre es ${currentUser?.nombre || currentUser?.full_name || 'un candidato'}.`)}`
+                ? `https://wa.me/52${job.fuente_contacto_whatsapp.toString().replace(/\D/g,'')}?text=${encodeURIComponent(`¡Hola! Vi su vacante de ${job.titulo} anunciada en ChambaChat.com y me interesa postularme. Mi nombre es ${currentUser?.nombre || currentUser?.full_name || 'un candidato'}.`)}`
                 : `tel:${job.fuente_contacto_telefono}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -154,7 +154,7 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, onDelete, cu
             </a>
           ) : (
             <button 
-              onClick={() => alert('No se detectÃ³ un nÃºmero de telÃ©fono o WhatsApp en esta lona/vacante.')}
+              onClick={() => alert('No se detectó un número de teléfono o WhatsApp en esta lona/vacante.')}
               className="flex flex-col items-center gap-1 group opacity-60"
             >
               <div className="p-3 rounded-full bg-slate-600/80 backdrop-blur-sm">
@@ -212,4 +212,4 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, onDelete, cu
 };
 
 export default FeedCard;
-
+

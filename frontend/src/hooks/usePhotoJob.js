@@ -11,25 +11,54 @@ export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSess
   const [isConfirmingPhoto, setIsConfirmingPhoto] = useState(false);
 
   const handlePhotoSelected = async ({ imageBase64, latitud, longitud }) => {
-    if (!currentUser) { setIsAuthModalOpen(true); return; }
+    if (!currentUser) {
+      if (toast?.error) toast.error('Inicia sesión o regístrate para cazar chambas con fotos');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     setIsAnalyzingPhoto(true);
-    appendToActiveSession([{ role: 'user', text: '📷 Analizando foto de oferta laboral...' }]);
+    if (toast?.loading) {
+      toast.loading('Analizando lona con Inteligencia Artificial...', { id: 'photo-analyzing' });
+    }
+
+    if (appendToActiveSession) {
+      appendToActiveSession([{ role: 'user', text: '📷 Analizando foto de oferta laboral...' }]);
+    }
+
     try {
       const extraction = await analyzeJobPhoto(imageBase64, {
         latitud,
         longitud,
         municipio: candidateLocation?.municipio,
       });
+
+      if (toast?.dismiss) toast.dismiss('photo-analyzing');
+      if (toast?.success) toast.success('¡Oferta detectada! Revisa los datos para publicarla.');
+
       setPhotoExtraction(extraction);
-      appendToActiveSession([{
-        role: 'bot',
-        text: '✨ Encontré una oferta laboral en la foto. Revisa los datos en el modal y confirma para publicarla.',
-      }]);
+
+      if (appendToActiveSession) {
+        appendToActiveSession([{
+          role: 'bot',
+          text: '✨ Encontré una oferta laboral en la foto. Revisa los datos y confirma para publicarla.',
+        }]);
+      }
     } catch (err) {
-      appendToActiveSession([{
-        role: 'bot',
-        text: `❌ ${err.message || 'No se pudo analizar la foto. Intenta con otra imagen.'}`,
-      }]);
+      if (toast?.dismiss) toast.dismiss('photo-analyzing');
+      const errorMsg = err.message || 'No se pudo analizar la foto. Intenta con otra imagen más clara.';
+      if (toast?.error) {
+        toast.error(errorMsg);
+      } else {
+        alert(errorMsg);
+      }
+
+      if (appendToActiveSession) {
+        appendToActiveSession([{
+          role: 'bot',
+          text: `❌ ${errorMsg}`,
+        }]);
+      }
     } finally {
       setIsAnalyzingPhoto(false);
     }
@@ -40,18 +69,22 @@ export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSess
     try {
       const job = await confirmPhotoJob(editedData);
       setPhotoExtraction(null);
-      appendToActiveSession([{
-        role: 'bot',
-        text: `✅ ¡Vacante publicada! "${job.titulo}" ya aparece en la bolsa de trabajo. +10 Aura 🌟`,
-      }]);
-      toast.success('¡Vacante publicada! +10 Aura 🌟');
-      // Refrescar usuario para actualizar Aura en el navbar
+      if (appendToActiveSession) {
+        appendToActiveSession([{
+          role: 'bot',
+          text: `✅ ¡Vacante publicada! "${job.titulo}" ya aparece en la bolsa de trabajo. +10 Aura 🌟`,
+        }]);
+      }
+      if (toast?.success) toast.success('¡Vacante publicada! +10 Aura 🌟');
+
       try {
         const fresh = await getCurrentUser();
         if (fresh && onUserUpdated) onUserUpdated(fresh);
-      } catch (_) { /* no bloquear si falla el refresh */ }
+      } catch (_) { /* noop */ }
     } catch (err) {
-      toast.error(err.message || 'No se pudo publicar la vacante');
+      const errorMsg = err.message || 'No se pudo publicar la vacante';
+      if (toast?.error) toast.error(errorMsg);
+      else alert(errorMsg);
     } finally {
       setIsConfirmingPhoto(false);
     }
@@ -59,7 +92,9 @@ export function usePhotoJob({ currentUser, candidateLocation, appendToActiveSess
 
   const handleDiscardPhoto = () => {
     setPhotoExtraction(null);
-    appendToActiveSession([{ role: 'bot', text: 'Foto descartada. Puedes tomar otra cuando quieras 📷' }]);
+    if (appendToActiveSession) {
+      appendToActiveSession([{ role: 'bot', text: 'Foto descartada. Puedes tomar otra cuando quieras 📷' }]);
+    }
   };
 
   return {

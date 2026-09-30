@@ -1,16 +1,7 @@
 """
-Catálogo de opciones para vacantes operativas (manufactura / logística en Nuevo León).
-
-Fuente única para validación en el backend y para el endpoint GET /api/v1/jobs/catalogo.
-El frontend tiene un espejo en frontend/src/constants/jobCatalog.js.
-
-Diseño:
-- Campos cerrados (selectores) en lugar de texto libre para que la IA de emparejamiento
-  filtre por turno, escolaridad, prestaciones, etc. sin interpretar prosa.
-- Sigue la estructura de schema.org/JobPosting (employmentType, workHours, baseSalary,
-  jobBenefits, educationRequirements, experienceRequirements, qualifications, totalJobOpenings).
-- NO incluye edad, sexo, estado civil ni foto: la Ley Federal del Trabajo (art. 133) y la
-  Ley Federal para Prevenir y Eliminar la Discriminación prohíben usarlos como requisito.
+Catálogo canónico de valores permitidos para campos estructurados de vacantes operativas.
+Toda la lógica de IA, validación de schemas y matching usa este catálogo como única fuente de verdad.
+No incluye edad, sexo ni estado civil: la LFT (art. 133) prohíbe explícitamente usarlos como requisito.
 """
 
 CATEGORIAS = [
@@ -72,9 +63,20 @@ EXPERIENCIAS = [
     "2 años o más",
 ]
 
-# Catálogo del candidato (currículum operativo y entrevista rápida)
-EXPERIENCIA_CANDIDATO = ["Sin experiencia", "Menos de 6 meses", "6 meses a 1 año", "1 a 2 años", "Más de 2 años"]
-DISPONIBILIDADES = ["De inmediato", "Esta semana", "En 15 días", "En un mes"]
+EXPERIENCIA_CANDIDATO = [
+    "Sin experiencia",
+    "Menos de 6 meses",
+    "6 meses a 1 año",
+    "1 a 2 años",
+    "Más de 2 años",
+]
+
+DISPONIBILIDADES = [
+    "De inmediato",
+    "Esta semana",
+    "En 15 días",
+    "En un mes",
+]
 
 PRESTACIONES = [
     "Prestaciones de ley (IMSS, Infonavit, aguinaldo, vacaciones)",
@@ -117,36 +119,5 @@ REQUISITOS_FISICOS = [
     "Disponibilidad para turno nocturno",
 ]
 
-# Prestaciones que sincronizan banderas históricas del modelo Job
 PRESTACION_TRANSPORTE = "Transporte de personal"
 PRESTACION_INEA = "Apoyo para terminar estudios (INEA)"
-
-CATALOGO = {
-    "categorias": CATEGORIAS,
-    "tipos_turno": TIPOS_TURNO,
-    "dias_laborales": DIAS_LABORALES,
-    "tipos_contrato": TIPOS_CONTRATO,
-    "escolaridades": ESCOLARIDADES,
-    "experiencias": EXPERIENCIAS,
-    "prestaciones": PRESTACIONES,
-    "certificaciones": CERTIFICACIONES,
-    "requisitos_fisicos": REQUISITOS_FISICOS,
-}
-
-
-def tipo_turno_desde_horario(hora_entrada: str, tipo_planta: str = "") -> str:
-    """Deduce el tipo de turno del catálogo a partir del turno de la planta (CompanyShift)."""
-    tipo = (tipo_planta or "").lower()
-    if "rol" in tipo:
-        return "Rotativo (rola turnos)"
-    try:
-        hora = int(str(hora_entrada).strip().split(":")[0])
-        if "pm" in str(hora_entrada).lower() and hora < 12:
-            hora += 12
-    except (ValueError, IndexError):
-        return "Fijo matutino"
-    if 4 <= hora < 12:
-        return "Fijo matutino"
-    if 12 <= hora < 20:
-        return "Fijo vespertino"
-    return "Fijo nocturno"
