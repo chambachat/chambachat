@@ -835,3 +835,16 @@ export async function trackWhatsappClick(jobId) {
   }
 }
 
+
+export async function getAdminLeads() {
+  return _json(await fetch(`${API_BASE}/admin/leads`, { headers: authHeaders() }), 'Error al cargar leads');
+}
+
+export async function requestCompanyQuote(data) {
+  return _json(await fetch(`${API_BASE}/companies/request-quote`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data)
+  }), 'Error al solicitar cotización');
+}
+

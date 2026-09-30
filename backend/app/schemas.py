@@ -1201,3 +1201,10 @@ class PlatformVideoResponse(BaseModel):
     keywords: Optional[str] = None
     is_active: bool
     created_at: datetime
+
+class QuoteRequest(BaseModel):
+    nombre: str
+    empresa: str
+    telefono: str
+    email: str
+    comentarios: Optional[str] = None

@@ -3,9 +3,12 @@ import { ArrowLeft, Settings2, BarChart3, Video } from 'lucide-react';
 import FlowOrchestrator from './FlowOrchestrator';
 import SiteAnalytics from './SiteAnalytics';
 import AdminVideos from './AdminVideos';
+import AdminLeads from './AdminLeads';
+import { Target } from 'lucide-react';
 
 const TABS = [
   { key: 'analytics', label: 'Estadísticas', icon: BarChart3 },
+  { key: 'leads', label: 'Leads B2B', icon: Target },
   { key: 'videos', label: 'Videos', icon: Video },
   { key: 'prompts', label: 'Prompts', icon: Settings2 },
 ];
@@ -46,6 +49,7 @@ export default function AdminView({ onBack }) {
 
       <div className="flex-1 pb-16 p-4">
         {activeTab === 'analytics' && <SiteAnalytics />}
+        {activeTab === 'leads' && <AdminLeads />}
         {activeTab === 'videos' && <AdminVideos />}
         {activeTab === 'prompts' && <FlowOrchestrator onTestChat={onBack} />}
       </div>

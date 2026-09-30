@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Menu, MessageSquare, Users2, Bus, Briefcase, Calculator, Star, BarChart3, ShieldCheck } from 'lucide-react';
+﻿import React, { useState } from 'react';
+import { Menu, MessageSquare, Users2, Bus, Briefcase, Calculator, Star, BarChart3, ShieldCheck, Crown } from 'lucide-react';
 import { setFocusApplication, setChatMode } from '../../services/recruiterChat';
 import EmpresaSidebar from './EmpresaSidebar';
 import CandidateApplications from './CandidateApplications';
@@ -10,6 +10,7 @@ import RetentionPredictor from './RetentionPredictor';
 import FavoriteCandidates from './FavoriteCandidates';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import ClaimVacancies from './ClaimVacancies';
+import BillingPlan from './BillingPlan';
 
 export const B2B_TABS = [
   { id: 'team', label: 'Equipo y Empresa', icon: Users2, badge: 'Team', desc: 'Plantas, reclutadores y Smart Link' },
@@ -17,10 +18,11 @@ export const B2B_TABS = [
   { id: 'routes', label: 'Rutas de Transporte', icon: Bus, badge: 'GPS', desc: 'Trazado y horarios' },
   { id: 'jobs', label: 'Bolsa de Vacantes', icon: Briefcase, desc: 'Puestos vigentes' },
   { id: 'claims', label: 'Reclamar Vacantes', icon: ShieldCheck, desc: 'Vacantes comunitarias de tu empresa' },
-  // Ocultos del menú por ahora (los componentes siguen disponibles para reactivarlos)
-  { id: 'predictor', label: 'Predictor de Retención', icon: Calculator, desc: 'Predicción IA', hidden: true },
+  { id: 'billing', label: 'Mi Plan', icon: Crown, badge: 'PRO', desc: 'Límites y mejoras' },
+  // Ocultos del menÃº por ahora (los componentes siguen disponibles para reactivarlos)
+  { id: 'predictor', label: 'Predictor de RetenciÃ³n', icon: Calculator, desc: 'PredicciÃ³n IA', hidden: true },
   { id: 'applications', label: 'Postulaciones & Chat', icon: MessageSquare, desc: 'Sustituido por el chat de empresa', hidden: true },
-  { id: 'analytics', label: 'People Analytics', icon: BarChart3, desc: 'Métricas de planta', hidden: true },
+  { id: 'analytics', label: 'People Analytics', icon: BarChart3, desc: 'MÃ©tricas de planta', hidden: true },
 ];
 
 export const VISIBLE_B2B_TABS = B2B_TABS.filter(t => !t.hidden);
@@ -43,17 +45,19 @@ function PortalContent({ tab, currentUser, activeCompany, onCompanyChanged, onSe
       return <ClaimVacancies />;
     case 'analytics':
       return <AnalyticsDashboard />;
+    case 'billing':
+      return <BillingPlan currentUser={currentUser} activeCompany={activeCompany} />;
     default:
       return null;
   }
 }
 
-/** Portal B2B: menú lateral + módulo activo. */
+/** Portal B2B: menÃº lateral + mÃ³dulo activo. */
 export default function EmpresaPortal({ currentUser, activeTab, onSelectTab, activeCompany, onCompanyChanged, onBackToChat, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const activeLabel = B2B_TABS.find(t => t.id === activeTab)?.label || 'Portal Empresa';
 
-  /** "Retomar chat": abre esa conversación en el chat de empresa. */
+  /** "Retomar chat": abre esa conversaciÃ³n en el chat de empresa. */
   const openChat = (applicationId) => {
     setFocusApplication(applicationId);
     setChatMode('recruiter');
@@ -99,3 +103,6 @@ export default function EmpresaPortal({ currentUser, activeTab, onSelectTab, act
     </div>
   );
 }
+
+
+

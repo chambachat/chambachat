@@ -87,3 +87,33 @@ def delete_video(video_id: int, db: Session = Depends(get_db), current_user: Use
     db.delete(video)
     db.commit()
     return {"status": "success", "message": "Video eliminado"}
+
+@router.get("/leads")
+def get_leads(db: Session = Depends(get_db), current_user: User = Depends(require_role('admin'))):
+    from sqlalchemy import func, desc
+    from app.models import JobExternalClick, Job
+    
+    # Agrupar clics por job_id y obtener info de la empresa/vacante
+    results = db.query(
+        Job.id,
+        Job.titulo,
+        Job.empresa_nombre,
+        Job.origen,
+        func.count(JobExternalClick.id).label('clicks_count'),
+        func.max(JobExternalClick.created_at).label('last_click_at')
+    ).join(JobExternalClick, Job.id == JobExternalClick.job_id) \
+     .group_by(Job.id) \
+     .order_by(desc('clicks_count')) \
+     .all()
+     
+    return [
+        {
+            "job_id": r.id,
+            "titulo": r.titulo,
+            "empresa_nombre": r.empresa_nombre,
+            "origen": r.origen,
+            "clicks_count": r.clicks_count,
+            "last_click_at": r.last_click_at
+        }
+        for r in results
+    ]

@@ -1,4 +1,4 @@
-import os
+﻿import os
 import secrets
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -67,7 +67,7 @@ def _generate_smart_code(db: Session) -> str:
 
 
 def ensure_smart_code(db: Session, company: Company) -> str:
-    """Empresas previas al código verificador lo reciben la primera vez que se consultan."""
+    """Empresas previas al cÃ³digo verificador lo reciben la primera vez que se consultan."""
     if not company.smart_code:
         company.smart_code = _generate_smart_code(db)
         db.commit()
@@ -94,16 +94,16 @@ def upload_constancia_fiscal(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Recibe y procesa la Constancia de Situación Fiscal (CSF) emitida por el SAT (PDF o Imagen).
-    Extrae y decodifica el código QR para validar con el portal del SAT (siat.sat.gob.mx),
+    Recibe y procesa la Constancia de SituaciÃ³n Fiscal (CSF) emitida por el SAT (PDF o Imagen).
+    Extrae y decodifica el cÃ³digo QR para validar con el portal del SAT (siat.sat.gob.mx),
     y analiza la capa de texto del PDF para extraer todos los datos fiscales.
-    El archivo se guarda en la base de datos (el disco del servidor es efímero).
+    El archivo se guarda en la base de datos (el disco del servidor es efÃ­mero).
     """
     content = file.file.read()
     if not content:
-        raise HTTPException(status_code=400, detail="El archivo está vacío.")
+        raise HTTPException(status_code=400, detail="El archivo estÃ¡ vacÃ­o.")
     if len(content) > _MAX_CSF_BYTES:
-        raise HTTPException(status_code=413, detail="El archivo supera el límite de 10 MB.")
+        raise HTTPException(status_code=413, detail="El archivo supera el lÃ­mite de 10 MB.")
 
     original_name = os.path.basename(file.filename or "documento.pdf")
     content_type = file.content_type or "application/octet-stream"
@@ -142,10 +142,10 @@ def upload_constancia_fiscal(
 
 @router.get("/by-code/{code}", response_model=CompanyBriefResponse)
 def get_company_by_code(code: str, db: Session = Depends(get_db)):
-    """Resuelve la planta de un Smart Link por su código verificador (público, solo datos básicos)."""
+    """Resuelve la planta de un Smart Link por su cÃ³digo verificador (pÃºblico, solo datos bÃ¡sicos)."""
     company = db.query(Company).filter(Company.smart_code == code.strip().upper()).first()
     if not company:
-        raise HTTPException(status_code=404, detail="Código de empresa no válido")
+        raise HTTPException(status_code=404, detail="CÃ³digo de empresa no vÃ¡lido")
     return CompanyBriefResponse.model_validate(company)
 
 
@@ -153,7 +153,7 @@ def get_company_by_code(code: str, db: Session = Depends(get_db)):
 def list_user_companies(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Lista las empresas donde el usuario autenticado es miembro activo.
-    Si aún no tiene ninguna, devuelve lista vacía para que complete el alta con su CSF.
+    Si aÃºn no tiene ninguna, devuelve lista vacÃ­a para que complete el alta con su CSF.
     """
     memberships = db.query(CompanyMember).filter(
         CompanyMember.email == current_user.email,
@@ -182,7 +182,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db), curren
         **{
             **fields,
             "municipio": payload.municipio or "Apodaca",
-            "industria": payload.industria or "Manufactura y Logística",
+            "industria": payload.industria or "Manufactura y LogÃ­stica",
             "estatus_padron": payload.estatus_padron or "ACTIVO",
             "sat_validado": bool(payload.sat_validado or payload.constancia_fiscal_url),
         },
@@ -213,7 +213,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db), curren
 
 @router.put("/{company_id}", response_model=CompanyMutationResponse)
 def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Actualiza la configuración de una empresa/planta existente."""
+    """Actualiza la configuraciÃ³n de una empresa/planta existente."""
     require_company_member(company_id, current_user, db)
     company = _get_company_or_404(db, company_id)
 
@@ -234,7 +234,7 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
 
 @router.patch("/{company_id}/location", response_model=CompanyMutationResponse)
 def update_company_location(company_id: int, payload: CompanyLocationUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Actualiza las coordenadas GPS (latitud, longitud) y opcionalmente dirección y municipio de la planta."""
+    """Actualiza las coordenadas GPS (latitud, longitud) y opcionalmente direcciÃ³n y municipio de la planta."""
     require_company_member(company_id, current_user, db)
     company = _get_company_or_404(db, company_id)
 
@@ -249,7 +249,7 @@ def update_company_location(company_id: int, payload: CompanyLocationUpdate, db:
     db.refresh(company)
 
     return CompanyMutationResponse(
-        message="Ubicación de planta actualizada exitosamente",
+        message="UbicaciÃ³n de planta actualizada exitosamente",
         company=company_to_response(db, company),
     )
 
@@ -258,7 +258,7 @@ def update_company_location(company_id: int, payload: CompanyLocationUpdate, db:
 
 @router.get("/{company_id}/members", response_model=CompanyTeamResponse)
 def get_company_team(company_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Miembros activos e invitaciones pendientes. Solo para miembros de la empresa (expone tokens de invitación)."""
+    """Miembros activos e invitaciones pendientes. Solo para miembros de la empresa (expone tokens de invitaciÃ³n)."""
     require_company_member(company_id, current_user, db)
     company = _get_company_or_404(db, company_id)
 
@@ -284,7 +284,7 @@ def get_company_team(company_id: int, db: Session = Depends(get_db), current_use
 @router.post("/{company_id}/invite", response_model=InviteMemberResponse)
 def invite_team_member(company_id: int, payload: InviteMemberRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
-    Envía una invitación por correo a un reclutador para unirse a la empresa.
+    EnvÃ­a una invitaciÃ³n por correo a un reclutador para unirse a la empresa.
     Solo miembros activos de la empresa pueden invitar; el remitente es siempre el usuario autenticado.
     """
     require_company_member(company_id, current_user, db)
@@ -334,7 +334,7 @@ def invite_team_member(company_id: int, payload: InviteMemberRequest, db: Sessio
     )
 
     return InviteMemberResponse(
-        message=f"Invitación enviada a {clean_email}",
+        message=f"InvitaciÃ³n enviada a {clean_email}",
         token=token,
         invite_url=invite_url,
         email_sent=bool(email_res.get("sent", False)),
@@ -346,12 +346,12 @@ def invite_team_member(company_id: int, payload: InviteMemberRequest, db: Sessio
 @router.get("/invitations/{token}", response_model=InvitationLookupResponse)
 def lookup_invitation(token: str, db: Session = Depends(get_db)):
     """
-    Consulta pública de una invitación por su token (antes de iniciar sesión).
-    Permite prellenar el correo del invitado y mostrar a qué empresa se une.
+    Consulta pÃºblica de una invitaciÃ³n por su token (antes de iniciar sesiÃ³n).
+    Permite prellenar el correo del invitado y mostrar a quÃ© empresa se une.
     """
     invitation = db.query(CompanyInvitation).filter(CompanyInvitation.token == token.strip()).first()
     if not invitation:
-        raise HTTPException(status_code=404, detail="Invitación no válida. Pide al administrador que la vuelva a enviar.")
+        raise HTTPException(status_code=404, detail="InvitaciÃ³n no vÃ¡lida. Pide al administrador que la vuelva a enviar.")
 
     company = _get_company_or_404(db, invitation.company_id)
     expired = bool(invitation.expires_at and invitation.expires_at < datetime.utcnow())
@@ -373,22 +373,22 @@ def lookup_invitation(token: str, db: Session = Depends(get_db)):
 
 @router.post("/accept-invitation", response_model=AcceptInvitationResponse)
 def accept_team_invitation(payload: AcceptInvitationRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Acepta una invitación mediante su token y asocia al usuario autenticado a la empresa."""
+    """Acepta una invitaciÃ³n mediante su token y asocia al usuario autenticado a la empresa."""
     invitation = db.query(CompanyInvitation).filter(
         CompanyInvitation.token == payload.token.strip(),
         CompanyInvitation.status == "pending",
     ).first()
     if not invitation:
-        raise HTTPException(status_code=404, detail="Invitación no válida o ya utilizada")
+        raise HTTPException(status_code=404, detail="InvitaciÃ³n no vÃ¡lida o ya utilizada")
 
     if invitation.expires_at and invitation.expires_at < datetime.utcnow():
         invitation.status = "expired"
         db.commit()
-        raise HTTPException(status_code=400, detail="Esta invitación ha expirado. Solicita una nueva al administrador.")
+        raise HTTPException(status_code=400, detail="Esta invitaciÃ³n ha expirado. Solicita una nueva al administrador.")
 
     company = _get_company_or_404(db, invitation.company_id)
 
-    # La invitación se acepta con la identidad del token, no con un correo arbitrario del body
+    # La invitaciÃ³n se acepta con la identidad del token, no con un correo arbitrario del body
     clean_email = current_user.email
     clean_name = (payload.user_name or "").strip() or current_user.nombre or clean_email.split("@")[0]
 
@@ -423,7 +423,7 @@ def accept_team_invitation(payload: AcceptInvitationRequest, db: Session = Depen
     db.refresh(member)
 
     return AcceptInvitationResponse(
-        message=f"¡Te has unido exitosamente al equipo de {company.nombre}!",
+        message=f"Â¡Te has unido exitosamente al equipo de {company.nombre}!",
         company=CompanyBriefResponse.model_validate(company),
         member=CompanyMemberResponse.model_validate(member),
     )
@@ -437,7 +437,7 @@ def remove_team_member(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    """Elimina a un miembro del equipo o cancela una invitación."""
+    """Elimina a un miembro del equipo o cancela una invitaciÃ³n."""
     require_company_member(company_id, current_user, db)
 
     if type == "invitation":
@@ -448,8 +448,8 @@ def remove_team_member(
         if invitation:
             db.delete(invitation)
             db.commit()
-            return StatusMessageResponse(message="Invitación revocada")
-        raise HTTPException(status_code=404, detail="Invitación no encontrada")
+            return StatusMessageResponse(message="InvitaciÃ³n revocada")
+        raise HTTPException(status_code=404, detail="InvitaciÃ³n no encontrada")
     else:
         member = db.query(CompanyMember).filter(
             CompanyMember.id == member_id,
@@ -464,13 +464,13 @@ def remove_team_member(
         raise HTTPException(status_code=404, detail="Miembro no encontrado")
 
 
-# --- GESTIÓN DE TURNOS LABORALES DE PLANTA ---
+# --- GESTIÃ“N DE TURNOS LABORALES DE PLANTA ---
 
 @router.get("/{company_id}/shifts", response_model=List[CompanyShiftResponse])
 def get_company_shifts(company_id: int, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user_optional)):
     """
-    Turnos laborales de la empresa. Si aún no tiene, inicializa el catálogo industrial base de NL.
-    Lectura pública: los candidatos consultan turnos desde el chat.
+    Turnos laborales de la empresa. Si aÃºn no tiene, inicializa el catÃ¡logo industrial base de NL.
+    Lectura pÃºblica: los candidatos consultan turnos desde el chat.
     """
     _get_company_or_404(db, company_id)
     shifts = ensure_default_shifts(db, company_id)
@@ -488,7 +488,7 @@ def create_company_shift(company_id: int, payload: CompanyShiftCreate, db: Sessi
         nombre=payload.nombre.strip(),
         hora_entrada=payload.hora_entrada.strip(),
         hora_salida=payload.hora_salida.strip(),
-        dias=(payload.dias or "").strip() or "Lunes a Sábado",
+        dias=(payload.dias or "").strip() or "Lunes a SÃ¡bado",
         tipo=(payload.tipo or "").strip() or "Fijo",
         descripcion=payload.descripcion.strip() if payload.descripcion else None,
         activo=True,
@@ -504,7 +504,7 @@ def create_company_shift(company_id: int, payload: CompanyShiftCreate, db: Sessi
 
 @router.put("/{company_id}/shifts/{shift_id}", response_model=CompanyShiftMutationResponse)
 def update_company_shift(company_id: int, shift_id: int, payload: CompanyShiftUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Actualiza la configuración y horarios de un turno laboral existente."""
+    """Actualiza la configuraciÃ³n y horarios de un turno laboral existente."""
     require_company_member(company_id, current_user, db)
     shift = db.query(CompanyShift).filter(
         CompanyShift.id == shift_id,
@@ -541,7 +541,7 @@ def delete_company_shift(company_id: int, shift_id: int, db: Session = Depends(g
     return StatusMessageResponse(message=f"Turno '{nombre}' eliminado correctamente")
 
 
-# ─── LOGO DE EMPRESA ──────────────────────────────────────────────────
+# â”€â”€â”€ LOGO DE EMPRESA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/{company_id}/logo")
 async def upload_company_logo(
@@ -555,7 +555,7 @@ async def upload_company_logo(
     require_company_member(db, company_id, current_user)
 
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
-        raise HTTPException(status_code=400, detail="Solo se aceptan imágenes JPEG, PNG o WebP")
+        raise HTTPException(status_code=400, detail="Solo se aceptan imÃ¡genes JPEG, PNG o WebP")
 
     content = await file.read()
     if len(content) > 2 * 1024 * 1024:
@@ -599,7 +599,7 @@ def get_company_logo(company_id: int, db: Session = Depends(get_db)):
     return Response(content=logo.file_data, media_type="image/jpeg")
 
 
-# ─── FAQs de la empresa ──────────────────────────────────────────────
+# â”€â”€â”€ FAQs de la empresa â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 from pydantic import BaseModel, Field
 from app.models import CompanyFAQ
@@ -651,10 +651,10 @@ def create_faq(
 ):
     """Crea una nueva FAQ para la empresa."""
     require_company_member(db, current_user, company_id)
-    # Máximo 30 FAQs por empresa
+    # MÃ¡ximo 30 FAQs por empresa
     count = db.query(CompanyFAQ).filter(CompanyFAQ.company_id == company_id).count()
     if count >= 30:
-        raise HTTPException(status_code=400, detail="Máximo 30 preguntas frecuentes por empresa")
+        raise HTTPException(status_code=400, detail="MÃ¡ximo 30 preguntas frecuentes por empresa")
     faq = CompanyFAQ(
         company_id=company_id,
         pregunta=payload.pregunta.strip(),
@@ -709,11 +709,11 @@ def delete_faq(
     db.commit()
 
 
-# ─── FAQs públicas (para el chatbot) ─────────────────────────────────
+# â”€â”€â”€ FAQs pÃºblicas (para el chatbot) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/{company_id}/faqs/public")
 def get_public_faqs(company_id: int, db: Session = Depends(get_db)):
-    """FAQs activas de una empresa (endpoint público para el chatbot)."""
+    """FAQs activas de una empresa (endpoint pÃºblico para el chatbot)."""
     faqs = (
         db.query(CompanyFAQ)
         .filter(CompanyFAQ.company_id == company_id, CompanyFAQ.activa.is_(True))
@@ -721,3 +721,27 @@ def get_public_faqs(company_id: int, db: Session = Depends(get_db)):
         .all()
     )
     return [{"pregunta": f.pregunta, "respuesta": f.respuesta} for f in faqs]
+
+from app.schemas import QuoteRequest
+
+
+
+@router.post("/request-quote")
+def request_company_quote(
+    payload: QuoteRequest,
+    current_user: User = Depends(get_current_user)
+):
+    from app.services.email_service import _dispatch_email
+    html_content = f"""
+    <h2>Nueva solicitud de cotizacion - ChambaChat</h2>
+    <ul>
+        <li><strong>Nombre:</strong> {payload.nombre}</li>
+        <li><strong>Empresa:</strong> {payload.empresa}</li>
+        <li><strong>Telefono:</strong> {payload.telefono}</li>
+        <li><strong>Email:</strong> {payload.email}</li>
+        <li><strong>Comentarios:</strong> {payload.comentarios or ''}</li>
+        <li><strong>User ID:</strong> {current_user.id}</li>
+    </ul>
+    """
+    _dispatch_email("hola@chambachat.com", f"Solicitud de Cotizacion Premium - {payload.empresa}", html_content)
+    return {"status": "success"}
