@@ -313,3 +313,27 @@ async def upload_job_photo(
 
     db.commit()
     return {"message": "Foto de vacante actualizada", "photo_url": f"/api/v1/feed/{job_id}/photo"}
+
+@router.post("/{job_id}/whatsapp-click", status_code=204)
+def log_whatsapp_click(
+    job_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Registra un clic en el botn de WhatsApp de una vacante comunitaria."""
+    # Verificar que el job exista
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Vacante no encontrada")
+    
+    # Importar modelo
+    from app.models import JobExternalClick
+    
+    # Crear registro
+    click = JobExternalClick(
+        job_id=job_id,
+        user_id=current_user.id if current_user else None
+    )
+    db.add(click)
+    db.commit()
+    return

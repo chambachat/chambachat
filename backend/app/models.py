@@ -1,4 +1,4 @@
-from datetime import datetime, date
+﻿from datetime import datetime, date
 from sqlalchemy import Column, Integer, String, Float, Boolean, Text, Date, DateTime, ForeignKey, LargeBinary, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -14,7 +14,7 @@ class User(Base):
     telefono = Column(String(50), nullable=True)
     codigo_postal = Column(String(10), nullable=True)
     municipio = Column(String(100), nullable=True)
-    colonia = Column(String(150), nullable=True)  # etiqueta legible de la ubicación confirmada
+    colonia = Column(String(150), nullable=True)  # etiqueta legible de la ubicaciÃ³n confirmada
     nivel_educativo = Column(String(50), nullable=False, default="Secundaria")
     tag_inea = Column(Boolean, default=False, index=True)
     latitud = Column(Float, nullable=True)
@@ -59,10 +59,10 @@ class Job(Base):
     longitud = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Campos estructurados (catálogo en app/constants/job_catalog.py) para el emparejamiento de la IA
+    # Campos estructurados (catÃ¡logo en app/constants/job_catalog.py) para el emparejamiento de la IA
     categoria = Column(String(100), nullable=True, index=True)
     tipo_turno = Column(String(50), nullable=True)
-    shift_id = Column(Integer, nullable=True)  # CompanyShift de la planta del que se tomó el horario
+    shift_id = Column(Integer, nullable=True)  # CompanyShift de la planta del que se tomÃ³ el horario
     hora_entrada = Column(String(20), nullable=True)
     hora_salida = Column(String(20), nullable=True)
     dias_laborales = Column(String(50), nullable=True)
@@ -75,22 +75,22 @@ class Job(Base):
     requisitos_fisicos = Column(JSON, nullable=True)
     bono_semanal = Column(Float, nullable=False, default=0.0, server_default="0")
     vales_despensa_semanal = Column(Float, nullable=False, default=0.0, server_default="0")
-    direccion = Column(Text, nullable=True)  # dirección de la planta al momento de publicar
+    direccion = Column(Text, nullable=True)  # direcciÃ³n de la planta al momento de publicar
     activa = Column(Boolean, nullable=False, default=True, server_default="1")
 
     # Origen de la vacante
     origen = Column(String(30), nullable=False, default="empresa", server_default="empresa")
     # Valores: "empresa" (publicada por empresa verificada) | "foto_comunitaria" (foto callejera)
 
-    # Contacto del empleador (extraído de la foto por la IA de visión)
+    # Contacto del empleador (extraÃ­do de la foto por la IA de visiÃ³n)
     fuente_contacto_telefono = Column(String(50), nullable=True)
     fuente_contacto_email = Column(String(255), nullable=True)
     fuente_contacto_whatsapp = Column(String(50), nullable=True)
 
     # Trazabilidad de la foto
     foto_original_url = Column(String(500), nullable=True)
-    reportada_por_email = Column(String(255), nullable=True)  # quién tomó la foto
-    texto_ocr = Column(Text, nullable=True)  # texto crudo extraído por la IA
+    reportada_por_email = Column(String(255), nullable=True)  # quiÃ©n tomÃ³ la foto
+    texto_ocr = Column(Text, nullable=True)  # texto crudo extraÃ­do por la IA
 
     company = relationship("Company", backref="jobs", foreign_keys=[empresa_id])
     hiring_records = relationship("HiringHistory", back_populates="job", cascade="all, delete-orphan")
@@ -161,9 +161,9 @@ class JobApplication(Base):
     last_recruiter_message_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Entrevista rápida de Chambot (ver services/screening_service.py)
+    # Entrevista rÃ¡pida de Chambot (ver services/screening_service.py)
     screening_status = Column(String(20), nullable=False, default="none", server_default="none")  # none | in_progress | done
-    screening_state = Column(JSON, nullable=True)      # pasos, índice y respuestas en curso
+    screening_state = Column(JSON, nullable=True)      # pasos, Ã­ndice y respuestas en curso
     screening_answers = Column(JSON, nullable=True)    # respuestas finales que ve el reclutador
     match_breakdown = Column(JSON, nullable=True)      # desglose de la compatibilidad
     match_level = Column(String(20), nullable=True)    # Alta | Media | Baja
@@ -193,7 +193,7 @@ class Company(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(255), nullable=False, index=True)
     rfc = Column(String(50), nullable=True)
-    industria = Column(String(100), default="Manufactura y Logística")
+    industria = Column(String(100), default="Manufactura y LogÃ­stica")
     municipio = Column(String(100), default="Apodaca")
     direccion = Column(Text, nullable=True)
     latitud = Column(Float, nullable=True)
@@ -204,7 +204,7 @@ class Company(Base):
     estado_verificacion = Column(String(50), default="verificada")  # "verificada" | "pendiente_revision"
     regimen_fiscal = Column(String(100), nullable=True)
     
-    # Campos oficiales extraídos del SAT / Constancia Fiscal
+    # Campos oficiales extraÃ­dos del SAT / Constancia Fiscal
     idcif = Column(String(50), nullable=True)
     curp = Column(String(20), nullable=True)
     razon_social = Column(String(255), nullable=True)
@@ -222,7 +222,7 @@ class Company(Base):
     sat_url_validacion = Column(String(500), nullable=True)
     sat_validado = Column(Boolean, default=False)
     sat_raw_data = Column(Text, nullable=True)  # JSON con metadatos completos
-    smart_code = Column(String(12), nullable=True, unique=True, index=True)  # código verificador del Smart Link
+    smart_code = Column(String(12), nullable=True, unique=True, index=True)  # cÃ³digo verificador del Smart Link
 
     created_by_email = Column(String(255), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -324,7 +324,7 @@ class CompanyShift(Base):
     nombre = Column(String(100), nullable=False)  # ej. "Turno 1 - Matutino"
     hora_entrada = Column(String(20), nullable=False)  # ej. "06:00" o "06:00 AM"
     hora_salida = Column(String(20), nullable=False)   # ej. "14:00" o "02:00 PM"
-    dias = Column(String(100), nullable=True, default="Lunes a Sábado")  # ej. "Lunes a Sábado", "Lunes a Viernes", "4x3"
+    dias = Column(String(100), nullable=True, default="Lunes a SÃ¡bado")  # ej. "Lunes a SÃ¡bado", "Lunes a Viernes", "4x3"
     tipo = Column(String(50), nullable=True, default="Fijo")  # "Fijo", "Rolado", "Administrativo", "Especial"
     descripcion = Column(String(255), nullable=True)
     activo = Column(Boolean, default=True)
@@ -335,14 +335,14 @@ class CompanyShift(Base):
 
 class EmailVerificationCode(Base):
     """
-    Almacena códigos de verificación por correo con expiración y límite de intentos.
-    Máximo 5 intentos por email cada 15 minutos.
+    Almacena cÃ³digos de verificaciÃ³n por correo con expiraciÃ³n y lÃ­mite de intentos.
+    MÃ¡ximo 5 intentos por email cada 15 minutos.
     """
     __tablename__ = "email_verification_codes"
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), nullable=False, index=True)
-    code_hash = Column(String(255), nullable=False)  # SHA-256 del código, nunca plaintext
+    code_hash = Column(String(255), nullable=False)  # SHA-256 del cÃ³digo, nunca plaintext
     attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=5)
     verified = Column(Boolean, default=False)
@@ -352,8 +352,8 @@ class EmailVerificationCode(Base):
 
 class CompanyDocument(Base):
     """
-    Archivo subido por una empresa (Constancia de Situación Fiscal u Opinión 32-D).
-    Se guarda en la base de datos porque el disco de Render es efímero y se
+    Archivo subido por una empresa (Constancia de SituaciÃ³n Fiscal u OpiniÃ³n 32-D).
+    Se guarda en la base de datos porque el disco de Render es efÃ­mero y se
     borraba en cada deploy. Se sirve en /uploads/csf/{filename}.
     """
     __tablename__ = "company_documents"
@@ -384,7 +384,7 @@ class CandidateFavorite(Base):
 
 
 class ChatBlock(Base):
-    """Bloqueo entre una empresa y un candidato. blocker_type indica quién bloqueó: 'company' | 'candidate'."""
+    """Bloqueo entre una empresa y un candidato. blocker_type indica quiÃ©n bloqueÃ³: 'company' | 'candidate'."""
     __tablename__ = "chat_blocks"
     __table_args__ = (UniqueConstraint("blocker_type", "company_id", "candidate_email", name="uq_block_side_company_candidate"),)
 
@@ -398,7 +398,7 @@ class ChatBlock(Base):
 
 
 class UserAura(Base):
-    """Puntos de reputación acumulados por cada usuario.
+    """Puntos de reputaciÃ³n acumulados por cada usuario.
 
     Se incrementan al reportar vacantes desde fotos callejeras (+10),
     al ayudar a alguien a conseguir empleo (+50), o al referir usuarios (+25).
@@ -417,7 +417,7 @@ class UserAura(Base):
 
 
 class AuraEvent(Base):
-    """Cada acción que suma (o resta) puntos de Aura, para auditoría y trazabilidad."""
+    """Cada acciÃ³n que suma (o resta) puntos de Aura, para auditorÃ­a y trazabilidad."""
     __tablename__ = "aura_events"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -431,8 +431,8 @@ class AuraEvent(Base):
 
 class JobPhotoLog(Base):
     """
-    Guarda una versión comprimida de las fotos subidas por los usuarios,
-    incluso si falló el análisis (para debuggeo o uso futuro).
+    Guarda una versiÃ³n comprimida de las fotos subidas por los usuarios,
+    incluso si fallÃ³ el anÃ¡lisis (para debuggeo o uso futuro).
     """
     __tablename__ = "job_photo_logs"
 
@@ -452,7 +452,7 @@ class JobPhotoLog(Base):
 class JobComment(Base):
     """
     Comentarios comunitarios en vacantes. Los usuarios pueden aportar
-    información faltante (sueldo, horarios, experiencias) sobre una vacante.
+    informaciÃ³n faltante (sueldo, horarios, experiencias) sobre una vacante.
     """
     __tablename__ = "job_comments"
 
@@ -485,9 +485,9 @@ class VacancyClaim(Base):
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     claimed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
-    # Verificación
+    # VerificaciÃ³n
     verification_method = Column(String(20), nullable=False)  # "email" | "whatsapp" | "sms"
-    verification_target = Column(String(255), nullable=False)  # El email o teléfono verificado
+    verification_target = Column(String(255), nullable=False)  # El email o telÃ©fono verificado
     verification_code_hash = Column(String(255), nullable=True)
     verification_attempts = Column(Integer, default=0)
     verification_status = Column(String(20), default="pending")  # "pending" | "verified" | "expired" | "rejected"
@@ -512,10 +512,10 @@ class JobReport(Base):
     __table_args__ = (UniqueConstraint("job_id", "user_id", name="uq_job_report"),)
 
 
-# ─── Analytics / Tracking ─────────────────────────────────────────────
+# â”€â”€â”€ Analytics / Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class DailyActiveUser(Base):
-    """Un registro por usuario por día. Permite contar DAU por rol."""
+    """Un registro por usuario por dÃ­a. Permite contar DAU por rol."""
     __tablename__ = "daily_active_users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -527,7 +527,7 @@ class DailyActiveUser(Base):
 
 
 class JobView(Base):
-    """Registra cada vista única de una vacante por un usuario en un día."""
+    """Registra cada vista Ãºnica de una vacante por un usuario en un dÃ­a."""
     __tablename__ = "job_views"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -538,7 +538,7 @@ class JobView(Base):
     __table_args__ = (UniqueConstraint("job_id", "user_id", "date", name="uq_job_view"),)
 
 
-# ─── Company FAQs ─────────────────────────────────────────────────────
+# â”€â”€â”€ Company FAQs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class CompanyFAQ(Base):
     """Preguntas frecuentes de una empresa (uniforme, comedor, transporte, etc.)."""
@@ -555,7 +555,7 @@ class CompanyFAQ(Base):
     company = relationship("Company", back_populates="faqs")
 
 
-# ─── Platform Videos ──────────────────────────────────────────────────
+# â”€â”€â”€ Platform Videos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class PlatformVideo(Base):
     """Videos de TikTok educativos de ChambaChat."""
@@ -578,3 +578,12 @@ class UserVideoQueue(Base):
     video_id = Column(Integer, ForeignKey("platform_videos.id", ondelete="CASCADE"))
     added_at = Column(DateTime, default=datetime.utcnow)
     viewed = Column(Boolean, default=False)
+
+class JobExternalClick(Base):
+    """Log de clics en el botón de WhatsApp (Postularme) en vacantes comunitarias/externas."""
+    __tablename__ = "job_external_clicks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

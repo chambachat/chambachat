@@ -1,7 +1,7 @@
-import { getStoredToken } from './authService';
+﻿import { getStoredToken } from './authService';
 
 /**
- * Construye headers con autenticación JWT.
+ * Construye headers con autenticaciÃ³n JWT.
  */
 export function authHeaders(extra = {}) {
   const headers = { 'Content-Type': 'application/json', ...extra };
@@ -14,7 +14,7 @@ export function authHeaders(extra = {}) {
 
 const API_BASE = '/api/v1';
 
-// ─── 401 global handler ─────────────────────────────────────────────
+// â”€â”€â”€ 401 global handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Emite un evento custom para que la app abra el modal de login
 export const AUTH_EXPIRED_EVENT = 'chambachat:auth-expired';
 
@@ -41,13 +41,13 @@ export async function predictRetention(data) {
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Error al calcular predicción de retención');
+  if (!res.ok) throw new Error('Error al calcular predicciÃ³n de retenciÃ³n');
   return res.json();
 }
 
 export async function startChat() {
   const res = await fetch(`${API_BASE}/chat/start`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Error al inicializar sesión de chat');
+  if (!res.ok) throw new Error('Error al inicializar sesiÃ³n de chat');
   return res.json();
 }
 
@@ -99,8 +99,8 @@ export async function submitApplication({ jobId, sessionId, candidateName, candi
     }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Error al enviar postulación' }));
-    throw new Error(err.detail || 'Error al enviar postulación');
+    const err = await res.json().catch(() => ({ detail: 'Error al enviar postulaciÃ³n' }));
+    throw new Error(err.detail || 'Error al enviar postulaciÃ³n');
   }
   return res.json();
 }
@@ -120,7 +120,7 @@ export async function getMyApplications() {
 
 export async function getApplicationById(applicationId) {
   const res = await fetch(`${API_BASE}/applications/${applicationId}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Error al obtener la postulación');
+  if (!res.ok) throw new Error('Error al obtener la postulaciÃ³n');
   return res.json();
 }
 
@@ -138,12 +138,12 @@ export async function sendCandidateMessage(applicationId, mensaje) {
   return res.json();
 }
 
-/** Elimina una postulación y su conversación (solo reclutadores de la empresa). */
+/** Elimina una postulaciÃ³n y su conversaciÃ³n (solo reclutadores de la empresa). */
 export async function deleteApplication(applicationId) {
   const res = await fetch(`${API_BASE}/applications/${applicationId}`, { method: 'DELETE', headers: authHeaders() });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'No se pudo eliminar la conversación' }));
-    throw new Error(err.detail || 'No se pudo eliminar la conversación');
+    const err = await res.json().catch(() => ({ detail: 'No se pudo eliminar la conversaciÃ³n' }));
+    throw new Error(err.detail || 'No se pudo eliminar la conversaciÃ³n');
   }
   return res.json();
 }
@@ -219,7 +219,7 @@ export async function createJob(jobData) {
   return res.json();
 }
 
-/** Registra/actualiza la ubicación confirmada del usuario autenticado (perfil). */
+/** Registra/actualiza la ubicaciÃ³n confirmada del usuario autenticado (perfil). */
 export async function updateMyLocation({ lat, lon, colonia, municipio }) {
   const res = await fetch(`${API_BASE}/auth/me/location`, {
     method: 'PATCH',
@@ -227,20 +227,20 @@ export async function updateMyLocation({ lat, lon, colonia, municipio }) {
     body: JSON.stringify({ latitud: lat, longitud: lon, colonia: colonia || null, municipio: municipio || null }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'No se pudo guardar tu ubicación' }));
-    throw new Error(err.detail || 'No se pudo guardar tu ubicación');
+    const err = await res.json().catch(() => ({ detail: 'No se pudo guardar tu ubicaciÃ³n' }));
+    throw new Error(err.detail || 'No se pudo guardar tu ubicaciÃ³n');
   }
   return res.json();
 }
 
-/** Planta del Smart Link por su código verificador (público). */
+/** Planta del Smart Link por su cÃ³digo verificador (pÃºblico). */
 export async function getCompanyByCode(code) {
   const res = await fetch(`${API_BASE}/companies/by-code/${encodeURIComponent(code)}`);
-  if (!res.ok) throw new Error('Código de empresa no válido');
+  if (!res.ok) throw new Error('CÃ³digo de empresa no vÃ¡lido');
   return res.json();
 }
 
-// ─── Candidatos preferidos ───────────────────────────────────────────
+// â”€â”€â”€ Candidatos preferidos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function _json(res, fallback) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: fallback }));
@@ -261,7 +261,7 @@ export async function removeFavorite(companyId, favoriteId) {
   return _json(await fetch(`${API_BASE}/companies/${companyId}/favorites/${favoriteId}`, { method: 'DELETE', headers: authHeaders() }), 'No se pudo quitar de preferidos');
 }
 
-// ─── Bloqueos (empresa ↔ candidato) ──────────────────────────────────
+// â”€â”€â”€ Bloqueos (empresa â†” candidato) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function getMyBlocks() {
   return _json(await fetch(`${API_BASE}/blocks/mine`, { headers: authHeaders() }), 'No se pudieron cargar los bloqueos');
 }
@@ -274,18 +274,18 @@ export async function removeBlock(blockId) {
   return _json(await fetch(`${API_BASE}/blocks/${blockId}`, { method: 'DELETE', headers: authHeaders() }), 'No se pudo quitar el bloqueo');
 }
 
-// ─── Currículum operativo del candidato ──────────────────────────────
+// â”€â”€â”€ CurrÃ­culum operativo del candidato â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function getMyProfile() {
-  return _json(await fetch(`${API_BASE}/profile/me`, { headers: authHeaders() }), 'No se pudo cargar tu currículum');
+  return _json(await fetch(`${API_BASE}/profile/me`, { headers: authHeaders() }), 'No se pudo cargar tu currÃ­culum');
 }
 
 export async function updateMyProfile(data) {
-  return _json(await fetch(`${API_BASE}/profile/me`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data) }), 'No se pudo guardar tu currículum');
+  return _json(await fetch(`${API_BASE}/profile/me`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data) }), 'No se pudo guardar tu currÃ­culum');
 }
 
 export async function getJobCatalog() {
   const res = await fetch(`${API_BASE}/jobs/catalogo`);
-  if (!res.ok) throw new Error('Error al obtener catálogo de vacantes');
+  if (!res.ok) throw new Error('Error al obtener catÃ¡logo de vacantes');
   return res.json();
 }
 
@@ -317,7 +317,7 @@ export async function getCandidates(filters = {}) {
 
 export async function getPrompts() {
   const res = await fetch(`${API_BASE}/admin/prompts`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Error al obtener configuración de prompts');
+  if (!res.ok) throw new Error('Error al obtener configuraciÃ³n de prompts');
   return res.json();
 }
 
@@ -333,14 +333,14 @@ export async function updatePrompt(stepKey, promptData) {
 
 export async function getAnalytics() {
   const res = await fetch(`${API_BASE}/analytics/summary`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Error al obtener analíticas');
+  if (!res.ok) throw new Error('Error al obtener analÃ­ticas');
   return res.json();
 }
 
 // --- EMPRESAS & MI EQUIPO (B2B SaaS) ---
 
 export async function getUserCompanies() {
-  // El backend filtra por el usuario del JWT; no se envía user_email.
+  // El backend filtra por el usuario del JWT; no se envÃ­a user_email.
   const res = await fetch(`${API_BASE}/companies`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Error al obtener empresas');
   return res.json();
@@ -360,7 +360,7 @@ export async function uploadConstanciaFiscal(file) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Error al subir archivo de constancia' }));
-    if (res.status === 401) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión para subir la constancia.');
+    if (res.status === 401) throw new Error('Tu sesiÃ³n expirÃ³. Vuelve a iniciar sesiÃ³n para subir la constancia.');
     throw new Error(err.detail || 'Error al subir archivo de constancia');
   }
   return res.json();
@@ -402,8 +402,8 @@ export async function inviteTeamMember(companyId, data) {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Error al enviar invitación' }));
-    throw new Error(err.detail || 'Error al enviar invitación');
+    const err = await res.json().catch(() => ({ detail: 'Error al enviar invitaciÃ³n' }));
+    throw new Error(err.detail || 'Error al enviar invitaciÃ³n');
   }
   return res.json();
 }
@@ -411,8 +411,8 @@ export async function inviteTeamMember(companyId, data) {
 export async function getInvitationByToken(token) {
   const res = await fetch(`${API_BASE}/companies/invitations/${encodeURIComponent(token)}`);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Invitación no válida' }));
-    throw new Error(err.detail || 'Invitación no válida');
+    const err = await res.json().catch(() => ({ detail: 'InvitaciÃ³n no vÃ¡lida' }));
+    throw new Error(err.detail || 'InvitaciÃ³n no vÃ¡lida');
   }
   return res.json();
 }
@@ -428,8 +428,8 @@ export async function acceptCompanyInvitation(token, userData = {}) {
     }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Error al procesar invitación' }));
-    throw new Error(err.detail || 'Error al procesar invitación');
+    const err = await res.json().catch(() => ({ detail: 'Error al procesar invitaciÃ³n' }));
+    throw new Error(err.detail || 'Error al procesar invitaciÃ³n');
   }
   return res.json();
 }
@@ -511,13 +511,13 @@ export async function updateCompanyLocation(companyId, locationData) {
     body: JSON.stringify(locationData),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Error al actualizar ubicación de la empresa' }));
-    throw new Error(err.detail || 'Error al actualizar ubicación de la empresa');
+    const err = await res.json().catch(() => ({ detail: 'Error al actualizar ubicaciÃ³n de la empresa' }));
+    throw new Error(err.detail || 'Error al actualizar ubicaciÃ³n de la empresa');
   }
   return res.json();
 }
 
-// --- GESTIÓN DE TURNOS LABORALES DE PLANTA (B2B) ---
+// --- GESTIÃ“N DE TURNOS LABORALES DE PLANTA (B2B) ---
 
 export async function getCompanyShifts(companyId) {
   if (!companyId) throw new Error('Se requiere el ID de la empresa');
@@ -582,7 +582,7 @@ export async function analyzeJobPhoto(imageBase64, gpsCoords = {}) {
     }),
   });
   if (!res.ok) {
-    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesión nuevamente.'); }
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesiÃ³n nuevamente.'); }
     const err = await res.json().catch(() => ({}));
     throw new Error(parseErrorDetail(err, 'Error al analizar la foto'));
   }
@@ -596,7 +596,7 @@ export async function confirmPhotoJob(jobData) {
     body: JSON.stringify(jobData),
   });
   if (!res.ok) {
-    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesión nuevamente.'); }
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesiÃ³n nuevamente.'); }
     const err = await res.json().catch(() => ({}));
     throw new Error(parseErrorDetail(err, 'Error al publicar la vacante'));
   }
@@ -604,7 +604,7 @@ export async function confirmPhotoJob(jobData) {
 }
 
 
-// ─── Comentarios comunitarios en vacantes ────────────────────────────
+// â”€â”€â”€ Comentarios comunitarios en vacantes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getJobComments(jobId) {
   const res = await fetch(`${API_BASE}/jobs/${jobId}/comments`);
@@ -619,7 +619,7 @@ export async function addJobComment(jobId, texto) {
     body: JSON.stringify({ texto }),
   });
   if (!res.ok) {
-    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesión nuevamente.'); }
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesiÃ³n nuevamente.'); }
     const err = await res.json().catch(() => ({}));
     throw new Error(parseErrorDetail(err, 'No se pudo agregar el comentario'));
   }
@@ -627,7 +627,7 @@ export async function addJobComment(jobId, texto) {
 }
 
 
-// ─── Company FAQs ───────────────────────────────────────────────────
+// â”€â”€â”€ Company FAQs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getCompanyFAQs(companyId) {
   return _json(await fetch(`${API_BASE}/companies/${companyId}/faqs`, { headers: authHeaders() }), 'Error al cargar FAQs');
@@ -655,7 +655,7 @@ export async function deleteCompanyFAQ(companyId, faqId) {
 }
 
 
-// ─── Feed Explorar ──────────────────────────────────────────────────
+// â”€â”€â”€ Feed Explorar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getFeedJobs(offset = 0, limit = 10, q = '', seed = null) {
   const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
@@ -672,14 +672,14 @@ export async function toggleJobLike(jobId) {
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
   });
   if (!res.ok) {
-    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesión nuevamente.'); }
+    if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado. Inicia sesiÃ³n nuevamente.'); }
     const err = await res.json().catch(() => ({}));
     throw new Error(parseErrorDetail(err, 'No se pudo dar like'));
   }
   return res.json();
 }
 
-// ─── Reclamar Vacantes Comunitarias ─────────────────────────────────
+// â”€â”€â”€ Reclamar Vacantes Comunitarias â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function discoverClaimableVacancies() {
   const res = await fetch(`${API_BASE}/claims/discover`, { headers: authHeaders() });
@@ -700,7 +700,7 @@ export async function startVacancyClaim(jobId, method = 'email') {
   if (!res.ok) {
     if (res.status === 401) { emitAuthExpired(); throw new Error('Token expirado.'); }
     const err = await res.json().catch(() => ({}));
-    throw new Error(parseErrorDetail(err, 'Error al iniciar la verificación'));
+    throw new Error(parseErrorDetail(err, 'Error al iniciar la verificaciÃ³n'));
   }
   return res.json();
 }
@@ -719,7 +719,7 @@ export async function verifyVacancyClaim(jobId, code) {
   return res.json();
 }
 
-// ─── Reportar Vacante ───────────────────────────────────────────────
+// â”€â”€â”€ Reportar Vacante â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function reportJob(jobId, motivo = 'falsa', detalle = '') {
   const params = new URLSearchParams({ motivo, detalle });
@@ -735,7 +735,7 @@ export async function reportJob(jobId, motivo = 'falsa', detalle = '') {
   return res.json();
 }
 
-// ─── Upload Logo / Foto Vacante ─────────────────────────────────────
+// â”€â”€â”€ Upload Logo / Foto Vacante â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function uploadCompanyLogo(companyId, file) {
   const form = new FormData();
@@ -771,7 +771,7 @@ export async function uploadJobPhoto(jobId, file) {
   return res.json();
 }
 
-// ─── Analytics Tracking & Admin ─────────────────────────────────────
+// â”€â”€â”€ Analytics Tracking & Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function trackActiveUser() {
   const token = getStoredToken();
@@ -822,3 +822,16 @@ export async function getAnalyticsViewsMonthly(months = 12) {
 export async function getAnalyticsAppsMonthly(months = 12) {
   return _json(await fetch(`${API_BASE}/admin/analytics/applications-monthly?months=${months}`, { headers: authHeaders() }), 'Error al cargar postulaciones mensuales');
 }
+
+// — WhatsApp Click Tracking —
+export async function trackWhatsappClick(jobId) {
+  try {
+    await fetch(`${API_BASE}/jobs/${jobId}/whatsapp-click`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+  } catch (err) {
+    console.error('Error tracking WhatsApp click:', err);
+  }
+}
+

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, MessageSquare, Send, MapPin, Clock, Bus, Camera, Building2, ChevronUp, Phone, Flag } from 'lucide-react';
+import { trackWhatsappClick } from '../../services/api';
 
 const formatRelativeTime = (dateString) => {
   if (!dateString) return '';
@@ -142,6 +143,7 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, currentUser,
               : `tel:${job.fuente_contacto_telefono}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackWhatsappClick(job.id)}
             className="flex flex-col items-center gap-1 group"
           >
             <div className="p-3 rounded-full bg-emerald-600/80 backdrop-blur-sm">
