@@ -150,7 +150,11 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
     if (!currentUser) {
       onOpenAuth();
     } else {
-      await onStartDirectChat(job);
+      try {
+        await onStartDirectChat(job);
+      } catch (err) {
+        alert(err.message || 'Error al postularse a la vacante.');
+      }
     }
   };
 

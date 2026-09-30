@@ -136,21 +136,33 @@ const FeedCard = ({ job, onLike, onOpenComments, onApply, onReport, currentUser,
           <span className="text-xs font-semibold drop-shadow-md">{job.comments_count || 0}</span>
         </button>
 
-        {isCommunity && (job.fuente_contacto_telefono || job.fuente_contacto_whatsapp) ? (
-          <a 
-            href={job.fuente_contacto_whatsapp 
-              ? `https://wa.me/52${job.fuente_contacto_whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(`¡Hola! Vi su vacante de ${job.titulo} anunciada en ChambaChat.com y me interesa postularme. Mi nombre es ${currentUser?.nombre || currentUser?.full_name || 'un candidato'}.`)}`
-              : `tel:${job.fuente_contacto_telefono}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackWhatsappClick(job.id)}
-            className="flex flex-col items-center gap-1 group"
-          >
-            <div className="p-3 rounded-full bg-emerald-600/80 backdrop-blur-sm">
-              <Send size={28} className="text-white group-hover:scale-110 transition-transform" />
-            </div>
-            <span className="text-xs font-semibold drop-shadow-md">Postularme</span>
-          </a>
+        {isCommunity ? (
+          (job.fuente_contacto_telefono || job.fuente_contacto_whatsapp) ? (
+            <a 
+              href={job.fuente_contacto_whatsapp 
+                ? `https://wa.me/52${job.fuente_contacto_whatsapp.toString().replace(/\D/g,'')}?text=${encodeURIComponent(`¡Hola! Vi su vacante de ${job.titulo} anunciada en ChambaChat.com y me interesa postularme. Mi nombre es ${currentUser?.nombre || currentUser?.full_name || 'un candidato'}.`)}`
+                : `tel:${job.fuente_contacto_telefono}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackWhatsappClick(job.id)}
+              className="flex flex-col items-center gap-1 group"
+            >
+              <div className="p-3 rounded-full bg-emerald-600/80 backdrop-blur-sm">
+                <Send size={28} className="text-white group-hover:scale-110 transition-transform" />
+              </div>
+              <span className="text-xs font-semibold drop-shadow-md">Postularme</span>
+            </a>
+          ) : (
+            <button 
+              onClick={() => alert('No se detectó un número de teléfono o WhatsApp en esta lona/vacante.')}
+              className="flex flex-col items-center gap-1 group opacity-60"
+            >
+              <div className="p-3 rounded-full bg-slate-600/80 backdrop-blur-sm">
+                <Send size={28} className="text-white group-hover:scale-110 transition-transform" />
+              </div>
+              <span className="text-xs font-semibold drop-shadow-md text-slate-300">Sin Contacto</span>
+            </button>
+          )
         ) : (
           <button 
             onClick={() => onApply(job)}
