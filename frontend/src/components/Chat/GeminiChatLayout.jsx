@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { getStoredUser, setStoredUser, signOut, syncUserWithBackend, getCurrentUser } from '../../services/authService';
 import { updateMyLocation, AUTH_EXPIRED_EVENT, trackActiveUser } from '../../services/api';
 import { readStoredLocation, persistStoredLocation, locationFromUser, LOCATION_UPDATED_EVENT } from '../../services/candidateLocation';
@@ -41,7 +41,7 @@ export default function GeminiChatLayout({
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [candidateLocation, setCandidateLocation] = useState(readStoredLocation);
   const [inputMessage, setInputMessage] = useState('');
-  const [feedMode, setFeedMode] = useState(false);
+  const [feedMode, setFeedMode] = useState(true);
 
   const {
     sessions,
@@ -61,10 +61,10 @@ export default function GeminiChatLayout({
     setSessions
   } = useChatSession(currentUser);
 
-  // Vacantes con chat directo ya abierto (una conversación por postulación)
+  // Vacantes con chat directo ya abierto (una conversaciÃ³n por postulaciÃ³n)
   const appliedJobIds = new Set(sessions.filter(s => s.kind === 'direct' && !s.closed).map(s => s.jobId));
   const isDirect = activeSession?.kind === 'direct';
-  // Entrevista rápida de Chambot dentro del chat directo: sus opciones se muestran como chips
+  // Entrevista rÃ¡pida de Chambot dentro del chat directo: sus opciones se muestran como chips
   const screening = isDirect ? activeSession?.screening : null;
   const screeningActive = screening?.status === 'in_progress';
   const screeningOptions = screeningActive && screening.options?.length ? screening.options.map(o => ({ label: o, value: o })) : [];
@@ -80,7 +80,7 @@ export default function GeminiChatLayout({
     if (user && !propCurrentUser) setCurrentUser(user);
   }, [propCurrentUser]);
 
-  // Ubicación confirmada en el perfil del usuario (GPS/mapa): manda sobre la guardada localmente
+  // UbicaciÃ³n confirmada en el perfil del usuario (GPS/mapa): manda sobre la guardada localmente
   useEffect(() => {
     const fromUser = locationFromUser(currentUser);
     if (fromUser) {
@@ -89,7 +89,7 @@ export default function GeminiChatLayout({
     }
   }, [currentUser?.latitud, currentUser?.longitud, currentUser?.ubicacion_confirmada]);
 
-  // Ubicación actualizada desde el perfil: reflejarla en el chat y avisarle al bot (una sola vez)
+  // UbicaciÃ³n actualizada desde el perfil: reflejarla en el chat y avisarle al bot (una sola vez)
   const sendToBotRef = useRef(sendToBot);
   sendToBotRef.current = sendToBot;
   useEffect(() => {
@@ -123,10 +123,10 @@ export default function GeminiChatLayout({
         setCurrentUser(fresh);
         setStoredUser(fresh);
       }
-    }).catch(() => { /* ignorar si no hay conexión */ });
+    }).catch(() => { /* ignorar si no hay conexiÃ³n */ });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Agrega mensajes locales a la sesión activa y los persiste. */
+  /** Agrega mensajes locales a la sesiÃ³n activa y los persiste. */
   const appendToActiveSession = (newMessages, extra = {}) => {
     if (!activeSession) return;
     const finalMsgs = [...(activeSession.messages || []), ...newMessages];
@@ -139,7 +139,7 @@ export default function GeminiChatLayout({
     handlePhotoSelected, handleConfirmPhotoJob, handleDiscardPhoto,
   } = usePhotoJob({ currentUser, candidateLocation, appendToActiveSession, setIsAuthModalOpen, toast, onUserUpdated: (user) => { setCurrentUser(user); setStoredUser(user); } });
 
-  /** "Chat directo con el reclutador": abre una conversación nueva y separada para esa planta y vacante. */
+  /** "Chat directo con el reclutador": abre una conversaciÃ³n nueva y separada para esa planta y vacante. */
   const handleApplyJob = async (job) => {
     if (!currentUser) {
       setIsAuthModalOpen(true);
@@ -151,7 +151,7 @@ export default function GeminiChatLayout({
       setSelectedDetailJob(null);
       if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false);
       toast.success(alreadyOpen
-        ? `Abrí tu chat con Reclutamiento ${job.empresa_nombre}`
+        ? `AbrÃ­ tu chat con Reclutamiento ${job.empresa_nombre}`
         : `Listo: chat directo con Reclutamiento ${job.empresa_nombre} para ${job.titulo}`);
     } catch (err) {
       console.error('Error al abrir chat directo:', err);
@@ -202,7 +202,7 @@ export default function GeminiChatLayout({
     setCandidateLocation(newLoc);
     persistStoredLocation(newLoc);
     if (currentUser) {
-      // Con sesión, la ubicación vive en el perfil para reutilizarla en cualquier dispositivo
+      // Con sesiÃ³n, la ubicaciÃ³n vive en el perfil para reutilizarla en cualquier dispositivo
       try {
         const saved = await updateMyLocation(newLoc);
         const merged = {
@@ -214,12 +214,12 @@ export default function GeminiChatLayout({
         setStoredUser(merged);
         if (propOnUserAuthenticated) propOnUserAuthenticated(merged);
       } catch (e) {
-        console.error('No se pudo guardar la ubicación en el perfil:', e);
+        console.error('No se pudo guardar la ubicaciÃ³n en el perfil:', e);
       }
     }
     if (isDirect) {
-      // En el chat directo la ubicación es una respuesta de la entrevista, no un evento del bot general
-      await sendToBot({ textToSend: `📍 Vivo en ${newLoc.colonia}, ${newLoc.municipio}` });
+      // En el chat directo la ubicaciÃ³n es una respuesta de la entrevista, no un evento del bot general
+      await sendToBot({ textToSend: `ðŸ“ Vivo en ${newLoc.colonia}, ${newLoc.municipio}` });
       return;
     }
     await sendToBot({ location: newLoc });
@@ -329,7 +329,7 @@ export default function GeminiChatLayout({
           options={isDirect ? screeningOptions : options}
           onSelectOption={handleOptionSelect}
           disabled={Boolean(directLocked) || isAnalyzingPhoto}
-          placeholder={isDirect ? directInputPlaceholder(activeSession, screeningActive) : (isAnalyzingPhoto ? '📸 Analizando foto...' : undefined)}
+          placeholder={isDirect ? directInputPlaceholder(activeSession, screeningActive) : (isAnalyzingPhoto ? 'ðŸ“¸ Analizando foto...' : undefined)}
           footer={isDirect ? 'Tus mensajes llegan a los reclutadores de la planta; si tardan, Chambot te apoya con los datos de la vacante.' : undefined}
           onPhotoSelected={!isDirect ? handlePhotoSelected : undefined}
         />
@@ -357,3 +357,4 @@ export default function GeminiChatLayout({
     </div>
   );
 }
+
