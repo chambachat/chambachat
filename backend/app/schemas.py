@@ -1,11 +1,11 @@
-from datetime import datetime, date
+﻿from datetime import datetime, date
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.constants import job_catalog
 
-# Longitud del código de verificación por correo. Fuente única de verdad:
-# la usan el router de auth (generación) y VerifyCodeRequest (validación).
+# Longitud del cÃ³digo de verificaciÃ³n por correo. Fuente Ãºnica de verdad:
+# la usan el router de auth (generaciÃ³n) y VerifyCodeRequest (validaciÃ³n).
 VERIFICATION_CODE_LENGTH = 6
 _CODE_LENGTH = VERIFICATION_CODE_LENGTH
 
@@ -59,12 +59,12 @@ class ChatMessageResponse(BaseModel):
     completed: bool = False
     candidate_profile: Optional[Dict[str, Any]] = None
     should_ask_login: Optional[bool] = False
-    ask_location: Optional[bool] = False     # el bot pide (o vuelve a pedir) la ubicación en este turno
-    location_known: Optional[bool] = False   # la sesión ya tiene ubicación precisa del candidato
+    ask_location: Optional[bool] = False     # el bot pide (o vuelve a pedir) la ubicaciÃ³n en este turno
+    location_known: Optional[bool] = False   # la sesiÃ³n ya tiene ubicaciÃ³n precisa del candidato
 
 
 class UserLocationUpdate(BaseModel):
-    """Ubicación confirmada del candidato desde su perfil (GPS o mapa)."""
+    """UbicaciÃ³n confirmada del candidato desde su perfil (GPS o mapa)."""
     latitud: float = Field(..., ge=-90, le=90)
     longitud: float = Field(..., ge=-180, le=180)
     colonia: Optional[str] = Field(None, max_length=150)
@@ -109,7 +109,7 @@ class ApplicationResponse(BaseModel):
     candidate_phone: Optional[str] = None
     municipio: Optional[str] = None
     status: str
-    match_score: Optional[int] = None  # Afinidad estimada (heurística), ver compute_match_score
+    match_score: Optional[int] = None  # Afinidad estimada (heurÃ­stica), ver compute_match_score
     bot_silenced: bool = False
     last_candidate_message_at: Optional[datetime] = None
     last_recruiter_message_at: Optional[datetime] = None
@@ -118,7 +118,7 @@ class ApplicationResponse(BaseModel):
     empresa_nombre: Optional[str] = None
     job_details: Optional[dict] = None
     messages: List[MessageResponse] = []
-    # Entrevista rápida de Chambot y compatibilidad
+    # Entrevista rÃ¡pida de Chambot y compatibilidad
     screening_status: Optional[str] = "none"
     screening: Optional[Dict[str, Any]] = None          # pregunta y opciones vigentes (chips del candidato)
     screening_answers: Optional[Dict[str, Any]] = None  # respuestas para el reclutador
@@ -139,12 +139,12 @@ def _in_catalog(value: Optional[str], options: List[str], field: str) -> Optiona
     if value is None or value == "":
         return None
     if value not in options:
-        raise ValueError(f"{field} no válido: '{value}'. Opciones: {', '.join(options)}")
+        raise ValueError(f"{field} no vÃ¡lido: '{value}'. Opciones: {', '.join(options)}")
     return value
 
 
 def _free_tags(values: Optional[List[str]], field: str, max_items: int = 20, max_len: int = 60) -> Optional[List[str]]:
-    """Etiquetas libres (catálogo abierto): limpia espacios, quita vacíos y duplicados sin distinguir mayúsculas."""
+    """Etiquetas libres (catÃ¡logo abierto): limpia espacios, quita vacÃ­os y duplicados sin distinguir mayÃºsculas."""
     if values is None:
         return None
     seen, out = set(), []
@@ -158,7 +158,7 @@ def _free_tags(values: Optional[List[str]], field: str, max_items: int = 20, max
         seen.add(key)
         out.append(tag)
     if len(out) > max_items:
-        raise ValueError(f"{field}: máximo {max_items} etiquetas")
+        raise ValueError(f"{field}: mÃ¡ximo {max_items} etiquetas")
     return out
 
 
@@ -168,7 +168,7 @@ def _subset_of_catalog(values: Optional[List[str]], options: List[str], field: s
     values = values or []
     bad = [v for v in values if v not in options]
     if bad:
-        raise ValueError(f"{field} con valores no válidos: {', '.join(bad)}")
+        raise ValueError(f"{field} con valores no vÃ¡lidos: {', '.join(bad)}")
     return list(dict.fromkeys(values))  # sin duplicados, orden estable
 
 
@@ -249,9 +249,9 @@ class JobCreate(JobBase):
 
 class JobUpdate(JobStructuredFields):
     """
-    Edición parcial de una vacante. Hereda los campos estructurados (con su validación de
-    catálogo) y añade los básicos; todo opcional: solo se aplica lo que venga en el body.
-    La empresa (company_id) y la ubicación no se editan aquí: se heredan de la planta.
+    EdiciÃ³n parcial de una vacante. Hereda los campos estructurados (con su validaciÃ³n de
+    catÃ¡logo) y aÃ±ade los bÃ¡sicos; todo opcional: solo se aplica lo que venga en el body.
+    La empresa (company_id) y la ubicaciÃ³n no se editan aquÃ­: se heredan de la planta.
     """
     titulo: Optional[str] = None
     descripcion: Optional[str] = None
@@ -270,7 +270,7 @@ class JobUpdate(JobStructuredFields):
     @field_validator("certificaciones", "prestaciones", "requisitos_fisicos", mode="before")
     @classmethod
     def _keep_none(cls, v):
-        return v  # None = no tocar; la validación de catálogo corre solo cuando hay lista
+        return v  # None = no tocar; la validaciÃ³n de catÃ¡logo corre solo cuando hay lista
 
 
 class JobCatalogResponse(BaseModel):
@@ -301,7 +301,7 @@ class JobResponse(JobBase):
     @field_validator("categoria", "tipo_turno", "dias_laborales", "tipo_contrato", "escolaridad_minima", "experiencia_minima", mode="before")
     @classmethod
     def _legacy_values_pass(cls, v):
-        # Filas históricas (seed) pueden tener valores fuera de catálogo o None: no romper la respuesta
+        # Filas histÃ³ricas (seed) pueden tener valores fuera de catÃ¡logo o None: no romper la respuesta
         return v if v else None
 
 # ==========================================
@@ -347,7 +347,7 @@ class PromptUpdate(BaseModel):
 # ANALYTICS SCHEMAS
 # ==========================================
 class AnalyticsSummary(BaseModel):
-    has_data: bool = False  # False cuando no hay histórico de contrataciones suficiente
+    has_data: bool = False  # False cuando no hay histÃ³rico de contrataciones suficiente
     total_operarios: int
     total_vacantes: int
     total_inea_canalizados: int
@@ -365,7 +365,7 @@ class AnalyticsSummary(BaseModel):
 class CompanyCreate(BaseModel):
     nombre: str
     municipio: Optional[str] = "Apodaca"
-    industria: Optional[str] = "Manufactura y Logística"
+    industria: Optional[str] = "Manufactura y LogÃ­stica"
     rfc: Optional[str] = None
     direccion: Optional[str] = None
     latitud: Optional[float] = None
@@ -436,7 +436,7 @@ class CompanyShiftCreate(BaseModel):
     nombre: str
     hora_entrada: str
     hora_salida: str
-    dias: Optional[str] = "Lunes a Sábado"
+    dias: Optional[str] = "Lunes a SÃ¡bado"
     tipo: Optional[str] = "Fijo"
     descripcion: Optional[str] = None
 
@@ -473,7 +473,7 @@ class VerificationCodeRequest(BaseModel):
     def validate_email(cls, v: str) -> str:
         v = v.strip().lower()
         if not v or "@" not in v:
-            raise ValueError("Correo electrónico inválido.")
+            raise ValueError("Correo electrÃ³nico invÃ¡lido.")
         return v
 
 
@@ -486,7 +486,7 @@ class VerifyCodeRequest(BaseModel):
     def validate_email(cls, v: str) -> str:
         v = v.strip().lower()
         if not v or "@" not in v:
-            raise ValueError("Correo electrónico inválido.")
+            raise ValueError("Correo electrÃ³nico invÃ¡lido.")
         return v
 
     @field_validator("code")
@@ -494,7 +494,7 @@ class VerifyCodeRequest(BaseModel):
     def validate_code(cls, v: str) -> str:
         v = v.strip()
         if not v or not v.isdigit() or len(v) != _CODE_LENGTH:
-            raise ValueError(f"El código debe ser de {_CODE_LENGTH} dígitos.")
+            raise ValueError(f"El cÃ³digo debe ser de {_CODE_LENGTH} dÃ­gitos.")
         return v
 
 
@@ -521,7 +521,7 @@ class ProfileSyncRequest(BaseModel):
     def validate_role(cls, v: Optional[str]) -> str:
         allowed = {"candidate", "recruiter", "admin"}
         if v and v not in allowed:
-            raise ValueError(f"Rol inválido. Permitidos: {', '.join(allowed)}")
+            raise ValueError(f"Rol invÃ¡lido. Permitidos: {', '.join(allowed)}")
         return v or "candidate"
 class RouteStopIn(BaseModel):
     id: Optional[int] = None
@@ -659,7 +659,7 @@ class CompanyResponse(BaseModel):
     created_by_email: Optional[str] = None
     created_at: Optional[datetime] = None
     members_count: int = 1
-    smart_code: Optional[str] = None  # código verificador del Smart Link
+    smart_code: Optional[str] = None  # cÃ³digo verificador del Smart Link
     # Metadatos oficiales del SAT / CSF
     idcif: Optional[str] = None
     curp: Optional[str] = None
@@ -775,7 +775,7 @@ class AcceptInvitationResponse(StatusMessageResponse):
 
 
 class InvitationLookupResponse(BaseModel):
-    """Datos públicos de una invitación (el token es el secreto). Sirve para guiar el acceso del invitado."""
+    """Datos pÃºblicos de una invitaciÃ³n (el token es el secreto). Sirve para guiar el acceso del invitado."""
     email: str
     nombre: Optional[str] = None
     role: str = "recruiter"
@@ -795,7 +795,7 @@ class CompanyShiftResponse(BaseModel):
     nombre: str
     hora_entrada: str
     hora_salida: str
-    dias: str = "Lunes a Sábado"
+    dias: str = "Lunes a SÃ¡bado"
     tipo: str = "Fijo"
     descripcion: Optional[str] = None
     activo: bool = True
@@ -804,7 +804,7 @@ class CompanyShiftResponse(BaseModel):
     @field_validator("dias", mode="before")
     @classmethod
     def default_dias(cls, v):
-        return v or "Lunes a Sábado"
+        return v or "Lunes a SÃ¡bado"
 
     @field_validator("tipo", mode="before")
     @classmethod
@@ -922,7 +922,7 @@ class FavoriteResponse(BaseModel):
     nota: Optional[str] = None
     added_by_email: Optional[str] = None
     created_at: Optional[datetime] = None
-    application: Optional[FavoriteApplicationBrief] = None  # última postulación: para retomar el chat
+    application: Optional[FavoriteApplicationBrief] = None  # Ãºltima postulaciÃ³n: para retomar el chat
     blocked: bool = False
 
 
@@ -954,10 +954,10 @@ class BlockResponse(BaseModel):
 
 
 # ==========================================
-# CURRÍCULUM OPERATIVO DEL CANDIDATO
+# CURRÃCULUM OPERATIVO DEL CANDIDATO
 # ==========================================
 class CandidateProfileUpdate(BaseModel):
-    """Edición parcial desde el perfil; los campos cerrados se validan contra el catálogo."""
+    """EdiciÃ³n parcial desde el perfil; los campos cerrados se validan contra el catÃ¡logo."""
     nombre: Optional[str] = Field(None, max_length=255)
     telefono: Optional[str] = Field(None, max_length=50)
     edad: Optional[int] = Field(None, ge=15, le=75)
@@ -1018,7 +1018,7 @@ class CandidateProfileResponse(BaseModel):
     catalogos: Dict[str, List[str]] = {}
 
 
-# ─── FOTO → VACANTE (Vision AI) ──────────────────────────────────────
+# â”€â”€â”€ FOTO â†’ VACANTE (Vision AI) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class JobFromPhotoRequest(BaseModel):
@@ -1030,14 +1030,14 @@ class JobFromPhotoRequest(BaseModel):
 
 
 class ExtractedContact(BaseModel):
-    """Datos de contacto del empleador extraídos de la foto."""
+    """Datos de contacto del empleador extraÃ­dos de la foto."""
     telefono: Optional[str] = None
     whatsapp: Optional[str] = None
     email: Optional[str] = None
 
 
 class JobPhotoExtraction(BaseModel):
-    """Resultado del análisis de la IA de visión sobre una foto de oferta laboral."""
+    """Resultado del anÃ¡lisis de la IA de visiÃ³n sobre una foto de oferta laboral."""
     titulo: Optional[str] = None
     empresa_nombre: Optional[str] = None
     descripcion: Optional[str] = None
@@ -1066,7 +1066,7 @@ class JobPhotoExtraction(BaseModel):
 
 
 class JobFromPhotoConfirm(BaseModel):
-    """El usuario confirma (y opcionalmente edita) la vacante extraída de la foto."""
+    """El usuario confirma (y opcionalmente edita) la vacante extraÃ­da de la foto."""
     titulo: str
     empresa_nombre: str = "Empresa no identificada"
     descripcion: Optional[str] = None
@@ -1091,7 +1091,7 @@ class JobFromPhotoConfirm(BaseModel):
     photo_log_id: Optional[int] = None
 
 
-# ─── Comentarios comunitarios en vacantes ────────────────────────────
+# â”€â”€â”€ Comentarios comunitarios en vacantes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class JobCommentCreate(BaseModel):
     """Request para agregar un comentario a una vacante."""
@@ -1108,7 +1108,7 @@ class JobCommentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ─── Feed Explorar ──────────────────────────────────────────────────
+# â”€â”€â”€ Feed Explorar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class JobFeedItem(BaseModel):
     """Vacante enriquecida para el feed Explorar."""
@@ -1132,6 +1132,7 @@ class JobFeedItem(BaseModel):
     comments_count: int = 0
     user_liked: bool = False
     reportada_por: Optional[str] = None
+    reportada_por_email: Optional[str] = None
     has_photo: bool = False
     # Contacto para vacantes comunitarias
     fuente_contacto_telefono: Optional[str] = None
@@ -1148,7 +1149,7 @@ class LikeToggleResponse(BaseModel):
     likes_count: int
 
 
-# ─── Reclamar Vacante Comunitaria ────────────────────────────────────
+# â”€â”€â”€ Reclamar Vacante Comunitaria â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class ClaimableVacancy(BaseModel):
     """Vacante comunitaria que la empresa puede reclamar."""
@@ -1179,7 +1180,7 @@ class ClaimVerifyResponse(BaseModel):
     message: str
 
 
-# ─── Platform Videos ──────────────────────────────────────────────────
+# â”€â”€â”€ Platform Videos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class PlatformVideoCreate(BaseModel):
     title: str
@@ -1208,3 +1209,4 @@ class QuoteRequest(BaseModel):
     telefono: str
     email: str
     comentarios: Optional[str] = None
+

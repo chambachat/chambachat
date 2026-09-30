@@ -1,0 +1,91 @@
+﻿{
+    "value":  [
+                  {
+                      "categoria":  "Otro",
+                      "tipo_turno":  null,
+                      "shift_id":  null,
+                      "hora_entrada":  null,
+                      "hora_salida":  null,
+                      "dias_laborales":  null,
+                      "tipo_contrato":  null,
+                      "vacantes_disponibles":  11,
+                      "escolaridad_minima":  null,
+                      "experiencia_minima":  null,
+                      "certificaciones":  [
+
+                                          ],
+                      "prestaciones":  [
+
+                                       ],
+                      "requisitos_fisicos":  [
+
+                                             ],
+                      "bono_semanal":  0.0,
+                      "vales_despensa_semanal":  0.0,
+                      "direccion":  null,
+                      "activa":  true,
+                      "empresa_nombre":  "La Enramada Carnitas \u0026 ChicharrÃ³n \"De Don JesÃºs\"",
+                      "company_id":  null,
+                      "titulo":  "Personal de Restaurante (Meseros, Cocineras, En cazos, Hostess)",
+                      "descripcion":  "Se solicita personal para restaurante: 3 Meseros(as), 4 Cocineras, 3 En cazos y 1 Hostess. Se requiere experiencia, responsabilidad, disponibilidad y actitud de servicio.",
+                      "sueldo_semanal_libre":  null,
+                      "turnos_fijos":  false,
+                      "apoyo_inea":  false,
+                      "transporte_incluido":  false,
+                      "municipio":  "Guadalupe",
+                      "latitud":  25.7196727,
+                      "longitud":  -100.1706479,
+                      "id":  12,
+                      "empresa_id":  null,
+                      "created_at":  "2026-09-28T02:19:11.708943",
+                      "origen":  "foto_comunitaria",
+                      "has_photo":  true
+                  },
+                  {
+                      "categoria":  "Ayudante general",
+                      "tipo_turno":  "Fijo vespertino",
+                      "shift_id":  null,
+                      "hora_entrada":  "14:00",
+                      "hora_salida":  "23:00",
+                      "dias_laborales":  "Lunes a SÃ¡bado",
+                      "tipo_contrato":  "Planta (tiempo indeterminado)",
+                      "vacantes_disponibles":  1,
+                      "escolaridad_minima":  "Secundaria",
+                      "experiencia_minima":  "1 aÃ±o",
+                      "certificaciones":  [
+                                              "saber cocinar"
+                                          ],
+                      "prestaciones":  [
+                                           "Prestaciones de ley (IMSS, Infonavit, aguinaldo, vacaciones)",
+                                           "Pago semanal",
+                                           "Comedor subsidiado",
+                                           "Uniformes",
+                                           "Bono de asistencia"
+                                       ],
+                      "requisitos_fisicos":  [
+                                                 "Trabajo de pie prolongado"
+                                             ],
+                      "bono_semanal":  100.0,
+                      "vales_despensa_semanal":  0.0,
+                      "direccion":  "Alberto II, Col. Reserva Real",
+                      "activa":  true,
+                      "empresa_nombre":  "ROGELIO VALDEZ LEAL",
+                      "company_id":  null,
+                      "titulo":  "Ayudante General de Puesto de Comidas",
+                      "descripcion":  "Atender clientes, lavar platos y utencilios",
+                      "sueldo_semanal_libre":  2400.0,
+                      "turnos_fijos":  true,
+                      "apoyo_inea":  false,
+                      "transporte_incluido":  false,
+                      "municipio":  "Apodaca",
+                      "latitud":  25.71936,
+                      "longitud":  -100.17056,
+                      "id":  11,
+                      "empresa_id":  17,
+                      "created_at":  "2026-09-24T03:11:06.050808",
+                      "origen":  "empresa",
+                      "has_photo":  false
+                  }
+              ],
+    "Count":  2
+}

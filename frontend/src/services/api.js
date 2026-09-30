@@ -1,4 +1,4 @@
-﻿import { getStoredToken } from './authService';
+import { getStoredToken } from './authService';
 
 /**
  * Construye headers con autenticaciÃ³n JWT.
@@ -848,3 +848,14 @@ export async function requestCompanyQuote(data) {
   }), 'Error al solicitar cotización');
 }
 
+
+export async function deleteJob(jobId) {
+  const res = await fetch(`${API_BASE}/jobs/${jobId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Error al eliminar vacante');
+  }
+}

@@ -337,3 +337,26 @@ def log_whatsapp_click(
     db.add(click)
     db.commit()
     return
+
+@router.delete('/{job_id}', status_code=204)
+def delete_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail='Vacante no encontrada')
+    
+    if job.origen == 'foto_comunitaria':
+        if job.reportada_por_email != current_user.email:
+            raise HTTPException(status_code=403, detail='No tienes permiso para eliminar esta vacante comunitaria')
+    else:
+        # Si es de empresa, validar permisos de reclutador...
+        # Por ahora, nos enfocamos en que el candidato pueda borrar su lona.
+        if current_user.role != 'admin' and current_user.role != 'recruiter':
+            raise HTTPException(status_code=403, detail='No tienes permiso para eliminar esta vacante')
+            
+    db.delete(job)
+    db.commit()
+

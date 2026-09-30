@@ -1,8 +1,8 @@
-"""
-Router para el feed "Explorar" — vista tipo TikTok de vacantes.
+﻿"""
+Router para el feed "Explorar" â€” vista tipo TikTok de vacantes.
 
-GET  /api/v1/feed              → Listado con shuffle ponderado por relevancia
-POST /api/v1/feed/{id}/like    → Toggle like (dar/quitar)
+GET  /api/v1/feed              â†’ Listado con shuffle ponderado por relevancia
+POST /api/v1/feed/{id}/like    â†’ Toggle like (dar/quitar)
 """
 
 import logging
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/feed", tags=["Feed"])
 
 
-# ─── Scoring helpers ──────────────────────────────────────────────────
+# â”€â”€â”€ Scoring helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _haversine(lat1, lon1, lat2, lon2):
     """Distancia en km entre dos puntos."""
@@ -40,10 +40,10 @@ def _haversine(lat1, lon1, lat2, lon2):
 
 
 def _score_job(job: Job, user: Optional[User], likes_map: dict) -> float:
-    """Calcula un score de relevancia para una vacante vs el usuario en sesión."""
+    """Calcula un score de relevancia para una vacante vs el usuario en sesiÃ³n."""
     score = 50.0  # base
 
-    # 1. Cercanía geográfica (max +30)
+    # 1. CercanÃ­a geogrÃ¡fica (max +30)
     if user and user.latitud and user.longitud and job.latitud and job.longitud:
         dist_km = _haversine(user.latitud, user.longitud, job.latitud, job.longitud)
         if dist_km <= 5:
@@ -73,7 +73,7 @@ def _score_job(job: Job, user: Optional[User], likes_map: dict) -> float:
         elif puesto in desc:
             score += 15.0
 
-    # 3. Recencia (max +15): las más nuevas tienen bonus
+    # 3. Recencia (max +15): las mÃ¡s nuevas tienen bonus
     age_days = (datetime.utcnow() - (job.created_at or datetime.utcnow())).days
     if age_days <= 1:
         score += 15.0
@@ -84,11 +84,11 @@ def _score_job(job: Job, user: Optional[User], likes_map: dict) -> float:
     elif age_days <= 14:
         score += 4.0
 
-    # 4. Engagement: likes como señal de calidad (max +10)
+    # 4. Engagement: likes como seÃ±al de calidad (max +10)
     likes = likes_map.get(job.id, 0)
     score += min(10.0, likes * 2.0)
 
-    # 5. Tiene foto = más atractiva visualmente (+5)
+    # 5. Tiene foto = mÃ¡s atractiva visualmente (+5)
     if getattr(job, '_has_photo', False):
         score += 5.0
 
@@ -103,7 +103,7 @@ def _weighted_shuffle(items: list, scores: list, seed: int = None) -> list:
     """
     Shuffle ponderado: items con mayor score tienden a quedar primero
     pero con aleatoriedad para que no sea siempre el mismo orden.
-    Fórmula: sort_key = score + random(0, max_score * 0.4)
+    FÃ³rmula: sort_key = score + random(0, max_score * 0.4)
     """
     if not items:
         return []
@@ -119,8 +119,8 @@ def _weighted_shuffle(items: list, scores: list, seed: int = None) -> list:
 def get_feed(
     offset: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=50),
-    q: Optional[str] = Query(None, max_length=120, description="Búsqueda por texto libre"),
-    seed: Optional[int] = Query(None, description="Semilla para reproducir el mismo shuffle dentro de una sesión"),
+    q: Optional[str] = Query(None, max_length=120, description="BÃºsqueda por texto libre"),
+    seed: Optional[int] = Query(None, description="Semilla para reproducir el mismo shuffle dentro de una sesiÃ³n"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
@@ -129,7 +129,7 @@ def get_feed(
 
     query = db.query(Job).filter(Job.activa.is_(True))
 
-    # Búsqueda por texto
+    # BÃºsqueda por texto
     if q and q.strip():
         for term in q.strip().split()[:5]:
             like = f"%{term}%"
@@ -229,13 +229,14 @@ def get_feed(
             comments_count=comments_counts.get(job.id, 0),
             user_liked=job.id in user_liked_ids,
             reportada_por=reporter_map.get(job.reportada_por_email) if job.reportada_por_email else None,
+            reportada_por_email=job.reportada_por_email,
             has_photo=job.id in photo_job_ids,
             fuente_contacto_telefono=job.fuente_contacto_telefono if job.origen == "foto_comunitaria" else None,
             fuente_contacto_whatsapp=job.fuente_contacto_whatsapp if job.origen == "foto_comunitaria" else None,
         )
         result.append(item)
 
-    # Inyectar video de TikTok si hay alguno en la cola del usuario y estamos en la primera página
+    # Inyectar video de TikTok si hay alguno en la cola del usuario y estamos en la primera pÃ¡gina
     if offset == 0 and current_user:
         queued_video = (
             db.query(UserVideoQueue)
@@ -364,3 +365,4 @@ def report_job(
         "message": "Vacante pausada por reportes. Gracias por ayudar a mantener la comunidad segura." if paused
                    else "Reporte registrado. Gracias por ayudar a mantener la comunidad segura.",
     }
+

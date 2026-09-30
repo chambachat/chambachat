@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
 import FeedCard from './FeedCard';
 import TikTokFeedCard from './TikTokFeedCard';
 import JobComments from '../Jobs/JobComments';
 import PhotoUploadButton from '../Chat/PhotoUploadButton';
-import { getFeedJobs, toggleJobLike, reportJob, trackJobView } from '../../services/api';
+import { getFeedJobs, toggleJobLike, reportJob, trackJobView, deleteJob } from '../../services/api';
 
 const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelected }) => {
   const [jobs, setJobs] = useState([]);
@@ -14,7 +14,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeJobComments, setActiveJobComments] = useState(null);
 
-  // Búsqueda
+  // BÃºsqueda
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
@@ -24,7 +24,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
   const observerRef = useRef(null);
   const limit = 10;
 
-  // Semilla de sesión: genera un orden único cada vez que entras al feed
+  // Semilla de sesiÃ³n: genera un orden Ãºnico cada vez que entras al feed
   const sessionSeedRef = useRef(Math.floor(Math.random() * 999999));
 
   const loadJobs = async (currentOffset, query = activeQuery) => {
@@ -49,7 +49,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Al abrir la búsqueda, enfocar el input
+  // Al abrir la bÃºsqueda, enfocar el input
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
       searchInputRef.current.focus();
@@ -158,9 +158,20 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
     }
   };
 
+  const handleDelete = async (jobId) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar esta vacante que subiste?')) return;
+    try {
+      await deleteJob(jobId);
+      setJobs(prev => prev.filter(j => j.id !== jobId));
+      alert('Vacante eliminada exitosamente.');
+    } catch (err) {
+      alert(err.message || 'Error al eliminar.');
+    }
+  };
+
   const handleReport = async (jobId) => {
     if (!currentUser) { onOpenAuth(); return; }
-    if (!window.confirm('¿Deseas reportar esta vacante como falsa, ofensiva o spam?')) return;
+    if (!window.confirm('Â¿Deseas reportar esta vacante como falsa, ofensiva o spam?')) return;
     try {
       const res = await reportJob(jobId);
       alert(res.message);
@@ -190,7 +201,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
 
   return (
     <div className="relative h-full w-full bg-black">
-      {/* ─── Barra de búsqueda (esquina superior derecha) ─── */}
+      {/* â”€â”€â”€ Barra de bÃºsqueda (esquina superior derecha) â”€â”€â”€ */}
       <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
         {searchOpen ? (
           <div className="flex items-center bg-black/70 backdrop-blur-md rounded-full border border-white/20 overflow-hidden animate-in slide-in-from-right">
@@ -228,24 +239,24 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
         )}
       </div>
 
-      {/* Badge de búsqueda activa */}
+      {/* Badge de bÃºsqueda activa */}
       {activeQuery && (
         <div className="absolute top-14 right-3 z-30">
           <button
             onClick={handleClearSearch}
             className="flex items-center gap-1.5 bg-emerald-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-emerald-400/30"
           >
-            <span>🔍 "{activeQuery}"</span>
+            <span>ðŸ” "{activeQuery}"</span>
             <X className="w-3 h-3" />
           </button>
         </div>
       )}
 
-      {/* Sin resultados de búsqueda */}
+      {/* Sin resultados de bÃºsqueda */}
       {!loading && jobs.length === 0 && activeQuery && (
         <div className="h-full flex flex-col items-center justify-center text-white p-4">
           <p className="text-lg font-bold mb-2">No hay resultados para "{activeQuery}"</p>
-          <p className="text-sm text-white/60 mb-4">Intenta con otra palabra o categoría</p>
+          <p className="text-sm text-white/60 mb-4">Intenta con otra palabra o categorÃ­a</p>
           <button 
             onClick={handleClearSearch}
             className="bg-emerald-600 px-4 py-2 rounded-lg font-medium text-sm"
@@ -281,6 +292,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
                 onOpenComments={setActiveJobComments}
                 onApply={handleApply}
                 onReport={handleReport}
+                onDelete={handleDelete}
               />
             )}
           </div>
@@ -298,7 +310,7 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
       {onPhotoSelected && (
         <div className="absolute bottom-20 left-0 right-0 flex justify-center z-30 pointer-events-none drop-shadow-xl">
           <div className="pointer-events-auto flex items-center bg-white pl-4 pr-1 py-1 rounded-full shadow-2xl border border-slate-200/50 gap-2">
-            <span className="text-sm font-bold text-slate-700 tracking-tight">📸 Cazar chamba</span>
+            <span className="text-sm font-bold text-slate-700 tracking-tight">ðŸ“¸ Cazar chamba</span>
             <PhotoUploadButton onPhotoSelected={onPhotoSelected} disabled={false} menuCenter={true} />
           </div>
         </div>
@@ -336,3 +348,4 @@ const JobFeedView = ({ currentUser, onStartDirectChat, onOpenAuth, onPhotoSelect
 };
 
 export default JobFeedView;
+
